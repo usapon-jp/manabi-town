@@ -10,6 +10,7 @@ import { todayTasks, completeStep, undoStep, buildSteps } from './planner.js';
 import { startTutorial } from './tutorial.js';
 import { bindControls } from './controls.js';
 import { levelInfo, totalXp, streak, week } from './progress.js';
+import { renderTimerTab, startTimer, resumeIfRunning, kindForItem, minutesOn } from './timer.js';
 
 const POINTS_HOMEWORK = 20;
 const POINTS_TEST = 50;
@@ -81,6 +82,18 @@ function deleteButton(onDelete) {
   return b;
 }
 
+// タイマーにわたす道具
+const timerDeps = {
+  fill, gain, addPoints, deleteButton, render: () => render(),
+  completeStepFor(item, label) {
+    completeStep(item);
+    lastDone = label;
+    gain(currentProfile(), POINTS_STEP, `${item.title}: ${label}`);
+    save();
+    render();
+  },
+};
+
 function show(next) {
   tab = next;
   tabs.forEach((b) => b.classList.toggle('active', b.dataset.tab === tab));
@@ -111,6 +124,7 @@ function render() {
   if (home) renderHome(p);
   else if (tab === 'todo') renderTodo(p);
   else if (tab === 'quest') renderQuest(p);
+  else if (tab === 'timer') renderTimerTab(panel, p, timerDeps);
   else renderSettings(p);
 }
 
@@ -191,7 +205,8 @@ function renderHome(p) {
 
   const bar = h('div', { class: 'today-bar' },
     h('div', { class: 'segs' }, tasks.map((t) => h('i', { class: t.done ? 'on' : '' }))),
-    h('span', { class: 'count' }, `${doneCount} / ${tasks.length}`));
+    h('span', { class: 'count' }, `${doneCount} / ${tasks.length}`),
+    h('button', { class: 'mins', onclick: () => show('timer') }, `⏱${minutesOn(p, today())}分`));
 
   const stamps = h('div', { class: 'week' }, week(p).map((d) => h('div', { class: `day ${d.done ? 'done' : ''} ${d.today ? 'today' : ''} ${d.future ? 'future' : ''}` },
     h('span', { class: 'stamp' }, d.done ? '✓' : ''), h('small', {}, d.label))));
@@ -230,7 +245,8 @@ function openStep(p, t, toggle) {
       h('p', { class: 'sheet-sub' }, `${t.item.title}・${daysLabel(daysUntil(t.item.date))}`),
       t.done
         ? h('button', { class: 'btn', onclick: () => { close(); toggle(t); } }, 'まだだった（もどす）')
-        : h('button', { class: 'btn primary big-btn', onclick: () => { close(); toggle(t); } }, 'できた！ ⭐+10'),
+        : h('button', { class: 'btn primary big-btn', onclick: () => { close(); startTimer(p, { kind: kindForItem(t.item), subject: t.item.subject, item: t.item, stepLabel: t.label }, timerDeps); } }, '⏱ タイマーで はじめる'),
+      t.done ? null : h('button', { class: 'btn', onclick: () => { close(); toggle(t); } }, 'もう できた！ ⭐+10'),
       h('button', { class: 'link', onclick: close }, 'あとで')));
   document.body.append(sheet);
 }
@@ -408,4 +424,5 @@ function runTutorial(p) {
 }
 
 render();
+resumeIfRunning(currentProfile(), timerDeps);
 if (currentProfile() && !currentProfile().tutorialDone) setTimeout(() => runTutorial(currentProfile()), 1200);

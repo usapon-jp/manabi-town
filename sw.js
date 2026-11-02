@@ -1,6 +1,6 @@
 // オフラインでも開けるように、アプリの部品を端末にしまっておく。
 // 部品を変えたら VERSION を上げる（古いしまい場所は消える）。
-const VERSION = 'manabi-v5';
+const VERSION = 'manabi-v6';
 const FILES = [
   './',
   'index.html',
@@ -13,6 +13,7 @@ const FILES = [
   'assets/models/piyo_base_rig.glb',
   'css/style.css',
   'js/characters.js',
+  'js/bgm.js',
   'js/controls.js',
   'js/data/english.js',
   'js/data/kanji.js',
@@ -27,6 +28,7 @@ const FILES = [
   'js/quests.js',
   'js/runner.js',
   'js/store.js',
+  'js/timer.js',
   'js/tutorial.js',
   'js/ui.js',
   'js/world.js',
@@ -55,7 +57,7 @@ self.addEventListener('fetch', (e) => {
   e.respondWith(
     fetch(req)
       .then((res) => {
-        if (res.ok) { const copy = res.clone(); caches.open(VERSION).then((c) => c.put(req, copy)); }
+        if (res.ok && res.status === 200) { const copy = res.clone(); caches.open(VERSION).then((c) => c.put(req, copy)); }
         return res;
       })
       .catch(() => caches.match(req, { ignoreSearch: true }).then((hit) => hit || caches.match('index.html'))),

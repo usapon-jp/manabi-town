@@ -11,6 +11,7 @@ const STEPS = [
   { text: 'つぎにやることは ここ', target: () => document.querySelector('.go'), tap: 'any', pad: 6 },
   { text: '毎日つづけて 🔥をのばそう', target: () => document.querySelector('.hud .stats'), tap: 'any', pad: 6 },
   { text: '毎日のクエストは ここ', target: () => tab('quest'), tap: 'target', open: 'quest' },
+  { text: 'タイマーで 勉強を計ろう', target: () => tab('timer'), tap: 'target', open: 'timer' },
 ];
 
 const tab = (name) => document.querySelector(`.tabs button[data-tab="${name}"]`);
