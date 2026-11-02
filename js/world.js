@@ -137,7 +137,7 @@ export function createWorld(container) {
       if (on) { clock.getDelta(); resize(); requestAnimationFrame(frame); }
     },
     celebrate() { actor.jump(); },
-    warp(x, z, angle) { actor.position.set(x, heightAt(x, z), z); view.target.copy(actor.position); if (angle != null) view.angle = angle; },
+    warp(x, z, angle, dist) { actor.position.set(x, heightAt(x, z), z); view.target.copy(actor.position); if (angle != null) view.angle = angle; if (dist) view.dist = dist; },
   };
 }
 

@@ -3,83 +3,8 @@
 import * as THREE from 'three';
 import { heightAt } from './terrain.js';
 
-// ---- 道具 ---------------------------------------------------------------
-
-const mats = new Map();
-// 絵本らしいやわらかい色。かげでも色がくすまないよう、ほんのり自分でも光らせる
-const mat = (color, opts = {}) => {
-  const key = color + JSON.stringify(opts);
-  if (!mats.has(key)) mats.set(key, new THREE.MeshLambertMaterial({ color, emissive: color, emissiveIntensity: 0.24, ...opts }));
-  return mats.get(key);
-};
-const glass = (() => new THREE.MeshBasicMaterial({ color: 0xffe6a6 }))();
-
-const box = (w, h, d, color, x = 0, y = 0, z = 0) => {
-  const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat(color));
-  m.position.set(x, y, z);
-  return m;
-};
-const cyl = (rt, rb, h, color, x = 0, y = 0, z = 0, seg = 16) => {
-  const m = new THREE.Mesh(new THREE.CylinderGeometry(rt, rb, h, seg), mat(color));
-  m.position.set(x, y, z);
-  return m;
-};
-const cone = (r, h, color, x = 0, y = 0, z = 0, seg = 16) => {
-  const m = new THREE.Mesh(new THREE.ConeGeometry(r, h, seg), mat(color));
-  m.position.set(x, y, z);
-  return m;
-};
-const ball = (r, color, x = 0, y = 0, z = 0) => {
-  const m = new THREE.Mesh(new THREE.SphereGeometry(r, 14, 10), mat(color));
-  m.position.set(x, y, z);
-  return m;
-};
-
-let dotTex = null;
-function softDot() {
-  if (dotTex) return dotTex;
-  const c = document.createElement('canvas');
-  c.width = c.height = 64;
-  const x = c.getContext('2d');
-  const g = x.createRadialGradient(32, 32, 0, 32, 32, 32);
-  g.addColorStop(0, 'rgba(255,255,255,1)');
-  g.addColorStop(0.5, 'rgba(255,255,255,0.5)');
-  g.addColorStop(1, 'rgba(255,255,255,0)');
-  x.fillStyle = g; x.fillRect(0, 0, 64, 64);
-  dotTex = new THREE.CanvasTexture(c);
-  return dotTex;
-}
-
-// 建物の足もとのやわらかいかげ
-function blob(rx, rz = rx, opacity = 0.32) {
-  const m = new THREE.Mesh(
-    new THREE.CircleGeometry(1, 28),
-    new THREE.MeshBasicMaterial({ color: 0x3f5a2a, map: softDot(), transparent: true, opacity, depthWrite: false }),
-  );
-  m.rotation.x = -Math.PI / 2;
-  m.scale.set(rx, rz, 1);
-  m.position.y = 0.05;
-  return m;
-}
-
-// ふわっとのぼる煙。g.userData.update から t を渡して動かす
-function smoke(x, y, z) {
-  const g = new THREE.Group();
-  g.position.set(x, y, z);
-  const puffs = [];
-  for (let i = 0; i < 4; i++) {
-    const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: softDot(), color: 0xffffff, transparent: true, depthWrite: false }));
-    g.add(s);
-    puffs.push(s);
-  }
-  g.userData.tick = (t) => puffs.forEach((s, i) => {
-    const k = (t * 0.22 + i / puffs.length) % 1;
-    s.position.set(Math.sin(k * 5 + i) * 0.12 + k * 0.5, k * 1.8, 0);
-    s.scale.setScalar(0.28 + k * 0.7);
-    s.material.opacity = Math.sin(k * Math.PI) * 0.55;
-  });
-  return g;
-}
+import { cottage, mushroomHouse, bed } from './cottage.js';
+import { mat, glass, box, cyl, cone, ball, softDot, blob, smoke } from './townkit.js';
 
 // 切り妻（山がたの）屋根。底がy=0、ひさしを少し出す
 function gable(width, depth, rise, color, over = 0.22) {
@@ -149,53 +74,6 @@ function bush(x, z, s = 1) {
 
 // ---- 建物 ---------------------------------------------------------------
 
-function house({ wall = 0xfff0d8, roof = 0xe5705f, shutter = 0x7fb8a4, size = 2 } = {}) {
-  const g = new THREE.Group();
-  const w = size; const d = size * 1.15; const h = size * 0.78; const base = 0.16;
-  g.add(blob(size * 1.5, size * 1.6));
-  g.add(box(w + 0.1, base, d + 0.1, 0xbdb6a6, 0, base / 2, 0)); // 石のどだい
-  g.add(box(w, h, d, wall, 0, base + h / 2, 0));
-  // 木の柱とはり
-  const wood = 0x93603e;
-  for (const sx of [-1, 1]) for (const sz of [-1, 1]) g.add(box(0.1, h, 0.1, wood, sx * w / 2, base + h / 2, sz * d / 2));
-  g.add(box(w + 0.04, 0.09, d + 0.04, wood, 0, base + h * 0.98, 0));
-  g.add(box(w + 0.04, 0.07, d + 0.04, wood, 0, base + 0.05, 0));
-  // 屋根（山は前後むき）と山がたの壁
-  const rise = size * 0.55;
-  const roofG = gable(w, d, rise, roof);
-  roofG.position.y = base + h;
-  g.add(roofG);
-  for (const sz of [-1, 1]) {
-    const gw = gableWall(w, rise, wall, sz * d / 2);
-    gw.position.y = base + h;
-    g.add(gw);
-  }
-  // 正面（+z）: とびら・まど
-  const z = d / 2 + 0.02;
-  archDoor(g, 0, base, z, size * 0.34, size * 0.62);
-  g.add(box(size * 0.5, 0.08, 0.3, 0xcfc8b8, 0, base + 0.04, z + 0.18));
-  windowAt(g, -w * 0.32, base + h * 0.58, z, size * 0.22, size * 0.28, shutter);
-  windowAt(g, w * 0.32, base + h * 0.58, z, size * 0.22, size * 0.28, shutter);
-  // 山がたの小まど
-  g.add(ball(0.12, 0xffe6a6, 0, base + h + rise * 0.4, z + 0.02)).children.at(-1).material = glass;
-  // よこのまど
-  for (const sx of [-1, 1]) {
-    const side = new THREE.Group();
-    windowAt(side, 0, base + h * 0.58, 0, size * 0.22, size * 0.28, shutter, false);
-    side.position.set(sx * (w / 2 + 0.02), 0, 0);
-    side.rotation.y = sx * Math.PI / 2;
-    g.add(side);
-  }
-  // えんとつと煙
-  g.add(box(0.3, 0.8, 0.3, 0xb9805f, w * 0.28, base + h + rise * 0.6, -d * 0.12));
-  g.add(box(0.38, 0.08, 0.38, 0x8c5f46, w * 0.28, base + h + rise * 0.6 + 0.42, -d * 0.12));
-  const sm = smoke(w * 0.28, base + h + rise * 0.6 + 0.5, -d * 0.12);
-  g.add(sm);
-  g.add(bush(-w * 0.7, z + 0.2, 1), bush(w * 0.72, z + 0.25, 0.85));
-  g.userData.update = (t) => sm.userData.tick(t);
-  return g;
-}
-
 function signpost() {
   const g = new THREE.Group();
   g.add(blob(0.7, 0.5, 0.25));
@@ -217,26 +95,6 @@ function signpost() {
   board.position.set(0, 1.6, 0.06);
   g.add(board);
   g.add(bush(0.45, 0.2, 0.7), bush(-0.5, 0.15, 0.6));
-  return g;
-}
-
-const BED_COLORS = [0xff8fb3, 0xfff08a, 0xffffff, 0xc7a6ff, 0xffb27a];
-function flowerbed() {
-  const g = new THREE.Group();
-  g.add(blob(2.2, 2.2, 0.22));
-  g.add(cyl(1.6, 1.7, 0.22, 0xbdb6a6, 0, 0.11, 0, 24));
-  g.add(cyl(1.42, 1.42, 0.26, 0x6b4f3a, 0, 0.14, 0, 24));
-  const heads = [];
-  for (let i = 0; i < 34; i++) {
-    const a = i * 2.399;
-    const r = 0.2 + Math.sqrt(i / 34) * 1.15;
-    const s = cyl(0.015, 0.015, 0.4, 0x5fa34a, Math.cos(a) * r, 0.32, Math.sin(a) * r, 4);
-    const head = new THREE.Mesh(new THREE.IcosahedronGeometry(0.13, 1), mat(BED_COLORS[i % BED_COLORS.length]));
-    head.position.set(Math.cos(a) * r, 0.55, Math.sin(a) * r);
-    heads.push(head);
-    g.add(s, head);
-  }
-  g.userData.update = (t) => heads.forEach((h, i) => { h.position.y = 0.55 + Math.sin(t * 2 + i) * 0.03; });
   return g;
 }
 
@@ -554,18 +412,18 @@ const EXTRA_HOUSES = [
 
 const PLAN = [
   { lv: 2, x: 3.6, z: 3.2, r: 0.35, avoid: 1.2, rot: -0.4, make: signpost },
-  { lv: 2, x: -4, z: -4.5, r: 0, avoid: 2, make: flowerbed },
+  { lv: 2, x: -4, z: -4.5, r: 0, avoid: 2, make: () => bed('log', 1.45, 11) },
   { lv: 3, x: -9.5, z: 3.5, r: 2.4, avoid: 3.2, make: pond },
-  { lv: 4, x: 8, z: -7, r: 1.35, avoid: 2.2, rot: 0.2, make: () => house() },
-  { lv: 5, x: 8, z: -3.8, r: 0, avoid: 4, make: () => fence(7) },
-  { lv: 5, x: -10, z: -9, r: 1.35, avoid: 2.2, rot: -0.3, make: () => house({ wall: 0xe3f1ff, roof: 0x5b8def }) },
+  { lv: 4, x: 8, z: -7.5, r: 1.6, avoid: 3.4, rot: 0.15, make: () => cottage({ roof: 0xa9d95f }) },
+  { lv: 5, x: 8, z: -2.2, r: 0, avoid: 4, make: () => fence(7) },
+  { lv: 5, x: -10, z: -9, r: 1.55, avoid: 3.4, rot: -0.25, make: () => mushroomHouse() },
   { lv: 6, x: 14, z: 3, r: 1.1, avoid: 2.2, rot: -0.5, make: windmill },
   { lv: 7, x: 0, z: -14, r: 3.2, avoid: 4.2, make: school },
   { lv: 8, x: 6.5, z: 8, r: 2.0, avoid: 2.8, make: fountain },
   { lv: 9, x: 0, z: -31, r: 0, avoid: 0, make: rainbow },
   { lv: 10, x: -15, z: -14, r: 1.6, avoid: 3, rot: 0.6, make: tower },
   ...EXTRA_HOUSES.map(([x, z, rot, wall, roof], i) => ({
-    lv: 11 + i, x, z, r: 1.3, avoid: 2.2, rot, make: () => house({ wall, roof, size: 1.8 }),
+    lv: 11 + i, x, z, r: 1.3, avoid: 2.2, rot, make: () => (i % 2 ? mushroomHouse({ cap: roof, size: 0.8, withBed: false }) : cottage({ roof, size: 0.8, withBed: false })),
   })),
 ];
 
