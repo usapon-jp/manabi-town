@@ -3,6 +3,7 @@
 import { h, toast } from './ui.js';
 import { gradeLabel } from './store.js';
 import { askAI, aiErrorText, aiLeft } from './ai.js';
+import { openPhotos } from './photos.js';
 import { shrink } from './scan.js';
 import { icon } from './icons.js';
 
@@ -23,13 +24,17 @@ export function openAsk(p, { subject } = {}) {
     const f = file.files?.[0]; file.value = '';
     if (!f) return;
     try { photo = await shrink(f); } catch { toast('この写真は ひらけなかった'); return; }
+    showThumb();
+  } });
+  function showThumb() {
     thumb.hidden = false;
     thumb.replaceChildren(h('img', { src: photo, alt: '' }), h('button', { type: 'button', 'aria-label': '写真をはずす', onclick: () => { photo = null; thumb.hidden = true; } }, icon('x')));
-  } });
+  }
   const subjRow = h('div', { class: 'chat-choices' }, SUBJECTS.map((s) => h('button', { type: 'button', class: `pick ${s === subj ? 'on' : ''}`,
     onclick: (e) => { subj = subj === s ? '' : s; subjRow.querySelectorAll('.pick').forEach((b) => b.classList.toggle('on', b === e.currentTarget && !!subj)); } }, s)));
   const form = h('form', { class: 'chat-input', onsubmit: (e) => { e.preventDefault(); ask(); } },
     h('button', { type: 'button', class: 'chat-cam', 'aria-label': 'しゃしんを とる', onclick: () => file.click() }, icon('camera')),
+    h('button', { type: 'button', class: 'chat-cam', 'aria-label': 'しりょうから えらぶ', onclick: () => openPhotos(p, { pick: 1, onPick: (urls) => { if (urls[0]) { photo = urls[0]; showThumb(); } } }) }, icon('folder')),
     input, h('button', { class: 'chat-send', type: 'submit', 'aria-label': 'おくる' }, icon('send')));
   const close = () => { layer.remove(); document.body.classList.remove('running'); };
   const layer = h('div', { class: 'chat ask' },
