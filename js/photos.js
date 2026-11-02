@@ -1,7 +1,7 @@
 // しりょうの写真（教科書・プリント・ノート）。いちど入れたら、テスト範囲ごとのフォルダに残って、
 // 問題づくり・しつもん・（のちに）ほかの画面から えらんで使える。
-// 保存: この端末の IndexedDB（写真はおおきいので localStorage には入れない）。
-// 端末どうしの同期は、メタ情報 listMeta() と 写真本体 getData(id) を Storage に送る形で つなげる。
+// 保存: 写真の本体は この端末の IndexedDB（おおきいので localStorage には入れない）。
+// 同期: p.photos の id つき一覧は プロフィールと いっしょに足し合わせ、本体は Storage（manabi-photos/<user>/<id>.jpg）へ。
 import { h, toast } from './ui.js';
 import { save } from './store.js';
 import { shrink } from './scan.js';
@@ -35,28 +35,33 @@ const tx = async (mode, fn) => {
 
 const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
 
+// 写真のメタ情報は プロフィールの p.photos（id つきの配列。同期で足し合わせる）、
+// 写真の本体は IndexedDB（id で ひもづく）。本体がまだ この端末に ない写真は data が null。
+const metas = (p) => (Array.isArray(p.photos) ? p.photos : (p.photos = []));
+
 // 1まい入れる。folder は テスト予定の id か OTHER
 export async function addPhoto(p, { dataUrl, folder = OTHER, subject = '', label = '' }) {
-  const rec = { id: uid(), pid: p.id, folder, subject, label, data: dataUrl, at: Date.now() };
-  await tx('readwrite', (s) => s.put(rec));
-  return rec.id;
+  const id = uid();
+  await tx('readwrite', (s) => s.put({ id, data: dataUrl }));
+  metas(p).push({ id, folder, subject, name: label, takenAt: new Date().toISOString() });
+  save();
+  return id;
 }
 export async function allPhotos(p) {
   const rows = await tx('readonly', (s) => s.getAll());
-  return (rows || []).filter((r) => r.pid === p.id).sort((a, b) => b.at - a.at);
+  const have = new Map((rows || []).map((r) => [r.id, r.data]));
+  return metas(p).map((m) => ({ ...m, data: have.get(m.id) || null })).sort((a, b) => String(b.takenAt).localeCompare(String(a.takenAt)));
 }
-// 同期用: 本体をのぞいた情報
-export async function listMeta(p) { return (await allPhotos(p)).map(({ data, ...m }) => ({ ...m, bytes: data.length })); }
 export async function getData(id) { return (await tx('readonly', (s) => s.get(id)))?.data || null; }
-export async function removePhoto(id) { await tx('readwrite', (s) => s.delete(id)); }
-export async function movePhoto(id, folder) {
-  const d = await db();
-  await new Promise((res, rej) => {
-    const t = d.transaction('photos', 'readwrite'); const s = t.objectStore('photos'); const g = s.get(id);
-    g.onsuccess = () => { if (g.result) { g.result.folder = folder; s.put(g.result); } };
-    t.oncomplete = res; t.onerror = () => rej(t.error);
-  });
+// 同期用: 本体を IndexedDB に入れる／いま持っている id を知る
+export async function putData(id, dataUrl) { await tx('readwrite', (s) => s.put({ id, data: dataUrl })); }
+export async function localIds() { return ((await tx('readonly', (s) => s.getAllKeys())) || []); }
+export async function removePhoto(p, id) {
+  await tx('readwrite', (s) => s.delete(id));
+  p.photos = metas(p).filter((m) => m.id !== id);
+  save();
 }
+export function movePhoto(p, id, folder) { const m = metas(p).find((x) => x.id === id); if (m) { m.folder = folder; save(); } }
 
 function folders(p) {
   const tests = p.items.filter((i) => i.type === 'test' && !i.done).sort((a, b) => a.date.localeCompare(b.date))
@@ -101,13 +106,13 @@ export async function openPhotos(p, opts = {}) {
     grid.replaceChildren(
       h('button', { type: 'button', class: 'ph-add', onclick: () => file.click() }, icon('camera'), h('span', {}, '撮る・えらぶ')),
       ...mine.map((x) => h('div', { class: `ph-item ${chosen.has(x.id) ? 'on' : ''}` },
-        h('img', { src: x.data, alt: '', onclick: () => {
+        !x.data ? h('span', { class: 'ph-wait' }, 'じゅんびちゅう') : h('img', { src: x.data, alt: '', onclick: () => {
           if (!opts.pick) return;
           if (chosen.has(x.id)) chosen.delete(x.id); else if (chosen.size < opts.pick) chosen.add(x.id); else toast(`${opts.pick}まいまで`);
           draw();
         } }),
         chosen.has(x.id) ? h('span', { class: 'ph-check' }, icon('check')) : null,
-        h('button', { type: 'button', class: 'ph-del', 'aria-label': 'けす', onclick: async () => { chosen.delete(x.id); await removePhoto(x.id); draw(); } }, icon('x')))));
+        h('button', { type: 'button', class: 'ph-del', 'aria-label': 'けす', onclick: async () => { chosen.delete(x.id); await removePhoto(p, x.id); draw(); } }, icon('x')))));
     info.textContent = opts.pick ? 'つかう写真を タップ（フォルダは かえてもOK）' : '写真は この端末に ためておくよ。フォルダ＝テスト範囲ごと';
     useBtn.textContent = `この ${chosen.size}まいを つかう`;
     useBtn.hidden = !opts.pick;

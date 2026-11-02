@@ -31,7 +31,7 @@ const mmss = (sec) => `${String(Math.floor(sec / 60)).padStart(2, '0')}:${String
 
 function prefs(p) {
   if (!p.timerPrefs) p.timerPrefs = { kind: 'self', subject: SUBJECTS[0], mode: 'focus', minutes: 25, bgm: true };
-  if (!PRESETS.includes(p.timerPrefs.minutes)) p.timerPrefs.minutes = 20;
+  if (!PRESETS.includes(p.timerPrefs.minutes)) p.timerPrefs.minutes = PRESETS.reduce((a, b) => (Math.abs(b - p.timerPrefs.minutes) < Math.abs(a - p.timerPrefs.minutes) ? b : a));
   return p.timerPrefs;
 }
 

@@ -25,6 +25,7 @@ export function runQuestions(title, questions, onFinish, opts = {}) {
   let index = 0;
   let score = 0;
   let pads = [];
+  let finished = false;
   const results = []; // [{ q, ok }]（まちがえた問題を、あとで やりなおしに出すため）
 
   function cleanup() { pads.forEach((p) => p.destroy()); pads = []; }
@@ -32,6 +33,8 @@ export function runQuestions(title, questions, onFinish, opts = {}) {
   function close() {
     cleanup();
     clearInterval(clockId);
+    // とちゅうで とじても、できた分は きろくに入れる
+    if (!finished && results.length && opts.onAbort) opts.onAbort(score, results.length, results);
     layer.classList.remove('over');
     layer.hidden = true;
     layer.replaceChildren();
@@ -117,6 +120,7 @@ export function runQuestions(title, questions, onFinish, opts = {}) {
   }
 
   function finish() {
+    finished = true;
     cleanup();
     clearInterval(clockId);
     // 時間で おわった とき、やっていない問題は かぞえない

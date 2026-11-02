@@ -6,7 +6,10 @@
 // - 今週のイベント: スタンプ5日・120分・クエスト5回。できたら「うけとる」
 import { h, toast, daysLabel } from './ui.js';
 import { today, toISO, daysUntil, save, gradeBucket } from './store.js';
-import { DRILLS, buildDrill } from './quests.js';
+import { DRILLS as ALL_DRILLS, buildDrill } from './quests.js';
+import { isAdult } from './adult.js';
+// おとなには 子ども用のドリルを出さない
+const drillsFor = (p) => (isAdult(p) ? [] : ALL_DRILLS);
 import { runQuestions } from './runner.js';
 import { buildSteps } from './planner.js';
 import { levelInfo, totalXp, streak, week } from './progress.js';
@@ -43,6 +46,9 @@ function goals(p) {
   const weekMin = dates.reduce((n, d) => n + minutesOn(p, d), 0);
   const stamps = week(p).filter((d) => d.done).length;
   const quests = dates.filter((d) => p.daily?.[d]).length;
+  // おとなは まいにちクエストのかわりに「ルーティーンをやった日」
+  const adult = isAdult(p);
+  const routineDays = dates.filter((d) => Object.keys(p.routineLog?.[d] || {}).length).length;
   return {
     daily: [
       { id: 'min30', ic: 'clock-3', label: 'タイマーで 30分 勉強', now: minutesOn(p, today()), goal: 30, reward: 15 },
@@ -50,7 +56,9 @@ function goals(p) {
     weekly: [
       { id: 'stamp5', ic: 'calendar-check', label: 'スタンプを 5日 あつめる', now: stamps, goal: 5, reward: 50 },
       { id: 'min120', ic: 'timer', label: '今週 120分 勉強', now: weekMin, goal: 120, reward: 50 },
-      { id: 'quest5', ic: 'trophy', label: 'まいにちクエストを 5回', now: quests, goal: 5, reward: 30 },
+      adult
+        ? { id: 'routine5', ic: 'trophy', label: 'ルーティーンを 5日 やる', now: routineDays, goal: 5, reward: 30 }
+        : { id: 'quest5', ic: 'trophy', label: 'まいにちクエストを 5回', now: quests, goal: 5, reward: 30 },
     ],
   };
 }
@@ -62,7 +70,7 @@ export function bonusCount(p) {
   let n = 0;
   if (!day.lookRec) n += 1;
   if (!day.lookProg) n += 1;
-  DRILLS.forEach((d) => { if (!day[`drill:${d.id}`]) n += 1; });
+  drillsFor(p).forEach((d) => { if (!day[`drill:${d.id}`]) n += 1; });
   if (dueReview(p).length) n += 1;
   g.daily.forEach((x) => { if (!day[x.id] && x.now >= x.goal) n += 1; });
   g.weekly.forEach((x) => { if (!wk[x.id] && x.now >= x.goal) n += 1; });
@@ -110,7 +118,7 @@ export function openBonus(p, deps) {
       onTap: () => { s.close(); openProgress(p, deps); } }),
   ];
 
-  const drills = DRILLS.map((d) => {
+  const drills = drillsFor(p).map((d) => {
     const key = `drill:${d.id}`;
     const res = day[key];
     return row({ ic: d.ic, label: `${d.label} 5もん`, reward: `${DRILL_PER_CORRECT * 5 + DRILL_CLEAR}`,
@@ -125,7 +133,7 @@ export function openBonus(p, deps) {
       reward: Math.min(due, REVIEW_MAX) * REVIEW_PER_CORRECT + REVIEW_CLEAR, onTap: () => { s.close(); startReview(p, deps); } }) : null,
     ...openWeak(p).slice(0, 3).map((w) => row({ ic: 'target', label: `にがて: ${w.topic}`, sub: `${w.subject}・ピヨ先生の 3もん`,
       reward: 3 * WEAK_PER_CORRECT + WEAK_CLEAR, onTap: (e) => { s.close(); startWeak(p, w, deps); } })),
-    row({ ic: 'trophy', label: '実力テストの点を 入れる', sub: 'テストが かえってきたら', reward: '30〜100',
+    isAdult(p) ? null : row({ ic: 'trophy', label: '実力テストの点を 入れる', sub: 'テストが かえってきたら', reward: '30〜100',
       onTap: () => { s.close(); openTestEntry(p, deps); } }),
   ];
 
@@ -148,7 +156,7 @@ export function openBonus(p, deps) {
     h('p', { class: 'sheet-title' }, icon('gift'), ' ボーナス'),
     h('p', { class: 'sheet-sub' }, 'もっと ポイントを あつめたいときに'),
     h('div', { class: 'q-group' }, h('h4', {}, 'きょう'), h('ul', { class: 'quest-list' }, look, drills, g.daily.map((x) => goalRow(x, day)))),
-    h('div', { class: 'q-group' }, h('h4', {}, 'せいせきアップ'), h('ul', { class: 'quest-list' }, fix)),
+    fix.some(Boolean) ? h('div', { class: 'q-group' }, h('h4', {}, 'せいせきアップ'), h('ul', { class: 'quest-list' }, fix)) : null,
     h('div', { class: 'q-group event' }, h('h4', {}, '今週のイベント', h('small', {}, left ? `のこり${left}日` : 'きょうまで')),
       h('ul', { class: 'quest-list' }, g.weekly.map((x) => goalRow(x, wk)))),
   );
