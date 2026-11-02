@@ -1,6 +1,6 @@
 // プリントや範囲の写真を、アプリで撮る（または えらぶ）→ ピヨ先生（AI・Haiku）が読み取って → 予定にする。
 // 写真は小さくしてから送る（1280px・JPEG）。送った写真はアプリには残さない。
-import { h, toast, daysLabel } from './ui.js';
+import { h, toast } from './ui.js';
 import { today, addItem, gradeLabel, SUBJECTS } from './store.js';
 import { askAI, aiErrorText } from './ai.js';
 import { buildSteps } from './planner.js';
