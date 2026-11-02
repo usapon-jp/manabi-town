@@ -42,9 +42,16 @@ function choiceFromPairs(pairs, rand, count, make) {
 }
 
 export function buildDaily(bucket, seed, rand = seededRandom(seed)) {
-  const kanji = choiceFromPairs(KANJI[bucket], rand, PER_SUBJECT, (word, options, answer) => ({
+  // 漢字は 書き2もん＋読み1もん。書きは指で書いて、お手本と重ねて自分で答え合わせ
+  const picked = shuffle(KANJI[bucket], rand);
+  const writes = picked.slice(0, PER_SUBJECT - 1).map(([word, reading]) => ({
+    kind: 'write', subject: '漢字', prompt: 'かんじで 書こう', big: reading, answerText: word,
+  }));
+  const rest = picked.slice(PER_SUBJECT - 1);
+  const reads = choiceFromPairs(rest, rand, 1, (word, options, answer) => ({
     kind: 'choice', subject: '漢字', prompt: 'よみかたは？', big: word, options, answer,
   }));
+  const kanji = [...writes, ...reads];
   const english = choiceFromPairs(ENGLISH[bucket], rand, PER_SUBJECT, (word, options, answer) => ({
     kind: 'choice', subject: '英単語', prompt: 'いみは？', big: word, options, answer,
   }));
