@@ -7,8 +7,11 @@
 //   quiz  … にがてな単元から、にた問題（3択）を作る
 //   scan  … プリントや範囲の写真から、テスト・宿題の予定（教科・名前・はんい・日にち）を読み取る（Haiku）
 //   ask   … ピヨ先生への質問（チャット・写真つき・図（SVG）つき）。Haiku
+//   usage … 今月の AI 使用額（推定）。せってい画面に出す。Claude は呼ばない
 //   plan  … ピヨ先生と作戦会議（進め方・得意苦手・理解度チェックする単元を決める）。ここだけ Sonnet
 //   consult … おとなモードの「ピヨと相談」。ルーティーンと目標・試験を会話で決める（Haiku）
+import { recordUsage, summary } from '../_shared/usage.ts';
+
 const MODEL = 'claude-haiku-5-5';
 const MODEL_SMART = 'claude-sonnet-5-5';
 const ALLOWED = ['https://usapon-jp.github.io', 'http://localhost:8766'];
@@ -22,13 +25,15 @@ function cors(origin: string | null) {
   };
 }
 
-async function claude(key: string, content: unknown[], system: string, maxTokens = 200, model = MODEL, history?: unknown[]) {
+// 呼び出しごとに使用量を ai_usage に記録する（action・モデル・トークン数・推定料金だけ）
+async function callClaude(action: string, key: string, content: unknown[], system: string, maxTokens = 200, model = MODEL, history?: unknown[]) {
   const r = await fetch('https://api.anthropic.com/v1/messages', {
     method: 'POST',
     headers: { 'x-api-key': key, 'anthropic-version': '2023-06-01', 'content-type': 'application/json' },
     body: JSON.stringify({ model, max_tokens: maxTokens, system, messages: history || [{ role: 'user', content }] }),
   });
   const j = await r.json();
+  if (j?.usage) await recordUsage(action, model, j.usage);
   if (!r.ok) throw new Error(j?.error?.message || `claude ${r.status}`);
   return (j.content || []).filter((b: { type: string }) => b.type === 'text').map((b: { text: string }) => b.text).join('').trim();
 }
@@ -45,11 +50,16 @@ Deno.serve(async (req) => {
   let body: Record<string, unknown> = {};
   try { body = await req.json(); } catch { /* 空のまま */ }
   const ok = (data: unknown) => new Response(JSON.stringify(data), { headers });
+  const claude = (...a: Parameters<typeof callClaude> extends [string, ...infer R] ? R : never) => callClaude(String(body.action || '?'), ...a);
   try {
     if (body.action === 'ping') {
       if (!key) return ok({ ready: false });
       const text = await claude(key, [{ type: 'text', text: 'ひらがなで「はい」とだけ答えて' }], 'みじかく答える', 10);
       return ok({ ready: true, text });
+    }
+    if (body.action === 'usage') {
+      const s = await summary();
+      return ok({ monthUsd: s.monthUsd, limitUsd: s.limitUsd, ratio: s.ratio, forecastUsd: s.forecastUsd, yenPerUsd: s.yenPerUsd, level: s.level });
     }
     if (!key) return ok({ error: 'no-key' });
     if (body.action === 'hint') {

@@ -667,9 +667,17 @@ function planCard(p) {
 
 function aiCard() {
   const status = h('p', { class: 'ai-status' }, `ヒントは 1日 ${DAY_LIMIT}回まで（のこり ${aiLeft()}回）`);
+  // 今月の AI 料金（Supabase に記録した推定額。Anthropic の残高そのものではない）
+  const usage = h('p', { class: 'ai-status' }, '今月の AI 料金: しらべ中…');
+  askAI({ action: 'usage' }, { count: false, timeout: 8000 }).then((u) => {
+    const yen = (n) => `約${Math.round(n * (u.yenPerUsd || 150)).toLocaleString('ja-JP')}円`;
+    const mark = u.level === 'alert' ? '⚠️ ' : u.level === 'warn' ? '△ ' : '';
+    usage.textContent = `${mark}今月の AI 料金: ${yen(u.monthUsd)}／上限 ${yen(u.limitUsd)}（${Math.round(u.ratio * 100)}%）・月末の見込み ${yen(u.forecastUsd)}`;
+  }).catch(() => { usage.textContent = '今月の AI 料金: 読みこめませんでした'; });
   return h('div', { class: 'card form' },
     h('h3', {}, 'ピヨ先生のヒント（AI）'),
     status,
+    usage,
     h('button', { class: 'btn', onclick: async (e) => {
       e.target.disabled = true;
       status.textContent = 'たしかめ中…';
