@@ -47,7 +47,7 @@ GitHub Pages で `main` のルートを公開すればそのまま動く。three
 
 ## AI 料金の記録
 
-- AI（Claude API）を呼ぶたびに、受け口 `manabi-ai` が「機能・モデル・トークン数・推定料金」を Supabase の `ai_usage` 表に残す（子どもの名前や勉強の中身は入れない）。表は `supabase/migrations/20261102120000_ai_usage.sql`
+- AI（Claude API）を呼ぶたびに、受け口 `manabi-ai` が「機能・使った人（子どもは学年だけ、おとなは「おとな:ハンドルネーム」）・モデル・トークン数・推定料金」を Supabase の `ai_usage` 表に残す（子どもの名前や勉強の中身は入れない）。表は `supabase/migrations/20261102120000_ai_usage.sql`
 - 料金表と月の上限（シークレット `AI_MONTH_LIMIT_USD`、なければ $5）は `supabase/functions/_shared/usage.ts`。Anthropic の残高は API で読めないので、記録した推定額で判断する
 - せってい →「ピヨ先生のヒント（AI）」に今月の料金と月末の見込みが出る
 - `manabi-usage` は数字だけを返す読み取り専用 URL（`?k=合言葉`、`&f=json` で JSON）。合言葉はシークレット `USAGE_TOKEN`。`verify_jwt=false` でデプロイし、Muse などのエージェントに定期的に開いてもらって 70%・90% をこえたら知らせてもらう

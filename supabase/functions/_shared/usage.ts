@@ -29,14 +29,21 @@ function rest(path: string, init: RequestInit = {}) {
 }
 
 // 失敗してもアプリの返事は止めない
-export async function recordUsage(action: string, model: string, usage: { input_tokens?: number; output_tokens?: number } | undefined) {
+const WHO = ['小3', '小4', '小5', '小6', '中1', '中2', '中3', 'おとな'];
+// 子どもは学年だけ。おとなは「おとな:ハンドルネーム」まで残す
+function cleanWho(who: string) {
+  if (WHO.includes(who)) return who;
+  const m = /^おとな:(.{1,12})$/u.exec(who.replace(/[\u0000-\u001f<>]/g, '').trim());
+  return m ? `おとな:${m[1].trim()}` : '';
+}
+export async function recordUsage(action: string, who: string, model: string, usage: { input_tokens?: number; output_tokens?: number } | undefined) {
   try {
     const input_tokens = Number(usage?.input_tokens) || 0;
     const output_tokens = Number(usage?.output_tokens) || 0;
     await rest('ai_usage', {
       method: 'POST',
       headers: { Prefer: 'return=minimal' },
-      body: JSON.stringify({ action: action.slice(0, 20), model, input_tokens, output_tokens, cost_usd: costUsd(model, input_tokens, output_tokens) }),
+      body: JSON.stringify({ action: action.slice(0, 20), who: cleanWho(who), model, input_tokens, output_tokens, cost_usd: costUsd(model, input_tokens, output_tokens) }),
     });
   } catch { /* 記録できなくても続ける */ }
 }
@@ -49,9 +56,9 @@ export async function summary(now = new Date()) {
   const monthStart = `${today.slice(0, 7)}-01`;
   // 今月と、月はじめが近いときのために 8日前から読む
   const from = new Date(Math.min(Date.parse(`${monthStart}T00:00:00+09:00`), now.getTime() - 8 * 86400_000)).toISOString();
-  const rows: { created_at: string; action: string; cost_usd: number }[] = [];
+  const rows: { created_at: string; action: string; who: string; cost_usd: number }[] = [];
   for (let offset = 0; offset < 50_000; offset += 1000) {
-    const r = await rest(`ai_usage?select=created_at,action,cost_usd&created_at=gte.${encodeURIComponent(from)}&order=id&limit=1000&offset=${offset}`);
+    const r = await rest(`ai_usage?select=created_at,action,who,cost_usd&created_at=gte.${encodeURIComponent(from)}&order=id&limit=1000&offset=${offset}`);
     if (!r || !r.ok) throw new Error(`usage ${r?.status ?? 'no-env'}`);
     const page = await r.json();
     rows.push(...page);
@@ -59,12 +66,14 @@ export async function summary(now = new Date()) {
   }
   const byDay: Record<string, number> = {};
   const byAction: Record<string, number> = {};
+  const byWho: Record<string, { usd: number; calls: number }> = {};
   let month = 0;
   for (const x of rows) {
     const day = jst(new Date(x.created_at));
     const c = Number(x.cost_usd) || 0;
     byDay[day] = (byDay[day] || 0) + c;
-    if (day >= monthStart) { month += c; byAction[x.action] = (byAction[x.action] || 0) + 1; }
+    if (day >= monthStart) { month += c; byAction[x.action] = (byAction[x.action] || 0) + 1;
+      const w = byWho[x.who || '不明'] ||= { usd: 0, calls: 0 }; w.usd += c; w.calls++; }
   }
   const y = Number(today.slice(0, 4)), m = Number(today.slice(5, 7)), d = Number(today.slice(8, 10));
   const daysInMonth = new Date(Date.UTC(y, m, 0)).getUTCDate();
@@ -80,6 +89,6 @@ export async function summary(now = new Date()) {
     monthUsd: month, ratio, todayUsd: byDay[today] || 0, yesterdayUsd: byDay[yesterday] || 0,
     forecastUsd: forecast, forecastRatio: forecast / LIMIT_USD,
     level: ratio >= ALERT ? 'alert' : ratio >= WARN ? 'warn' : 'ok',
-    calls: byAction, last7,
+    calls: byAction, byWho, last7,
   };
 }

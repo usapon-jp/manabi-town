@@ -672,7 +672,8 @@ function aiCard() {
   askAI({ action: 'usage' }, { count: false, timeout: 8000 }).then((u) => {
     const yen = (n) => `約${Math.round(n * (u.yenPerUsd || 150)).toLocaleString('ja-JP')}円`;
     const mark = u.level === 'alert' ? '⚠️ ' : u.level === 'warn' ? '△ ' : '';
-    usage.textContent = `${mark}今月の AI 料金: ${yen(u.monthUsd)}／上限 ${yen(u.limitUsd)}（${Math.round(u.ratio * 100)}%）・月末の見込み ${yen(u.forecastUsd)}`;
+    const who = Object.entries(u.byWho || {}).sort((a, b) => b[1].usd - a[1].usd).map(([w, v]) => `${w} ${yen(v.usd)}（${v.calls}回）`).join('・');
+    usage.textContent = `${mark}今月の AI 料金: ${yen(u.monthUsd)}／上限 ${yen(u.limitUsd)}（${Math.round(u.ratio * 100)}%）・月末の見込み ${yen(u.forecastUsd)}${who ? `。人ごと: ${who}` : ''}`;
   }).catch(() => { usage.textContent = '今月の AI 料金: 読みこめませんでした'; });
   return h('div', { class: 'card form' },
     h('h3', {}, 'ピヨ先生のヒント（AI）'),

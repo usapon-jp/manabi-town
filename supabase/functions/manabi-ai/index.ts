@@ -26,14 +26,14 @@ function cors(origin: string | null) {
 }
 
 // 呼び出しごとに使用量を ai_usage に記録する（action・モデル・トークン数・推定料金だけ）
-async function callClaude(action: string, key: string, content: unknown[], system: string, maxTokens = 200, model = MODEL, history?: unknown[]) {
+async function callClaude(action: string, who: string, key: string, content: unknown[], system: string, maxTokens = 200, model = MODEL, history?: unknown[]) {
   const r = await fetch('https://api.anthropic.com/v1/messages', {
     method: 'POST',
     headers: { 'x-api-key': key, 'anthropic-version': '2023-06-01', 'content-type': 'application/json' },
     body: JSON.stringify({ model, max_tokens: maxTokens, system, messages: history || [{ role: 'user', content }] }),
   });
   const j = await r.json();
-  if (j?.usage) await recordUsage(action, model, j.usage);
+  if (j?.usage) await recordUsage(action, who, model, j.usage);
   if (!r.ok) throw new Error(j?.error?.message || `claude ${r.status}`);
   return (j.content || []).filter((b: { type: string }) => b.type === 'text').map((b: { text: string }) => b.text).join('').trim();
 }
@@ -50,7 +50,8 @@ Deno.serve(async (req) => {
   let body: Record<string, unknown> = {};
   try { body = await req.json(); } catch { /* 空のまま */ }
   const ok = (data: unknown) => new Response(JSON.stringify(data), { headers });
-  const claude = (...a: Parameters<typeof callClaude> extends [string, ...infer R] ? R : never) => callClaude(String(body.action || '?'), ...a);
+  const claude = (...a: Parameters<typeof callClaude> extends [string, string, ...infer R] ? R : never) =>
+    callClaude(String(body.action || '?'), String(body.who || ''), ...a);
   try {
     if (body.action === 'ping') {
       if (!key) return ok({ ready: false });
@@ -59,7 +60,7 @@ Deno.serve(async (req) => {
     }
     if (body.action === 'usage') {
       const s = await summary();
-      return ok({ monthUsd: s.monthUsd, limitUsd: s.limitUsd, ratio: s.ratio, forecastUsd: s.forecastUsd, yenPerUsd: s.yenPerUsd, level: s.level });
+      return ok({ monthUsd: s.monthUsd, limitUsd: s.limitUsd, ratio: s.ratio, forecastUsd: s.forecastUsd, yenPerUsd: s.yenPerUsd, level: s.level, byWho: s.byWho });
     }
     if (!key) return ok({ error: 'no-key' });
     if (body.action === 'hint') {

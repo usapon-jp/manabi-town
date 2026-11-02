@@ -44,6 +44,7 @@ Deno.serve(async (req) => {
       `きょう: ${usd(s.todayUsd)}　きのう: ${usd(s.yesterdayUsd)}`,
       `月末の見込み: ${usd(s.forecastUsd)}（${yen(s.forecastUsd, r)}）… ${pct(s.forecastRatio)}`,
       `直近7日: ${s.last7.map((x) => `${x.day.slice(5)} ${usd(x.usd)}`).join(' / ')}`,
+      `今月の人ごと: ${Object.entries(s.byWho).sort((a, b) => b[1].usd - a[1].usd).map(([w, v]) => `${w} ${usd(v.usd)}（${v.calls}回）`).join('・') || 'なし'}`,
       `今月の回数: ${calls}`,
     ];
     return new Response(lines.join('\n') + '\n', { headers: { ...noStore, 'content-type': 'text/plain; charset=utf-8' } });

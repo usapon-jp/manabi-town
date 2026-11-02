@@ -3,6 +3,7 @@ create table if not exists public.ai_usage (
   id bigint generated always as identity primary key,
   created_at timestamptz not null default now(),
   action text not null,          -- hint / ask / plan … どの機能か
+  who text not null default '',  -- 子どもは学年（中2・小6・小4）だけ。おとなは「おとな:ハンドルネーム」
   model text not null,
   input_tokens integer not null default 0,
   output_tokens integer not null default 0,
