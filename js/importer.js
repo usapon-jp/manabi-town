@@ -18,7 +18,7 @@ export function parseImport(text) {
       title: String(qz.title || '小テスト'),
       subject: String(qz.subject || ''),
       questions: (Array.isArray(qz.questions) ? qz.questions : []).filter(validQuestion).map((q) => (
-        q.options
+        Array.isArray(q.options)
           ? { q: String(q.q), options: q.options.map(String), answer: q.answer }
           : { q: String(q.q), answer: Number(q.answer) }
       )),
@@ -31,6 +31,7 @@ export function parseImport(text) {
 
 function validQuestion(q) {
   if (!q || !q.q) return false;
+  if (q.options != null && !Array.isArray(q.options)) return false;
   if (Array.isArray(q.options)) return q.options.length >= 2 && Number.isInteger(q.answer) && q.answer >= 0 && q.answer < q.options.length;
   return Number.isFinite(Number(q.answer));
 }
