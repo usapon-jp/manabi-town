@@ -3,15 +3,14 @@ import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { CHARACTERS } from './characters.js';
 import { readMove, takeJump } from './controls.js';
-import { createTown, isTownSpot } from './town.js';
+import { createTown } from './town.js';
+import { createMeadow } from './meadow.js';
+import { heightAt } from './terrain.js';
 import { currentProfile, onChange } from './store.js';
 import { levelInfo, totalXp } from './progress.js';
 
-const GROUND_RADIUS = 34;
 const WALK_RADIUS = 12;   // ひとりで散歩するときのはんい
 const ROAM_RADIUS = 28;   // 自分で動かすときに行けるはんい
-const GRASS_COUNT = 7000;
-const FLOWER_COUNT = 450;
 
 const normName = (s) => String(s).toLowerCase().replace(/[^a-z0-9]/g, '');
 
@@ -20,34 +19,17 @@ export function createWorld(container) {
   renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
   container.appendChild(renderer.domElement);
 
+  renderer.toneMapping = THREE.ACESFilmicToneMapping;
+  renderer.toneMappingExposure = 1.05;
+
   const scene = new THREE.Scene();
-  const skyColor = new THREE.Color(0xd8eefa);
-  scene.background = skyColor;
-  scene.fog = new THREE.Fog(skyColor, 22, 60);
+  const camera = new THREE.PerspectiveCamera(46, 1, 0.1, 220);
+  const view = { angle: 0, dist: 11, height: 4.6, target: new THREE.Vector3() };
 
-  const camera = new THREE.PerspectiveCamera(42, 1, 0.1, 200);
-  const view = { angle: 0, dist: 13, height: 7.5, target: new THREE.Vector3() };
-
-  scene.add(new THREE.HemisphereLight(0xfff6e0, 0x7fb069, 1.7));
-  const sun = new THREE.DirectionalLight(0xfff0d0, 1.6);
-  sun.position.set(10, 16, 6);
-  scene.add(sun);
-
+  // 絵本のような草原（空・雲海・草・花・木・ちょうちょ）
+  const meadow = createMeadow(scene);
+  const ground = meadow.ground;
   const time = { value: 0 };
-
-  // 地面
-  const ground = new THREE.Mesh(
-    new THREE.CircleGeometry(GROUND_RADIUS, 64),
-    new THREE.MeshLambertMaterial({ color: 0x9ccf73 }),
-  );
-  ground.rotation.x = -Math.PI / 2;
-  scene.add(ground);
-
-  scene.add(makeGrass(time));
-  scene.add(makeFlowers());
-  makeTrees().forEach((t) => scene.add(t));
-  const motes = makeLightMotes();
-  scene.add(motes);
 
   // タップした場所のしるし
   const marker = new THREE.Mesh(
@@ -98,7 +80,7 @@ export function createWorld(container) {
         p.y = 0;
         if (p.length() > ROAM_RADIUS) p.setLength(ROAM_RADIUS);
         actor.walkTo(p);
-        marker.position.set(p.x, 0.03, p.z);
+        marker.position.set(p.x, heightAt(p.x, p.z) + 0.05, p.z);
         marker.material.opacity = 0.9;
       }
     }
@@ -134,16 +116,16 @@ export function createWorld(container) {
       jump: takeJump(),
     });
     marker.material.opacity = Math.max(0, marker.material.opacity - dt * 1.2);
-    motes.userData.update(time.value);
     town.update(dt, time.value);
 
     view.target.lerp(actor.position, 0.04);
     camera.position.set(
       view.target.x + Math.sin(view.angle) * view.dist,
-      view.height,
+      view.target.y + view.height,
       view.target.z + Math.cos(view.angle) * view.dist,
     );
-    camera.lookAt(view.target.x, 0.8, view.target.z);
+    camera.lookAt(view.target.x, view.target.y + 1.5, view.target.z);
+    meadow.update(dt, time.value, actor.position, camera.position);
     renderer.render(scene, camera);
     requestAnimationFrame(frame);
   }
@@ -155,6 +137,7 @@ export function createWorld(container) {
       if (on) { clock.getDelta(); resize(); requestAnimationFrame(frame); }
     },
     celebrate() { actor.jump(); },
+    warp(x, z, angle) { actor.position.set(x, heightAt(x, z), z); view.target.copy(actor.position); if (angle != null) view.angle = angle; },
   };
 }
 
@@ -251,6 +234,8 @@ function createActor(scene, config, town) {
       }
       state.manual = Math.max(0, state.manual - dt);
 
+      root.position.y = heightAt(root.position.x, root.position.z);
+
       // 建物や池には入れない。ぶつかったままの行き先はあきらめる
       if (town.pushOut(root.position)) {
         state.stuck += dt;
@@ -325,6 +310,7 @@ function createActor(scene, config, town) {
 
       shadow.position.x = root.position.x;
       shadow.position.z = root.position.z;
+      shadow.position.y = root.position.y + 0.06;
       shadow.scale.setScalar(Math.max(0.35, 1 - Math.min(body.position.y, 1.5) * 0.4));
     },
   };
@@ -343,117 +329,4 @@ function fallbackChick(config) {
   beak.position.set(0, h * 0.76, h * 0.26);
   g.add(b, head, beak);
   return g;
-}
-
-// ---- 景色 ---------------------------------------------------------------
-
-function randomInDisc(radius, min = 0) {
-  const a = Math.random() * Math.PI * 2;
-  const r = Math.sqrt(min * min + Math.random() * (radius * radius - min * min));
-  return [Math.cos(a) * r, Math.sin(a) * r];
-}
-
-// 街の建物を置く場所をよけて選ぶ
-function freeSpot(radius, min = 0, pad = 0) {
-  let p = randomInDisc(radius, min);
-  for (let i = 0; i < 8 && isTownSpot(p[0], p[1], pad); i++) p = randomInDisc(radius, min);
-  return p;
-}
-
-function makeGrass(time) {
-  const height = 0.42;
-  const geo = new THREE.PlaneGeometry(0.07, height, 1, 4);
-  geo.translate(0, height / 2, 0);
-  const pos = geo.attributes.position;
-  for (let i = 0; i < pos.count; i++) {
-    const y = pos.getY(i);
-    pos.setX(i, pos.getX(i) * (1 - y / height));
-  }
-  const mat = new THREE.MeshLambertMaterial({ side: THREE.DoubleSide });
-  mat.onBeforeCompile = (shader) => {
-    shader.uniforms.uTime = time;
-    shader.vertexShader = 'uniform float uTime;\n' + shader.vertexShader.replace(
-      '#include <begin_vertex>',
-      `#include <begin_vertex>
-      float k = clamp(position.y / ${height.toFixed(2)}, 0.0, 1.0);
-      vec4 root = instanceMatrix * vec4(0.0, 0.0, 0.0, 1.0);
-      float wave = sin(uTime * 1.7 + root.x * 0.35 + root.z * 0.22) * 0.6
-                 + sin(uTime * 3.1 + root.x * 1.3) * 0.25;
-      transformed.x += wave * k * k * 0.16;
-      transformed.z += wave * k * k * 0.06;`,
-    );
-  };
-  const mesh = new THREE.InstancedMesh(geo, mat, GRASS_COUNT);
-  const m = new THREE.Matrix4();
-  const q = new THREE.Quaternion();
-  const s = new THREE.Vector3();
-  const c = new THREE.Color();
-  for (let i = 0; i < GRASS_COUNT; i++) {
-    const [x, z] = freeSpot(GROUND_RADIUS - 6);
-    q.setFromAxisAngle(new THREE.Vector3(0, 1, 0), Math.random() * Math.PI);
-    const k = 0.6 + Math.random() * 0.8;
-    s.set(1, k, 1);
-    m.compose(new THREE.Vector3(x, 0, z), q, s);
-    mesh.setMatrixAt(i, m);
-    c.setHSL(0.24 + Math.random() * 0.06, 0.45 + Math.random() * 0.2, 0.42 + Math.random() * 0.14);
-    mesh.setColorAt(i, c);
-  }
-  return mesh;
-}
-
-function makeFlowers() {
-  const geo = new THREE.IcosahedronGeometry(0.075, 0);
-  const mesh = new THREE.InstancedMesh(geo, new THREE.MeshLambertMaterial(), FLOWER_COUNT);
-  const colors = [0xffb6d0, 0xffffff, 0xfff08a, 0xd9c2ff, 0xffd1a8];
-  const m = new THREE.Matrix4();
-  const c = new THREE.Color();
-  for (let i = 0; i < FLOWER_COUNT; i++) {
-    const [x, z] = freeSpot(GROUND_RADIUS - 8);
-    m.makeTranslation(x, 0.28 + Math.random() * 0.15, z);
-    mesh.setMatrixAt(i, m);
-    mesh.setColorAt(i, c.set(colors[i % colors.length]));
-  }
-  return mesh;
-}
-
-function makeTrees() {
-  const trunkMat = new THREE.MeshLambertMaterial({ color: 0xa47c5b });
-  const leafMats = [0x7cc06a, 0x8fd07a, 0x6db35e].map((color) => new THREE.MeshLambertMaterial({ color, flatShading: true }));
-  const trees = [];
-  for (let i = 0; i < 10; i++) {
-    const [x, z] = freeSpot(GROUND_RADIUS - 6, 15, 1.5);
-    const t = new THREE.Group();
-    const h = 1.2 + Math.random() * 0.8;
-    const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.15, 0.22, h, 8), trunkMat);
-    trunk.position.y = h / 2;
-    const leaf = new THREE.Mesh(new THREE.IcosahedronGeometry(1 + Math.random() * 0.5, 1), leafMats[i % 3]);
-    leaf.position.y = h + 0.6;
-    t.add(trunk, leaf);
-    t.position.set(x, 0, z);
-    trees.push(t);
-  }
-  return trees;
-}
-
-function makeLightMotes() {
-  const count = 120;
-  const base = new Float32Array(count * 3);
-  for (let i = 0; i < count; i++) {
-    const [x, z] = randomInDisc(16);
-    base.set([x, 0.5 + Math.random() * 3, z], i * 3);
-  }
-  const geo = new THREE.BufferGeometry();
-  geo.setAttribute('position', new THREE.BufferAttribute(base.slice(), 3));
-  const points = new THREE.Points(geo, new THREE.PointsMaterial({
-    color: 0xfffbe0, size: 0.09, transparent: true, opacity: 0.85, depthWrite: false,
-  }));
-  points.userData.update = (t) => {
-    const p = geo.attributes.position;
-    for (let i = 0; i < count; i++) {
-      p.setX(i, base[i * 3] + Math.sin(t * 0.4 + i) * 0.4);
-      p.setY(i, base[i * 3 + 1] + Math.sin(t * 0.7 + i * 1.7) * 0.3);
-    }
-    p.needsUpdate = true;
-  };
-  return points;
 }

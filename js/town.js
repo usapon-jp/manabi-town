@@ -1,6 +1,7 @@
 // 勉強すると育つ「まなびタウン」。レベルが上がるたびに、草原にひとつずつ建物や景色がふえる。
 // 置く場所は決まっているので、いつ開いても同じ街になる。world.js から使う。
 import * as THREE from 'three';
+import { heightAt } from './terrain.js';
 
 const mats = new Map();
 const mat = (color, opts = {}) => {
@@ -261,7 +262,7 @@ export function isTownSpot(x, z, pad = 0) {
 export function createTown(scene) {
   const items = PLAN.map((p) => {
     const group = p.make();
-    group.position.set(p.x, 0, p.z);
+    group.position.set(p.x, heightAt(p.x, p.z), p.z);
     group.rotation.y = p.rot || 0;
     group.visible = false;
     scene.add(group);
