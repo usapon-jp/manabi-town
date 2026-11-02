@@ -54,9 +54,9 @@ export function renderTimerTab(panel, p, deps) {
 
   deps.fill(panel,
     h('div', { class: 'card stat3' },
-      h('div', {}, h('small', {}, 'きょう'), h('b', {}, todayMin), h('small', {}, '分')),
-      h('div', {}, h('small', {}, '今週'), h('b', {}, weekMin), h('small', {}, '分')),
-      h('div', {}, h('small', {}, 'るいけい'), h('b', {}, total), h('small', {}, '分'))),
+      h('div', {}, h('small', {}, 'きょう'), h('p', { class: 'n' }, h('b', {}, todayMin), h('span', {}, '分'))),
+      h('div', {}, h('small', {}, '今週'), h('p', { class: 'n' }, h('b', {}, weekMin), h('span', {}, '分'))),
+      h('div', {}, h('small', {}, 'るいけい'), h('p', { class: 'n' }, h('b', {}, total), h('span', {}, '分')))),
 
     h('div', { class: 'card setup' },
       h('p', { class: 'label' }, 'なにをする？'),
