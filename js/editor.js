@@ -33,6 +33,12 @@ const CSS = `
 .wedit button[disabled] { opacity: 0.45; cursor: default; }
 .wedit .fab { display: grid; place-items: center; gap: 3px; padding: 8px 4px; font-size: 12px; }
 .wedit .fab svg { width: 30px; height: 30px; }
+.wedit .fab { background: rgba(255, 255, 255, 0.13); border: 1.5px solid rgba(255, 255, 255, 0.55); color: #fff; box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.14);
+  -webkit-backdrop-filter: blur(2px); backdrop-filter: blur(2px); text-shadow: 0 1px 3px rgba(0, 0, 0, 0.6); }
+.wedit .fab .mk-k { stroke: #fff; }
+.wedit .fab .mk-fa { fill: rgba(255, 255, 255, 0.22); }
+.wedit .fab svg { filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.5)); }
+.wedit .fab.on { background: rgba(138, 166, 106, 0.85); border-color: rgba(255, 255, 255, 0.8); }
 .wedit .tools { display: flex; flex-direction: column; gap: 5px; }
 .wedit .tools[hidden] { display: none; }
 .wedit .row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 5px; }

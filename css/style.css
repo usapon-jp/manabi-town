@@ -804,14 +804,17 @@ button.go:active { transform: scale(0.97); animation: none; }
 
 /* ---- きょうのカードは、ふだん小さなクエストマーク（のこり数のバッジつき）にたたむ ---- */
 .quest-mark {
-  position: relative; display: grid; place-items: center; width: 56px; height: 56px; padding: 0; cursor: pointer;
-  border-radius: 50%; background: linear-gradient(180deg, #fff1cf, #f0cd8a);
-  border: 1.5px solid rgba(255, 255, 255, 0.95);
-  box-shadow: 0 0 0 1px rgba(91, 66, 88, 0.16), 0 4px 16px rgba(70, 45, 80, 0.18);
+  position: relative; display: grid; place-items: center; width: 56px; height: 56px; padding: 0; cursor: pointer; color: #fff;
+  border-radius: 50%; background: rgba(70, 58, 48, 0.22);   /* 明るい空でも白いマークが見えるよう、ほんのり暗く */
+  border: 1.5px solid rgba(255, 255, 255, 0.7);
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.14);
+  -webkit-backdrop-filter: blur(2px); backdrop-filter: blur(2px);
   -webkit-tap-highlight-color: transparent; transition: transform 0.12s;
 }
-.quest-mark:active { transform: scale(0.92); }
-.quest-mark .mk-ic { width: 34px; height: 34px; }
+.quest-mark:active { transform: scale(0.92); background: rgba(255, 226, 168, 0.36); border-color: #ffe2a8; }
+.quest-mark .mk-ic { width: 34px; height: 34px; filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.5)); }
+.quest-mark .mk-k { stroke: #fff; }
+.quest-mark .mk-fa { fill: rgba(255, 255, 255, 0.22); }
 .quest-badge {
   position: absolute; top: -5px; right: -5px; min-width: 24px; height: 24px; padding: 0 6px; box-sizing: border-box;
   display: grid; place-items: center; border-radius: 12px; background: #e5604d; color: #fff; border: 2px solid #fff;
