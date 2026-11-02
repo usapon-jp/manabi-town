@@ -80,7 +80,7 @@ export function signOut() {
   if (a?.access_token) {
     fetch(`${BASE_URL}/auth/v1/logout`, { method: 'POST', headers: { apikey: ANON, Authorization: `Bearer ${a.access_token}` } }).catch(() => {});
   }
-  write(AUTH_KEY, null); write(BASE_KEY, null); write(LAST_KEY, null);
+  write(AUTH_KEY, null); write(BASE_KEY, null); write(LAST_KEY, null); write(UP_KEY, null);
   setStatus('off');
 }
 
@@ -213,11 +213,59 @@ async function syncOnce({ first = false } = {}) {
   }
   write(BASE_KEY, nextBase);
   if (!retry) {
+    await syncPhotos(a).catch(() => {});
     write(LAST_KEY, Date.now());
     setStatus('ok');
     if (first && merged) window.dispatchEvent(new CustomEvent('manabi-sync-merged', { detail: merged }));
   }
   return { retry };
+}
+
+// ---- しりょうの写真（本体） -------------------------------------------------------
+// 一覧（p.photos）はプロフィールと いっしょに そろう。本体は Storage の manabi-photos/<user>/<id>.jpg と
+// この端末の IndexedDB（photos.js）のあいだで行き来する。1回に少しずつ（重くしないため）。
+const UP_KEY = 'manabi-photos-up'; // クラウドにあると わかっている写真の id
+const PHOTO_STEP = 8;
+
+async function syncPhotos(a) {
+  const ph = await import('./photos.js');
+  const want = new Set(getState().profiles.flatMap((p) => (Array.isArray(p.photos) ? p.photos : []).map((m) => m.id)).filter(Boolean));
+  const have = new Set(await ph.localIds());
+  const up = new Set(read(UP_KEY) || []);
+  const obj = (id) => `${BASE_URL}/storage/v1/object/manabi-photos/${a.user.id}/${encodeURIComponent(id)}.jpg`;
+  const auth = { apikey: ANON, Authorization: `Bearer ${a.access_token}` };
+  let n = 0; let got = 0;
+  const keep = () => write(UP_KEY, [...up]);
+  for (const id of want) {
+    if (n >= PHOTO_STEP) break;
+    if (have.has(id) && !up.has(id)) {
+      // 送る
+      const data = await ph.getData(id);
+      if (!data) continue;
+      n++;
+      const blob = await (await fetch(data)).blob();
+      const r = await fetch(obj(id), { method: 'POST', headers: { ...auth, 'content-type': blob.type || 'image/jpeg', 'x-upsert': 'true' }, body: blob });
+      if (r.ok) { up.add(id); keep(); }
+    } else if (!have.has(id)) {
+      // もらう（まだ どの端末からも 送られていなければ 404。あとで もういちど）
+      n++;
+      const r = await fetch(obj(id).replace('/object/', '/object/authenticated/'), { headers: auth });
+      if (!r.ok) continue;
+      const blob = await r.blob();
+      const url = await new Promise((res, rej) => { const fr = new FileReader(); fr.onload = () => res(fr.result); fr.onerror = rej; fr.readAsDataURL(blob); });
+      await ph.putData(id, url);
+      up.add(id); keep(); got++;
+    }
+  }
+  // 一覧から消えた写真は、クラウドからも消す（この端末が送った・もらったものだけ）
+  for (const id of [...up]) {
+    if (want.has(id)) continue;
+    const r = await fetch(`${BASE_URL}/storage/v1/object/manabi-photos`, { method: 'DELETE', headers: { ...auth, 'content-type': 'application/json' },
+      body: JSON.stringify({ prefixes: [`${a.user.id}/${id}.jpg`] }) }).catch(() => null);
+    if (r?.ok) { up.delete(id); keep(); }
+  }
+  if (got) window.dispatchEvent(new CustomEvent('manabi-photos-synced', { detail: got }));
+  if (n >= PHOTO_STEP) later(1500); // のこりは すこし あとで
 }
 
 // ---- いつ そろえるか -----------------------------------------------------------
