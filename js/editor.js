@@ -32,7 +32,7 @@ const CSS = `
 .wedit button.on, .wedit-sub button.on { background: #8aa66a; color: #fff; border-color: #6f8c52; }
 .wedit button[disabled] { opacity: 0.45; cursor: default; }
 .wedit .fab { display: grid; place-items: center; gap: 3px; padding: 8px 4px; font-size: 12px; }
-.wedit .fab svg { width: 24px; height: 24px; }
+.wedit .fab svg { width: 30px; height: 30px; }
 .wedit .tools { display: flex; flex-direction: column; gap: 5px; }
 .wedit .tools[hidden] { display: none; }
 .wedit .row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 5px; }
@@ -85,7 +85,7 @@ export function createEditor({ container, scene, cut, wind, pick, rotate }) {
   root.hidden = true;
   root.innerHTML = `
     <button type="button" class="fab" data-a="toggle" aria-label="つくる">
-      <svg viewBox="0 0 32 32" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M16 28V14"/><path d="M16 17c-5 0-8-3-8-8 5 0 8 3 8 8z"/><path d="M16 14c0-4 2.5-7 7-7 0 4-2.5 7-7 7z"/></svg>
+      <svg class="mk-ic" viewBox="0 0 48 48" aria-hidden="true"><path class="mk-k" d="M24 41V22"/><path class="mk-k mk-fa" d="M24 26c-8 0-12.5-4.5-12.5-12 7.5 0 12.5 4.5 12.5 12z"/><path class="mk-k mk-fa" d="M24 22c0-6 4-10.5 11-10.5 0 6-4 10.5-11 10.5z"/></svg>
       <span>つくる</span>
     </button>
     <div class="tools" hidden>
