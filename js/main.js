@@ -37,23 +37,29 @@ let world = null;
 const fill = (el, ...kids) => el.replaceChildren(...kids.flat().filter((k) => k != null && k !== false));
 let tab = 'home';
 
-// 起動画面は草原ができたら消す。おそくても4秒で消す
+// 起動画面は、勉強の画面ができたらすぐ消す。3Dの草原は そのあと裏で読み込む（起動を早くするため）
 const splash = document.getElementById('splash');
 function hideSplash() {
   if (!splash || splash.classList.contains('gone')) return;
   splash.classList.add('gone');
   setTimeout(() => splash.remove(), 500);
 }
-setTimeout(hideSplash, 4000);
-
-// 3D は読み込みに失敗してもアプリ自体は使えるようにする
-import('./world.js')
-  .then((m) => {
-    world = m.createWorld(document.getElementById('world'));
-    world.setActive(tab === 'home');
-    requestAnimationFrame(() => setTimeout(hideSplash, 300));
-  })
-  .catch(() => { document.getElementById('world').classList.add('no-3d'); hideSplash(); });
+const worldEl = document.getElementById('world');
+worldEl.classList.add('loading');
+requestAnimationFrame(() => setTimeout(() => {
+  hideSplash();
+  // 起動画面が消えて 勉強の画面が見えてから、草原を作りはじめる
+  setTimeout(() => {
+    import('./world.js')
+      .then((m) => {
+        world = m.createWorld(worldEl);
+        world.setActive(tab === 'home');
+        requestAnimationFrame(() => worldEl.classList.replace('loading', 'ready'));
+      })
+      // 3D は読み込みに失敗してもアプリ自体は使えるようにする
+      .catch(() => { worldEl.classList.remove('loading'); worldEl.classList.add('no-3d'); });
+  }, 450);
+}, 150));
 
 // オフラインでも開けるようにする（https か localhost のときだけ動く）
 if ('serviceWorker' in navigator) {
