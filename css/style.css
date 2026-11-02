@@ -1147,3 +1147,4 @@ body:not([data-tab="home"]) .world.loading::after { display: none; }
 .chat.ask .chat-choices { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; }
 .chat.ask .chat-choices .pick { flex-shrink: 0; white-space: nowrap; font-size: 14px; padding: 6px 12px; }
 .chat-input input:focus { outline: 2px solid var(--accent); outline-offset: 0; }
+.scan-row input.need { border-color: #e5604d; background: #fff1ee; }

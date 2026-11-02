@@ -1,7 +1,7 @@
 // プリントや範囲の写真を、アプリで撮る（または えらぶ）→ ピヨ先生（AI・Haiku）が読み取って → 予定にする。
 // 写真は小さくしてから送る（1280px・JPEG）。送った写真はアプリには残さない。
-import { h, toast, daysLabel } from './ui.js';
-import { today, addItem, daysUntil, gradeLabel, SUBJECTS } from './store.js';
+import { h, toast } from './ui.js';
+import { today, addItem, gradeLabel, SUBJECTS } from './store.js';
 import { askAI, aiErrorText } from './ai.js';
 import { buildSteps } from './planner.js';
 import { icon } from './icons.js';
@@ -55,18 +55,20 @@ export function scanButton(p, deps) {
 
 // 読み取った予定を見せて、チェックしたものだけ入れる（まちがいは直せる）
 function openConfirm(p, items, note, deps) {
-  const rows = items.map((it) => ({ ...it, on: true }));
+  // 受け口から ちがう教科名が来ても、アプリの教科にそろえる
+  const canon = (s) => (SUBJECTS.includes(s) ? s : /算数|数学/.test(s) ? '算数・数学' : 'その他');
+  const rows = items.map((it) => ({ ...it, subject: canon(String(it.subject || '')), on: true }));
   const list = h('ul', { class: 'scan-list' });
   const close = () => sheet.remove();
   const draw = () => list.replaceChildren(...rows.map((r) => {
-    const subject = h('select', {}, [...new Set([...SUBJECTS, r.subject])].map((s) => h('option', { value: s, selected: s === r.subject || null }, s)));
+    const subject = h('select', {}, SUBJECTS.map((s) => h('option', { value: s, selected: s === r.subject || null }, s)));
     subject.onchange = () => { r.subject = subject.value; };
     const title = h('input', { type: 'text', value: r.title, maxlength: 40 });
     title.oninput = () => { r.title = title.value; };
     const range = h('input', { type: 'text', value: r.range, placeholder: 'はんい（p.40〜52）', maxlength: 40 });
     range.oninput = () => { r.range = range.value; };
     const date = h('input', { type: 'date', value: r.date });
-    date.onchange = () => { if (date.value) r.date = date.value; };
+    date.onchange = () => { r.date = date.value; date.classList.toggle('need', !date.value); };
     return h('li', { class: `scan-row ${r.on ? '' : 'off'}` },
       h('label', { class: 'scan-on' },
         h('input', { type: 'checkbox', checked: r.on || null, onchange: (e) => { r.on = e.target.checked; draw(); } }),
@@ -81,7 +83,9 @@ function openConfirm(p, items, note, deps) {
       note ? h('p', { class: 'scan-note' }, note) : null,
       list,
       h('button', { class: 'btn primary', onclick: () => {
-        const ok = rows.filter((r) => r.on && r.title.trim() && r.date);
+        const picked = rows.filter((r) => r.on);
+        if (picked.some((r) => !r.title.trim() || !r.date)) { toast('名前と日にちを 入れてね（いれないものは チェックをはずす）', 3500); return; }
+        const ok = picked;
         ok.forEach((r) => addItem(p, { type: r.type, subject: r.subject, title: r.title.trim(), range: r.range.trim(), date: r.date }));
         close();
         deps.render();
