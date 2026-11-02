@@ -441,10 +441,25 @@ export function createMeadow(scene) {
   scene.add(ground, clouds, grass, flowers, plants, motes, butterflies);
   makeTrees().forEach((t) => scene.add(t));
 
+  // 画質: 'low' のときは、草・花・光のつぶを少なくする（かずは前もって多めに作っておいて、見せる数だけ変える）
+  const lowable = [];
+  grass.userData.q = 0.4; lowable.push(grass);
+  flowers.traverse((o) => { if (o.isInstancedMesh) { o.userData.q = 0.4; lowable.push(o); } });
+  plants.traverse((o) => { if (o.isInstancedMesh) { o.userData.q = 0.45; lowable.push(o); } });
+  function setQuality(q) {
+    for (const m of lowable) {
+      if (m.userData.full == null) m.userData.full = m.count;
+      m.count = q === 'low' ? Math.ceil(m.userData.full * m.userData.q) : m.userData.full;
+    }
+    const fullPts = motes.geometry.attributes.position.count;
+    motes.geometry.setDrawRange(0, q === 'low' ? Math.floor(fullPts / 2) : fullPts);
+  }
+
   return {
     ground,
     cut,
     wind,
+    setQuality,
     update(dt, t, actorPos, camPos) {
       wind.uTime.value = t;
       wind.uActor.value.copy(actorPos);
