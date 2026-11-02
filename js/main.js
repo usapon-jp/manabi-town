@@ -22,7 +22,7 @@ import { askAI, aiLeft, DAY_LIMIT } from './ai.js';
 import { recordResults, dueReview, startReview, reviewStats, REVIEW_PER_CORRECT } from './review.js';
 import { openTestEntry, openWeak, startWeak, testHistory } from './tests.js';
 import { openPlanChat, startCheck, summary as planSummary, PLAN_BONUS } from './coach.js';
-import { isAdult, todayRoutines, toggleRoutine, renderRoutineTab, consultCta, openConsult, ROUTINE_POINTS, ADULT_SUBJECTS } from './adult.js';
+import { isAdult, todayRoutines, checkRoutine, renderRoutineTab, consultCta, openConsult, ROUTINE_POINTS, ADULT_SUBJECTS } from './adult.js';
 
 const POINTS_HOMEWORK = 20;
 const POINTS_TEST = 50;
@@ -256,9 +256,8 @@ function homeTasks(p) {
 function toggleTask(p, t) {
   if (t.kind === 'daily') { show('quest'); return; }
   if (t.kind === 'routine') {
-    const on = toggleRoutine(p, t.r);
-    if (on) { lastDone = t.label; gain(p, ROUTINE_POINTS, `ルーティーン: ${t.label}`); } else { lastDone = ''; addPoints(p, -ROUTINE_POINTS, `とりけし: ${t.label}`); }
-    save();
+    const on = checkRoutine(p, t.r, { gain, addPoints, render: () => render() });
+    lastDone = on ? t.label : '';
     render();
     return;
   }
