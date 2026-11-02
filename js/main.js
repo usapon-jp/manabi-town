@@ -8,6 +8,7 @@ import { parseImport } from './importer.js';
 import { h, toast, daysLabel } from './ui.js';
 import { todayTasks, completeStep, undoStep, buildSteps, migrateHomework, urgentHomework } from './planner.js';
 import { startTutorial } from './tutorial.js';
+import { openRescue } from './rescue.js';
 import { bindControls } from './controls.js';
 import { levelInfo, totalXp, streak, week } from './progress.js';
 import { renderTimerTab, startTimer, resumeIfRunning, kindForItem, minutesOn } from './timer.js';
@@ -381,6 +382,8 @@ function dueCard(p, list) {
       h('div', { class: 'cells' }, cells),
       left && pages.length ? h('button', { class: 'btn small due-timer', onclick: () => startTimer(p, { kind: kindForItem(item), subject: item.subject, item, stepLabel: `p.${pages[done]} をやる` }, timerDeps) },
         icon('clock-3'), ` p.${pages[done]} を タイマーで はじめる`) : null,
+      left ? h('button', { class: 'btn small rescue-btn', onclick: () => openRescue(p, item, bonusDeps) },
+        icon('message-circle'), days < 0 ? ' おくれちゃった？ ピヨ先生と そうだん' : ' まにあわなそう？ ピヨ先生と そうだん') : null,
       left ? null : h('button', { class: 'btn small primary', onclick: () => {
         item.done = true;
         gain(p, POINTS_HOMEWORK, `宿題: ${item.title}`);
