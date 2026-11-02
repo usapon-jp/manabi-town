@@ -6,7 +6,7 @@ import { buildDaily, quizQuestions, POINTS_PER_CORRECT, CLEAR_BONUS } from './qu
 import { runQuestions } from './runner.js';
 import { parseImport } from './importer.js';
 import { h, toast, daysLabel } from './ui.js';
-import { todayTasks, completeStep, undoStep, buildSteps } from './planner.js';
+import { todayTasks, completeStep, undoStep, buildSteps, migrateHomework, urgentHomework } from './planner.js';
 import { startTutorial } from './tutorial.js';
 import { bindControls } from './controls.js';
 import { levelInfo, totalXp, streak, week } from './progress.js';
@@ -21,13 +21,17 @@ import { openTestEntry, openWeak, startWeak, testHistory } from './tests.js';
 const POINTS_HOMEWORK = 20;
 const POINTS_TEST = 50;
 const POINTS_STEP = 10;
+const POINTS_PAGE = 5;   // 宿題は1ページずつなので、1ページ5
+// ステップ1つのポイント
+const stepPoints = (item) => (item?.type === 'homework' && item.perPage ? POINTS_PAGE : POINTS_STEP);
 
 const panel = document.getElementById('panel');
 const hud = document.getElementById('hud');
 const bubble = document.getElementById('bubble');
 const pad = document.getElementById('pad');
 bindControls(pad);
-let cardOpen = false;   // ホームの「きょうのカード」。ふだんは小さなクエストマークだけ
+let cardOpen = null;    // ホームの「きょうのカード」。null=開いておく（とじたら小さなクエストマーク）
+let lastStamp = '';     // さっきスタンプをおしたマス（ポンと出す）
 let listOpen = false;
 let lastDone = '';
 const tabs = document.querySelectorAll('.tabs button');
@@ -130,7 +134,7 @@ const timerDeps = {
   completeStepFor(item, label) {
     completeStep(item);
     lastDone = label;
-    gain(currentProfile(), POINTS_STEP, `${item.title}: ${label}`);
+    gain(currentProfile(), stepPoints(item), `${item.title}: ${label}`);
     save();
     render();
   },
@@ -152,6 +156,8 @@ function show(next) {
 function render() {
   const p = currentProfile();
   if (!p) { renderWelcome(); return; }
+  // むかしの宿題（3ページで1ステップ）をページ単位に
+  if (p.items.map(migrateHomework).some(Boolean)) save();
   const lv = levelInfo(totalXp(p));
   const st = streak(p);
   const bonusN = bonusCount(p);
@@ -216,24 +222,27 @@ function profileForm(message, label) {
 
 // きょうやることを1列に（クエストが先頭）
 function homeTasks(p) {
-  const tasks = [{ kind: 'daily', label: '漢字・英単語・算数クエスト', tag: 'まいにち', done: !!p.daily[today()] }];
-  todayTasks(p.items).forEach(({ item, steps }) => steps.forEach((st) => tasks.push({
+  const daily = { kind: 'daily', label: '漢字・英単語・算数クエスト', tag: 'まいにち', done: !!p.daily[today()] };
+  const steps = [];
+  todayTasks(p.items).forEach(({ item, steps: list }) => list.forEach((st) => steps.push({
     kind: 'step', item, st, label: st.label, done: st.done,
     tag: `${item.subject}${item.type === 'test' ? 'テスト' : item.type === 'goal' ? '目標' : '宿題'}`,
   })));
-  return tasks;
+  // きょう提出（すぎたものも）の宿題は、クエストより先に
+  const due = (t) => t.item.type === 'homework' && daysUntil(t.item.date) <= 0;
+  return [...steps.filter(due), daily, ...steps.filter((t) => !due(t))];
 }
 
 // チェックをつける・もどす
 function toggleTask(p, t) {
   if (t.kind === 'daily') { show('quest'); return; }
   if (t.done) {
-    if (undoStep(t.item)) addPoints(p, -POINTS_STEP, `とりけし: ${t.item.title}`);
+    if (undoStep(t.item)) addPoints(p, -stepPoints(t.item), `とりけし: ${t.item.title}`);
     lastDone = '';
   } else {
     completeStep(t.item);
     lastDone = t.label;
-    gain(p, POINTS_STEP, `${t.item.title}: ${t.label}`);
+    gain(p, stepPoints(t.item), `${t.item.title}: ${t.label}`);
   }
   save();
   render();
@@ -279,6 +288,9 @@ function renderHome(p) {
   else if (doneCount === 0) words = `${hello}${!st.doneToday && st.n > 0 ? `1こやると ${st.n + 1}日れんぞく！` : 'まずは1こだけ やってみよう'}`;
   else if (lastDone) words = `「${lastDone}」できたね！ あと${tasks.length - doneCount}こ`;
   else words = `いいちょうし！ あと${tasks.length - doneCount}こ`;
+  const urgent = urgentHomework(p.items);
+  const first = urgent.find((u) => u.done < u.total && u.days <= 0);
+  if (first && !lastDone) words = `${first.item.title}は ${first.days < 0 ? 'ていしゅつ日を すぎてるよ' : 'きょう ていしゅつ'}！ ${first.pages.length ? `p.${first.pages[first.done]}から やろう` : 'いまから やろう'}`;
 
   const toggle = (t) => toggleTask(p, t);
 
@@ -303,19 +315,22 @@ function renderHome(p) {
       h('span', { class: 'chip soft' }, t.tag), ` ${t.label}`,
       t.item ? h('small', {}, ` ${daysLabel(daysUntil(t.item.date))}`) : null))));
 
-  bubble.classList.toggle('mini', !cardOpen);
+  const open = cardOpen ?? true;   // ふだんは開いておく（きょうやることを いちばん上に）
+  bubble.classList.toggle('mini', !open);
   const left = tasks.length - doneCount;   // まだ終わっていない、きょうのクエストの数
   fill(bubble,
     h('button', { class: 'quest-mark', 'aria-label': left ? `きょうのクエスト あと${left}こ` : 'きょうのクエスト ぜんぶおわり', onclick: () => { cardOpen = true; render(); } },
       icon('book-open'),
       left ? h('span', { class: 'quest-badge' }, String(left)) : null),
-    h('div', { class: 'card-body' }, h('div', { class: 'coach' },
+    h('div', { class: 'card-body' },
+      bar,
+      dueCard(p, urgent),
+      h('div', { class: 'coach' },
       h('button', { class: 'coach-face', 'aria-label': 'きょうのおすすめ', onclick: () => bonusDeps.openRecommend() },
         h('img', { src: 'assets/icons/icon-192.png', alt: '', width: 40, height: 40 })),
       h('p', {}, words),
       h('button', { class: 'fold', 'aria-label': 'とじる', onclick: () => { cardOpen = false; render(); } }, icon('x'))),
     h('div', { class: 'today-body' },
-      bar,
       goBtn,
       stamps,
       h('details', { class: 'all-tasks', open: listOpen || null, ontoggle: (e) => { listOpen = e.target.open; } },
@@ -324,6 +339,49 @@ function renderHome(p) {
         h('button', { class: 'btn small', 'data-tour': 'add', onclick: () => show('todo') }, '＋ テスト・宿題・目標')),
     )),
   );
+}
+
+// いそぎの宿題（きょう・あした提出、すぎたもの）。1ページ1マスで、できたらタップしてスタンプ
+function dueCard(p, list) {
+  if (!list.length) return null;
+  return h('div', { class: 'due-list' }, list.map((u) => {
+    const { item, pages, total, done, doneToday, days } = u;
+    const left = total - done;
+    const head = days < 0 ? `${-days}日 すぎてる！` : days === 0 ? 'きょう ていしゅつ！' : 'あした ていしゅつ';
+    const sub = left
+      ? (pages.length ? `p.${pages[done]} から・あと ${left}ページ` : 'まだ おわってないよ')
+      : 'ぜんぶ できた！ わすれずに だそう';
+    const stamp = () => {
+      const label = pages.length ? `p.${pages[done]}` : item.title;
+      lastStamp = `${item.id}:${done}`;
+      setTimeout(() => { lastStamp = ''; }, 700);
+      toggleTask(p, { kind: 'step', item, label, done: false });
+      if (done + 1 >= total) toast(`${item.title} ぜんぶ できた！`);
+    };
+    const undo = () => { lastStamp = ''; toggleTask(p, { kind: 'step', item, label: '', done: true }); };
+    const cells = (pages.length ? pages : [null]).map((n, idx) => {
+      const on = idx < done;
+      const canUndo = on && idx === done - 1 && doneToday > 0;
+      return h('button', {
+        class: `cell ${on ? 'on' : ''} ${idx === done ? 'next' : ''} ${lastStamp === `${item.id}:${idx}` ? 'pop' : ''}`,
+        'aria-label': on ? (canUndo ? `${n ?? ''} もどす` : `${n ?? ''} できた`) : `${n ?? ''} できたら タップ`,
+        onclick: () => (on ? (canUndo ? undo() : null) : stamp()),
+      }, on ? icon('check') : h('span', {}, n ?? 'できた'));
+    });
+    return h('div', { class: `due ${days <= 0 && left ? 'hot' : ''} ${left ? '' : 'clear'}` },
+      h('div', { class: 'due-head' },
+        h('span', { class: 'due-when' }, head),
+        h('b', { class: 'due-title' }, item.title),
+        h('span', { class: 'due-count' }, `${done} / ${total}`)),
+      h('p', { class: 'due-sub' }, sub),
+      h('div', { class: 'cells' }, cells),
+      left ? null : h('button', { class: 'btn small primary', onclick: () => {
+        item.done = true;
+        gain(p, POINTS_HOMEWORK, `宿題: ${item.title}`);
+        save();
+        render();
+      } }, 'だした！ ', icon('sprout'), `+${POINTS_HOMEWORK}`));
+  }));
 }
 
 // 1つのステップに集中する小さな画面（やったら「できた！」）

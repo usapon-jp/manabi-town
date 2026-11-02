@@ -783,7 +783,7 @@ button.go:active { transform: scale(0.97); animation: none; }
     padding: 10px 12px;
   }
   body.menu-open .bubble { left: calc(var(--rail) + 12px); }
-  .bubble .today-bar, .bubble .week, .bubble .all-tasks { display: none; }
+  .bubble .week, .bubble .all-tasks { display: none; }
   .bubble .today-body { margin-top: 8px; }
   .coach p { font-size: 14px; }
   .coach img { width: 34px; height: 34px; }
@@ -994,3 +994,32 @@ body:not([data-tab="home"]) .world.loading::after { display: none; }
 .world.loading canvas { opacity: 0; }
 .toast { white-space: normal; width: max-content; max-width: calc(100vw - 32px); border-radius: 18px; text-align: center; line-height: 1.5; font-weight: 500; }
 .data-out { width: 100%; font-size: 12px; font-family: ui-monospace, monospace; }
+
+/* ---- いそぎの宿題（きょう・あした提出）: 1ページ1マス、できたらスタンプ ---- */
+.card-body > .today-bar { margin-bottom: 12px; }
+.due-list { display: grid; gap: 10px; margin-bottom: 12px; }
+.due { background: #fff; border: 2px solid var(--line); border-radius: 16px; padding: 10px 12px 12px; }
+.due.hot { border-color: #eaa38f; background: #fff6f1; }
+.due.clear { border-color: var(--leaf); background: #f4f8ea; }
+.due-head { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.due-when { font-size: 13px; font-weight: 700; color: #fff; background: #8a735d; border-radius: 999px; padding: 3px 10px; }
+.due.hot .due-when { background: #e5604d; }
+.due.clear .due-when { background: var(--accent); }
+.due-title { flex: 1; min-width: 0; font-size: 17px; font-weight: 700; color: var(--navy); }
+.due-count { font-size: 15px; font-weight: 700; color: var(--ink-soft); }
+.due-sub { margin: 6px 0 8px !important; font-size: 15px; font-weight: 500; color: var(--ink); line-height: 1.5 !important; }
+.cells { display: grid; grid-template-columns: repeat(auto-fill, minmax(44px, 1fr)); gap: 6px; }
+.cell {
+  aspect-ratio: 1; max-width: 100%; display: grid; place-items: center; padding: 0; cursor: pointer;
+  font: inherit; font-size: 13px; font-weight: 500; color: var(--ink-soft);
+  background: #fffdf7; border: 2px dashed #d9c6a4; border-radius: 12px;
+  -webkit-tap-highlight-color: transparent;
+}
+.cell.next { border-style: solid; border-color: #e5604d; color: #c4503f; font-weight: 700; }
+.due:not(.hot) .cell.next { border-color: var(--accent); color: var(--accent-dark); }
+.cell.on { background: var(--accent); border: 2px solid var(--accent-dark); color: #fff; }
+.cell.on .ic { width: 24px; height: 24px; stroke-width: 3; }
+.cell.pop { animation: stamp-pop 0.45s cubic-bezier(.3,1.6,.5,1); }
+@keyframes stamp-pop { 0% { transform: scale(1.6) rotate(-14deg); opacity: 0.2; } 100% { transform: none; opacity: 1; } }
+.cell:active { transform: scale(0.92); }
+.due .btn { margin-top: 10px; width: 100%; }
