@@ -379,6 +379,8 @@ function dueCard(p, list) {
         h('span', { class: 'due-count' }, `${done} / ${total}`)),
       h('p', { class: 'due-sub' }, sub),
       h('div', { class: 'cells' }, cells),
+      left && pages.length ? h('button', { class: 'btn small due-timer', onclick: () => startTimer(p, { kind: kindForItem(item), subject: item.subject, item, stepLabel: `p.${pages[done]} をやる` }, timerDeps) },
+        icon('clock-3'), ` p.${pages[done]} を タイマーで はじめる`) : null,
       left ? null : h('button', { class: 'btn small primary', onclick: () => {
         item.done = true;
         gain(p, POINTS_HOMEWORK, `宿題: ${item.title}`);
