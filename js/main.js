@@ -1,6 +1,6 @@
 import {
   GRADES, SUBJECTS, getState, currentProfile, addProfile, switchProfile, updateProfile,
-  addPoints, addItem, removeItem, addQuiz, removeQuiz, gradeBucket, gradeLabel, today, daysUntil, save,
+  addPoints, addItem, removeItem, addQuiz, removeQuiz, gradeBucket, gradeLabel, today, daysUntil, save, exportData, importData,
 } from './store.js';
 import { buildDaily, quizQuestions, POINTS_PER_CORRECT, CLEAR_BONUS } from './quests.js';
 import { runQuestions } from './runner.js';
@@ -60,6 +60,27 @@ requestAnimationFrame(() => setTimeout(() => {
       .catch(() => { worldEl.classList.remove('loading'); worldEl.classList.add('no-3d'); });
   }, 450);
 }, 150));
+
+// クエスト・タイマー・シートで草原が かくれている間は、3Dの描画を止める（電池と発熱のため）
+function covered() { return document.body.classList.contains('running') || !!document.querySelector('.timer-run, .sheet'); }
+let wasCovered = false;
+new MutationObserver(() => {
+  const c = covered();
+  if (c === wasCovered) return;
+  wasCovered = c;
+  world?.setActive(tab === 'home' && !c);
+}).observe(document.body, { childList: true, attributes: true, attributeFilter: ['class'] });
+
+// 保存まわりのお知らせ
+let saveWarned = 0;
+window.addEventListener('manabi-save-error', () => {
+  if (Date.now() - saveWarned < 60000) return; // 1分に1回まで
+  saveWarned = Date.now();
+  toast('ほぞんできなかったよ。おうちの人に「せってい」の「データを書き出す」を おねがいしてね', 6000);
+});
+window.addEventListener('manabi-restored', () => toast('データがこわれていたので、きのうまでの分に もどしたよ', 6000));
+// ほかのタブで進んだら、こちらの画面も新しくする
+window.addEventListener('manabi-synced', () => render());
 
 // オフラインでも開けるようにする（https か localhost のときだけ動く）
 if ('serviceWorker' in navigator) {
@@ -151,7 +172,7 @@ function render() {
   document.body.dataset.tab = tab;
   if (tab !== 'home') { document.body.classList.remove('menu-open'); menuBtn.replaceChildren(icon('menu')); }
   const home = tab === 'home';
-  world?.setActive(home);
+  world?.setActive(home && !covered());
   panel.hidden = home;
   bubble.hidden = !home;
   pad.hidden = !home;
@@ -472,6 +493,25 @@ function testCard(p) {
 }
 
 // ---- せってい ----------------------------------------------------------------
+// データの書き出し・もどす（保存できないとき、機種をかえるときに）
+function dataCard() {
+  const box = h('textarea', { class: 'data-out', rows: 3, placeholder: '書き出したデータを ここに貼ると もどせます' });
+  return h('details', { class: 'card form' },
+    h('summary', {}, 'データを書き出す・もどす（おうちの人むけ）'),
+    h('p', {}, '「書き出す」でデータをコピーします。メモなどに貼って とっておいてください。'),
+    h('div', { class: 'row' },
+      h('button', { class: 'btn', onclick: async () => {
+        const raw = exportData();
+        box.value = raw;
+        try { await navigator.clipboard.writeText(raw); toast('コピーしたよ'); } catch (e) { box.select(); toast('下の文字を ぜんぶ コピーしてね'); }
+      } }, '書き出す'),
+      h('button', { class: 'btn', onclick: () => {
+        if (!box.value.trim()) { toast('書き出したデータを 貼ってね'); return; }
+        if (importData(box.value)) { toast('もどしたよ'); render(); } else toast('読めないデータだったよ');
+      } }, 'もどす')),
+    box);
+}
+
 // AI（ピヨ先生のヒント）が使えるか、おうちの人が確認するところ
 function aiCard() {
   const status = h('p', { class: 'ai-status' }, `ヒントは 1日 ${DAY_LIMIT}回まで（のこり ${aiLeft()}回）`);
@@ -528,6 +568,7 @@ function renderSettings(p) {
     ),
 
     aiCard(),
+    dataCard(),
 
     h('div', { class: 'card form' },
       h('h3', {}, 'つかう人をかえる'),

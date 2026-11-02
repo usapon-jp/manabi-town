@@ -69,7 +69,7 @@ export function runQuestions(title, questions, onFinish) {
       kind = 'number';
       answerArea = h('div', { class: 'math-area' },
         memoArea(pads),
-        numberPad((value) => judge(value === q.answer, String(q.answer).replace('-', '−'))));
+        numberPad((value) => judge(Math.abs(value - q.answer) < 1e-9, String(q.answer).replace('-', '−')), q.answer));
     }
 
     const dots = h('div', { class: 'dots', 'aria-hidden': 'true' },
@@ -189,11 +189,13 @@ function memoArea(pads) {
     pad.el);
 }
 
-function numberPad(onSubmit) {
+function numberPad(onSubmit, answer = 0) {
   let text = '';
   const display = h('div', { class: 'pad-display' }, '　');
   const ok = h('button', { class: 'btn primary pad-ok', disabled: true }, 'こたえる');
-  const keys = ['7', '8', '9', '⌫', '4', '5', '6', '−', '1', '2', '3', '0'];
+  // 答えが小数の問題（とりこんだ小テストなど）は、−のかわりに 小数点 を出す
+  const decimal = !Number.isInteger(Number(answer)) && Number(answer) >= 0;
+  const keys = ['7', '8', '9', '⌫', '4', '5', '6', decimal ? '.' : '−', '1', '2', '3', '0'];
   let locked = false;
 
   function update() {
@@ -205,6 +207,7 @@ function numberPad(onSubmit) {
     if (locked) return;
     if (k === '⌫') text = text.slice(0, -1);
     else if (k === '−') text = text.startsWith('−') ? text.slice(1) : `−${text}`;
+    else if (k === '.') { if (!text.includes('.')) text = `${text || '0'}.`; }
     else if (text.replace('−', '').length < 7) text += k;
     update();
   } }, k)));

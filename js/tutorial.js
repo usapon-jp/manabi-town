@@ -47,7 +47,9 @@ export function startTutorial({ show, onDone }) {
   const onResize = () => place();
   window.addEventListener('resize', onResize);
 
+  let ended = false; // おわったあとに、予約していた位置合わせが動かないように
   function place() {
+    if (ended || i >= STEPS.length) return;
     const step = STEPS[i];
     document.body.classList.toggle('touring', step.tap === 'target'); // 横向きでもタブを出す
     const el = step.target();
@@ -108,6 +110,7 @@ export function startTutorial({ show, onDone }) {
       if (step.tap === 'any') { e.preventDefault(); e.stopPropagation(); }
       moving = true;
       setTimeout(() => {
+        if (ended) return;
         if (step.open) show(step.open);
         next();
       }, 60);
@@ -123,6 +126,8 @@ export function startTutorial({ show, onDone }) {
   document.addEventListener('pointerup', onPointer, true);
 
   function finish() {
+    if (ended) return;
+    ended = true;
     document.body.classList.remove('touring');
     document.removeEventListener('click', onTap, true);
     document.removeEventListener('pointerup', onPointer, true);
