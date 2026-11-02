@@ -3,49 +3,204 @@
 import * as THREE from 'three';
 import { heightAt } from './terrain.js';
 
+// ---- 道具 ---------------------------------------------------------------
+
 const mats = new Map();
+// 絵本らしいやわらかい色。かげでも色がくすまないよう、ほんのり自分でも光らせる
 const mat = (color, opts = {}) => {
   const key = color + JSON.stringify(opts);
-  if (!mats.has(key)) mats.set(key, new THREE.MeshLambertMaterial({ color, flatShading: true, ...opts }));
+  if (!mats.has(key)) mats.set(key, new THREE.MeshLambertMaterial({ color, emissive: color, emissiveIntensity: 0.24, ...opts }));
   return mats.get(key);
 };
+const glass = (() => new THREE.MeshBasicMaterial({ color: 0xffe6a6 }))();
+
 const box = (w, h, d, color, x = 0, y = 0, z = 0) => {
   const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat(color));
   m.position.set(x, y, z);
   return m;
 };
-const cyl = (rt, rb, h, color, x = 0, y = 0, z = 0, seg = 12) => {
+const cyl = (rt, rb, h, color, x = 0, y = 0, z = 0, seg = 16) => {
   const m = new THREE.Mesh(new THREE.CylinderGeometry(rt, rb, h, seg), mat(color));
   m.position.set(x, y, z);
   return m;
 };
-const cone = (r, h, color, x = 0, y = 0, z = 0, seg = 12) => {
+const cone = (r, h, color, x = 0, y = 0, z = 0, seg = 16) => {
   const m = new THREE.Mesh(new THREE.ConeGeometry(r, h, seg), mat(color));
   m.position.set(x, y, z);
   return m;
 };
+const ball = (r, color, x = 0, y = 0, z = 0) => {
+  const m = new THREE.Mesh(new THREE.SphereGeometry(r, 14, 10), mat(color));
+  m.position.set(x, y, z);
+  return m;
+};
+
+let dotTex = null;
+function softDot() {
+  if (dotTex) return dotTex;
+  const c = document.createElement('canvas');
+  c.width = c.height = 64;
+  const x = c.getContext('2d');
+  const g = x.createRadialGradient(32, 32, 0, 32, 32, 32);
+  g.addColorStop(0, 'rgba(255,255,255,1)');
+  g.addColorStop(0.5, 'rgba(255,255,255,0.5)');
+  g.addColorStop(1, 'rgba(255,255,255,0)');
+  x.fillStyle = g; x.fillRect(0, 0, 64, 64);
+  dotTex = new THREE.CanvasTexture(c);
+  return dotTex;
+}
+
+// 建物の足もとのやわらかいかげ
+function blob(rx, rz = rx, opacity = 0.32) {
+  const m = new THREE.Mesh(
+    new THREE.CircleGeometry(1, 28),
+    new THREE.MeshBasicMaterial({ color: 0x3f5a2a, map: softDot(), transparent: true, opacity, depthWrite: false }),
+  );
+  m.rotation.x = -Math.PI / 2;
+  m.scale.set(rx, rz, 1);
+  m.position.y = 0.05;
+  return m;
+}
+
+// ふわっとのぼる煙。g.userData.update から t を渡して動かす
+function smoke(x, y, z) {
+  const g = new THREE.Group();
+  g.position.set(x, y, z);
+  const puffs = [];
+  for (let i = 0; i < 4; i++) {
+    const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: softDot(), color: 0xffffff, transparent: true, depthWrite: false }));
+    g.add(s);
+    puffs.push(s);
+  }
+  g.userData.tick = (t) => puffs.forEach((s, i) => {
+    const k = (t * 0.22 + i / puffs.length) % 1;
+    s.position.set(Math.sin(k * 5 + i) * 0.12 + k * 0.5, k * 1.8, 0);
+    s.scale.setScalar(0.28 + k * 0.7);
+    s.material.opacity = Math.sin(k * Math.PI) * 0.55;
+  });
+  return g;
+}
+
+// 切り妻（山がたの）屋根。底がy=0、ひさしを少し出す
+function gable(width, depth, rise, color, over = 0.22) {
+  const g = new THREE.Group();
+  const half = width / 2 + over;
+  const rise2 = (rise * half) / (width / 2);
+  const len = Math.hypot(half, rise2);
+  const ang = Math.atan2(rise2, half);
+  const slabD = depth + over * 1.8;
+  const dark = new THREE.Color(color).multiplyScalar(0.78).getHex();
+  for (const side of [-1, 1]) {
+    const slab = box(len, 0.13, slabD, color);
+    slab.position.set((side * half) / 2, rise2 / 2 + 0.05, 0);
+    slab.rotation.z = -side * ang;
+    for (const u of [-0.32, 0, 0.32]) slab.add(box(0.07, 0.05, slabD * 0.99, dark, u * len, 0.08, 0)); // かわらのすじ
+    g.add(slab);
+  }
+  const ridge = cyl(0.09, 0.09, slabD + 0.04, dark, 0, rise2 + 0.1, 0, 8);
+  ridge.rotation.x = Math.PI / 2;
+  g.add(ridge);
+  return g;
+}
+
+// 山がたの壁（切り妻の三角）
+function gableWall(width, rise, color, z, depth = 0.08) {
+  const shape = new THREE.Shape();
+  shape.moveTo(-width / 2, 0); shape.lineTo(width / 2, 0); shape.lineTo(0, rise); shape.closePath();
+  const m = new THREE.Mesh(new THREE.ExtrudeGeometry(shape, { depth, bevelEnabled: false }), mat(color));
+  m.position.z = z - depth / 2;
+  return m;
+}
+
+// まどわく・まど・よろい戸・花ばこ（正面むき）
+function windowAt(g, x, y, z, w, h, shutter = 0x7fb8a4, flowers = true) {
+  g.add(box(w + 0.12, h + 0.12, 0.05, 0xffffff, x, y, z));
+  g.add(box(w, h, 0.07, 0xffe6a6, x, y, z + 0.01)).children.at(-1).material = glass;
+  g.add(box(0.035, h, 0.08, 0xffffff, x, y, z + 0.02), box(w, 0.035, 0.08, 0xffffff, x, y, z + 0.02));
+  g.add(box(w * 0.42, h + 0.1, 0.05, shutter, x - w * 0.75, y, z), box(w * 0.42, h + 0.1, 0.05, shutter, x + w * 0.75, y, z));
+  if (flowers) {
+    g.add(box(w * 1.2, 0.14, 0.18, 0xa56b46, x, y - h / 2 - 0.1, z + 0.1));
+    const cols = [0xff8fb3, 0xfff08a, 0xffffff, 0xc7a6ff];
+    for (let i = 0; i < 5; i++) {
+      g.add(ball(0.075, cols[i % 4], x + (i - 2) * w * 0.24, y - h / 2 + 0.04, z + 0.12));
+      g.add(ball(0.06, 0x62b35a, x + (i - 2) * w * 0.24 + 0.05, y - h / 2 - 0.02, z + 0.12));
+    }
+  }
+}
+
+function archDoor(g, x, y, z, w, h, color = 0x9a6a4a) {
+  const rectH = h - w / 2;
+  g.add(box(w, rectH, 0.08, color, x, y + rectH / 2, z));
+  const arch = new THREE.Mesh(new THREE.CylinderGeometry(w / 2, w / 2, 0.08, 20, 1, false, Math.PI / 2, Math.PI), mat(color));
+  arch.rotation.x = Math.PI / 2;
+  arch.position.set(x, y + rectH, z);
+  g.add(arch);
+  g.add(box(0.05, h * 0.9, 0.09, 0x7a4c30, x, y + h * 0.45, z)); // まんなかの木目
+  g.add(ball(0.04, 0xffd45c, x + w * 0.3, y + h * 0.42, z + 0.06));
+}
+
+function bush(x, z, s = 1) {
+  const g = new THREE.Group();
+  g.add(ball(0.32 * s, 0x6fb35e, 0, 0.26 * s, 0), ball(0.25 * s, 0x83c46a, 0.28 * s, 0.2 * s, 0.1 * s), ball(0.22 * s, 0x78bb64, -0.25 * s, 0.18 * s, -0.05 * s));
+  for (let i = 0; i < 4; i++) g.add(ball(0.045 * s, [0xff8fb3, 0xfff08a][i % 2], (i - 1.5) * 0.14 * s, (0.3 + (i % 2) * 0.1) * s, 0.28 * s));
+  g.position.set(x, 0, z);
+  return g;
+}
 
 // ---- 建物 ---------------------------------------------------------------
 
-function house({ wall = 0xfff1d6, roof = 0xe86a5a, size = 2 } = {}) {
+function house({ wall = 0xfff0d8, roof = 0xe5705f, shutter = 0x7fb8a4, size = 2 } = {}) {
   const g = new THREE.Group();
-  const h = size * 0.85;
-  g.add(box(size, h, size, wall, 0, h / 2, 0));
-  const r = cone(size * 0.86, size * 0.7, roof, 0, h + size * 0.35, 0, 4);
-  r.rotation.y = Math.PI / 4;
-  g.add(r);
-  g.add(box(size * 0.24, size * 0.42, size * 0.24, 0xb8725a, size * 0.28, h + size * 0.45, -size * 0.1)); // えんとつ
-  g.add(box(size * 0.26, size * 0.46, 0.06, 0x9a6a4a, 0, size * 0.23, size / 2 + 0.02)); // とびら
-  for (const sx of [-1, 1]) {
-    g.add(box(size * 0.24, size * 0.24, 0.06, 0xbfe6ff, sx * size * 0.3, h * 0.58, size / 2 + 0.02));
-    g.add(box(size * 0.28, size * 0.04, 0.08, 0xffffff, sx * size * 0.3, h * 0.58 - size * 0.14, size / 2 + 0.03));
+  const w = size; const d = size * 1.15; const h = size * 0.78; const base = 0.16;
+  g.add(blob(size * 1.5, size * 1.6));
+  g.add(box(w + 0.1, base, d + 0.1, 0xbdb6a6, 0, base / 2, 0)); // 石のどだい
+  g.add(box(w, h, d, wall, 0, base + h / 2, 0));
+  // 木の柱とはり
+  const wood = 0x93603e;
+  for (const sx of [-1, 1]) for (const sz of [-1, 1]) g.add(box(0.1, h, 0.1, wood, sx * w / 2, base + h / 2, sz * d / 2));
+  g.add(box(w + 0.04, 0.09, d + 0.04, wood, 0, base + h * 0.98, 0));
+  g.add(box(w + 0.04, 0.07, d + 0.04, wood, 0, base + 0.05, 0));
+  // 屋根（山は前後むき）と山がたの壁
+  const rise = size * 0.55;
+  const roofG = gable(w, d, rise, roof);
+  roofG.position.y = base + h;
+  g.add(roofG);
+  for (const sz of [-1, 1]) {
+    const gw = gableWall(w, rise, wall, sz * d / 2);
+    gw.position.y = base + h;
+    g.add(gw);
   }
+  // 正面（+z）: とびら・まど
+  const z = d / 2 + 0.02;
+  archDoor(g, 0, base, z, size * 0.34, size * 0.62);
+  g.add(box(size * 0.5, 0.08, 0.3, 0xcfc8b8, 0, base + 0.04, z + 0.18));
+  windowAt(g, -w * 0.32, base + h * 0.58, z, size * 0.22, size * 0.28, shutter);
+  windowAt(g, w * 0.32, base + h * 0.58, z, size * 0.22, size * 0.28, shutter);
+  // 山がたの小まど
+  g.add(ball(0.12, 0xffe6a6, 0, base + h + rise * 0.4, z + 0.02)).children.at(-1).material = glass;
+  // よこのまど
+  for (const sx of [-1, 1]) {
+    const side = new THREE.Group();
+    windowAt(side, 0, base + h * 0.58, 0, size * 0.22, size * 0.28, shutter, false);
+    side.position.set(sx * (w / 2 + 0.02), 0, 0);
+    side.rotation.y = sx * Math.PI / 2;
+    g.add(side);
+  }
+  // えんとつと煙
+  g.add(box(0.3, 0.8, 0.3, 0xb9805f, w * 0.28, base + h + rise * 0.6, -d * 0.12));
+  g.add(box(0.38, 0.08, 0.38, 0x8c5f46, w * 0.28, base + h + rise * 0.6 + 0.42, -d * 0.12));
+  const sm = smoke(w * 0.28, base + h + rise * 0.6 + 0.5, -d * 0.12);
+  g.add(sm);
+  g.add(bush(-w * 0.7, z + 0.2, 1), bush(w * 0.72, z + 0.25, 0.85));
+  g.userData.update = (t) => sm.userData.tick(t);
   return g;
 }
 
 function signpost() {
   const g = new THREE.Group();
+  g.add(blob(0.7, 0.5, 0.25));
   g.add(cyl(0.07, 0.09, 1.9, 0x9a6a4a, 0, 0.95, 0, 8));
+  g.add(ball(0.1, 0xb98558, 0, 1.92, 0));
   const c = document.createElement('canvas');
   c.width = 512; c.height = 160;
   const x = c.getContext('2d');
@@ -57,61 +212,77 @@ function signpost() {
   tex.colorSpace = THREE.SRGBColorSpace;
   const board = new THREE.Mesh(new THREE.BoxGeometry(1.7, 0.53, 0.07), [
     mat(0xc98f4a), mat(0xc98f4a), mat(0xc98f4a), mat(0xc98f4a),
-    new THREE.MeshLambertMaterial({ map: tex }), mat(0xc98f4a),
+    new THREE.MeshLambertMaterial({ map: tex, emissive: 0xffffff, emissiveMap: tex, emissiveIntensity: 0.25 }), mat(0xc98f4a),
   ]);
   board.position.set(0, 1.6, 0.06);
   g.add(board);
+  g.add(bush(0.45, 0.2, 0.7), bush(-0.5, 0.15, 0.6));
   return g;
 }
 
 const BED_COLORS = [0xff8fb3, 0xfff08a, 0xffffff, 0xc7a6ff, 0xffb27a];
 function flowerbed() {
   const g = new THREE.Group();
-  g.add(cyl(1.6, 1.7, 0.16, 0x8a6a4d, 0, 0.08, 0, 24));
-  g.add(cyl(1.45, 1.45, 0.18, 0x6b4f3a, 0, 0.1, 0, 24));
+  g.add(blob(2.2, 2.2, 0.22));
+  g.add(cyl(1.6, 1.7, 0.22, 0xbdb6a6, 0, 0.11, 0, 24));
+  g.add(cyl(1.42, 1.42, 0.26, 0x6b4f3a, 0, 0.14, 0, 24));
   const heads = [];
-  for (let i = 0; i < 26; i++) {
+  for (let i = 0; i < 34; i++) {
     const a = i * 2.399;
-    const r = 0.25 + Math.sqrt(i / 26) * 1.1;
-    const s = cyl(0.015, 0.015, 0.4, 0x5fa34a, Math.cos(a) * r, 0.3, Math.sin(a) * r, 4);
-    const head = new THREE.Mesh(new THREE.IcosahedronGeometry(0.12, 0), mat(BED_COLORS[i % BED_COLORS.length]));
-    head.position.set(Math.cos(a) * r, 0.52, Math.sin(a) * r);
+    const r = 0.2 + Math.sqrt(i / 34) * 1.15;
+    const s = cyl(0.015, 0.015, 0.4, 0x5fa34a, Math.cos(a) * r, 0.32, Math.sin(a) * r, 4);
+    const head = new THREE.Mesh(new THREE.IcosahedronGeometry(0.13, 1), mat(BED_COLORS[i % BED_COLORS.length]));
+    head.position.set(Math.cos(a) * r, 0.55, Math.sin(a) * r);
     heads.push(head);
     g.add(s, head);
   }
-  g.userData.update = (t) => heads.forEach((h, i) => { h.position.y = 0.52 + Math.sin(t * 2 + i) * 0.03; });
+  g.userData.update = (t) => heads.forEach((h, i) => { h.position.y = 0.55 + Math.sin(t * 2 + i) * 0.03; });
   return g;
 }
 
 function pond() {
   const g = new THREE.Group();
   const water = new THREE.Mesh(
-    new THREE.CircleGeometry(2.4, 32),
-    new THREE.MeshLambertMaterial({ color: 0x6ec6e8, transparent: true, opacity: 0.92 }),
+    new THREE.CircleGeometry(2.4, 40),
+    new THREE.MeshLambertMaterial({ color: 0x7fd0ec, emissive: 0x4aa8cf, emissiveIntensity: 0.35, transparent: true, opacity: 0.93 }),
   );
   water.rotation.x = -Math.PI / 2;
-  water.position.y = 0.05;
+  water.position.y = 0.1;
   g.add(water);
-  for (let i = 0; i < 14; i++) {
-    const a = (i / 14) * Math.PI * 2;
-    const s = new THREE.Mesh(new THREE.IcosahedronGeometry(0.3 + (i % 3) * 0.08, 0), mat(0xb9b3a6));
-    s.position.set(Math.cos(a) * 2.45, 0.1, Math.sin(a) * 2.45);
-    s.scale.y = 0.6;
+  const shine = new THREE.Mesh(new THREE.CircleGeometry(1.2, 24), new THREE.MeshBasicMaterial({ color: 0xffffff, map: softDot(), transparent: true, opacity: 0.35, depthWrite: false }));
+  shine.rotation.x = -Math.PI / 2; shine.position.set(0.5, 0.12, -0.4);
+  g.add(shine);
+  for (let i = 0; i < 16; i++) {
+    const a = (i / 16) * Math.PI * 2;
+    const s = new THREE.Mesh(new THREE.IcosahedronGeometry(0.3 + (i % 3) * 0.09, 1), mat(0xc4beb0));
+    s.position.set(Math.cos(a) * 2.45, 0.12, Math.sin(a) * 2.45);
+    s.scale.y = 0.65;
     g.add(s);
   }
   const pads = [];
-  [[-0.8, 0.5], [0.7, -0.6], [0.9, 0.8]].forEach(([x, z]) => {
-    const p = new THREE.Mesh(new THREE.CircleGeometry(0.34, 12), mat(0x5fb86a, { side: THREE.DoubleSide }));
+  [[-0.8, 0.5], [0.7, -0.6], [0.9, 0.8], [-0.3, -0.9]].forEach(([x, z]) => {
+    const p = new THREE.Mesh(new THREE.CircleGeometry(0.36, 14), mat(0x5fb86a, { side: THREE.DoubleSide }));
     p.rotation.x = -Math.PI / 2;
-    p.position.set(x, 0.07, z);
+    p.position.set(x, 0.12, z);
     pads.push(p);
     g.add(p);
   });
-  const lotus = new THREE.Mesh(new THREE.IcosahedronGeometry(0.13, 0), mat(0xffb6d0));
-  lotus.position.set(0.7, 0.2, -0.6);
-  g.add(lotus);
+  [[0.7, -0.6, 0xffb6d0], [-0.8, 0.5, 0xffffff]].forEach(([x, z, c]) => {
+    for (let k = 0; k < 6; k++) {
+      const pet = cone(0.06, 0.2, c, x + Math.cos(k) * 0.1, 0.22, z + Math.sin(k) * 0.1, 6);
+      pet.rotation.z = Math.cos(k) * 0.5; pet.rotation.x = Math.sin(k) * 0.5;
+      g.add(pet);
+    }
+  });
+  // がまのほ
+  for (let i = 0; i < 6; i++) {
+    const a = 2.4 + i * 0.22;
+    const x = Math.cos(a) * 2.6; const z = Math.sin(a) * 2.6;
+    g.add(cyl(0.02, 0.025, 1.2 + (i % 3) * 0.2, 0x6fae56, x, 0.6, z, 5), cyl(0.05, 0.05, 0.28, 0x8a5a3c, x, 1.3 + (i % 3) * 0.2, z, 6));
+  }
   g.userData.update = (t) => {
-    water.material.opacity = 0.88 + Math.sin(t * 1.3) * 0.04;
+    water.material.opacity = 0.9 + Math.sin(t * 1.3) * 0.04;
+    shine.material.opacity = 0.3 + Math.sin(t * 0.9) * 0.1;
     pads.forEach((p, i) => { p.rotation.z = Math.sin(t * 0.6 + i) * 0.15; });
   };
   return g;
@@ -119,71 +290,133 @@ function pond() {
 
 function fence(length = 7) {
   const g = new THREE.Group();
-  const n = Math.round(length / 0.9);
+  const n = Math.round(length / 0.8);
   for (let i = 0; i <= n; i++) {
     const x = -length / 2 + (length / n) * i;
-    g.add(box(0.12, 0.7, 0.12, 0xf3e3c3, x, 0.35, 0));
+    g.add(box(0.14, 0.72, 0.07, 0xfaf0d6, x, 0.36, 0), cone(0.1, 0.16, 0xfaf0d6, x, 0.8, 0, 4));
   }
-  g.add(box(length, 0.08, 0.06, 0xe2cf9f, 0, 0.55, 0));
-  g.add(box(length, 0.08, 0.06, 0xe2cf9f, 0, 0.28, 0));
+  g.add(box(length, 0.08, 0.05, 0xe6d3a3, 0, 0.58, 0.05), box(length, 0.08, 0.05, 0xe6d3a3, 0, 0.26, 0.05));
   return g;
 }
 
 function windmill() {
   const g = new THREE.Group();
-  g.add(cyl(0.65, 1.0, 3.2, 0xfff1d6, 0, 1.6, 0, 10));
-  g.add(cone(0.95, 1.1, 0x6fa8dc, 0, 3.75, 0, 10));
-  g.add(box(0.5, 0.8, 0.06, 0x9a6a4a, 0, 0.4, 0.97));
+  g.add(blob(2.2, 2.2));
+  g.add(cyl(1.05, 1.15, 1.0, 0xc4beb0, 0, 0.5, 0, 20));                // 石の土台
+  g.add(cyl(0.68, 1.0, 2.6, 0xfff0d8, 0, 2.2, 0, 20));                 // 塔
+  g.add(cyl(0.72, 0.72, 0.1, 0x93603e, 0, 3.55, 0, 20));
+  g.add(cyl(0.7, 0.7, 0.08, 0x93603e, 0, 1.8, 0, 20));
+  const dome = new THREE.Mesh(new THREE.SphereGeometry(0.85, 20, 12, 0, Math.PI * 2, 0, Math.PI / 2), mat(0x6fa8dc));
+  dome.position.y = 3.58; dome.scale.set(1, 0.95, 1);
+  g.add(dome);
+  g.add(cone(0.12, 0.35, 0xffd45c, 0, 4.55, 0, 8));
+  // 正面（+z）
+  const door = new THREE.Group();
+  archDoor(door, 0, 0, 0, 0.55, 0.95);
+  door.position.set(0, 0.55, 1.1);
+  g.add(door);
+  const win = new THREE.Mesh(new THREE.CircleGeometry(0.17, 16), glass);
+  win.position.set(0, 2.5, 0.84);
+  g.add(win);
+  const ring = new THREE.Mesh(new THREE.TorusGeometry(0.17, 0.035, 8, 20), mat(0x93603e));
+  ring.position.set(0, 2.5, 0.85);
+  g.add(ring);
   const blades = new THREE.Group();
-  blades.position.set(0, 3.2, 0.85);
-  blades.add(cyl(0.12, 0.12, 0.3, 0x9a6a4a, 0, 0, 0.05, 8).rotateX(Math.PI / 2));
+  blades.position.set(0, 3.1, 0.95);
+  blades.add(cyl(0.14, 0.14, 0.4, 0x93603e, 0, 0, 0.05, 10).rotateX(Math.PI / 2));
+  blades.add(ball(0.17, 0xffd45c, 0, 0, 0.3));
   for (let i = 0; i < 4; i++) {
     const arm = new THREE.Group();
     arm.rotation.z = (i * Math.PI) / 2;
-    arm.add(box(0.1, 2.5, 0.05, 0xd9b48a, 0, 1.3, 0));
-    arm.add(box(0.55, 1.5, 0.04, 0xffffff, 0.3, 1.5, 0.03));
+    arm.add(box(0.1, 2.7, 0.06, 0x93603e, 0, 1.4, 0));
+    const sail = box(0.62, 1.7, 0.03, 0xffffff, 0.36, 1.65, 0.04);
+    arm.add(sail);
+    for (let k = 0; k < 5; k++) arm.add(box(0.62, 0.03, 0.05, 0xd9b48a, 0.36, 0.85 + k * 0.4, 0.05));
+    arm.add(box(0.03, 1.7, 0.05, 0xd9b48a, 0.36, 1.65, 0.05));
     blades.add(arm);
   }
   g.add(blades);
-  g.userData.update = (t) => { blades.rotation.z = -t * 0.9; };
+  g.add(bush(-1.1, 1.0, 0.9), bush(1.15, 0.9, 0.8));
+  g.userData.update = (t) => { blades.rotation.z = -t * 0.8; };
   return g;
 }
 
 function school() {
   const g = new THREE.Group();
-  g.add(box(5.2, 2.2, 2.6, 0xfff3dc, 0, 1.1, 0));
-  g.add(box(5.5, 0.25, 2.9, 0xd9644f, 0, 2.3, 0));
-  g.add(box(1.5, 2.2, 1.5, 0xfff3dc, 0, 3.3, 0));
-  g.add(cone(1.25, 1.1, 0xd9644f, 0, 5.0, 0, 4).rotateY(Math.PI / 4));
-  const clock = new THREE.Mesh(new THREE.CircleGeometry(0.46, 24), mat(0xffffff));
-  clock.position.set(0, 3.4, 0.76);
-  g.add(clock);
-  g.add(box(0.05, 0.3, 0.02, 0x4a4a4a, 0, 3.5, 0.78), box(0.22, 0.05, 0.02, 0x4a4a4a, 0.08, 3.4, 0.78));
-  g.add(box(0.9, 1.3, 0.08, 0x9a6a4a, 0, 0.65, 1.32));
+  const wall = 0xfff0d8; const roof = 0xe5705f;
+  g.add(blob(4.6, 3.2, 0.3));
+  g.add(box(5.6, 0.2, 3.0, 0xbdb6a6, 0, 0.1, 0));
+  g.add(box(5.2, 2.1, 2.6, wall, 0, 1.25, 0));
+  const wood = 0x93603e;
+  for (const sx of [-2.6, 2.6]) g.add(box(0.14, 2.1, 0.14, wood, sx, 1.25, 1.3));
+  // 本棟の屋根（前後むき山がた）
+  const rise = 1.1;
+  const r1 = gable(5.2, 2.6, rise, roof, 0.3);
+  r1.position.y = 2.3;
+  g.add(r1);
+  for (const sz of [-1, 1]) { const gw = gableWall(5.2, rise, wall, sz * 1.3); gw.position.y = 2.3; g.add(gw); }
+  // まんなかの時計塔
+  g.add(box(1.5, 3.0, 1.5, wall, 0, 3.95, 0.3));
+  g.add(box(1.7, 0.14, 1.7, wood, 0, 5.52, 0.3));
+  const spire = cone(1.2, 1.7, roof, 0, 6.45, 0.3, 4);
+  spire.rotation.y = Math.PI / 4;
+  g.add(spire);
+  g.add(ball(0.13, 0xffd45c, 0, 7.35, 0.3));
+  const face = new THREE.Mesh(new THREE.CircleGeometry(0.5, 28), mat(0xffffff));
+  face.position.set(0, 4.6, 1.06);
+  g.add(face);
+  const rim = new THREE.Mesh(new THREE.TorusGeometry(0.5, 0.05, 8, 28), mat(wood));
+  rim.position.set(0, 4.6, 1.07);
+  g.add(rim);
+  const hand1 = box(0.05, 0.34, 0.02, 0x4a4a4a, 0, 4.7, 1.09);
+  const hand2 = box(0.04, 0.24, 0.02, 0x4a4a4a, 0, 4.6, 1.09);
+  g.add(hand1, hand2);
+  g.add(box(0.5, 0.55, 0.06, 0xffe6a6, 0, 5.1, 1.06)).children.at(-1).material = glass;
+  // げんかん
+  const door = new THREE.Group();
+  archDoor(door, 0, 0, 0, 0.95, 1.5);
+  door.position.set(0, 0.2, 1.33);
+  g.add(door);
+  g.add(box(2.0, 0.1, 0.6, 0xcfc8b8, 0, 0.25, 1.6), box(1.6, 0.1, 0.45, 0xd8d1c1, 0, 0.3, 1.65));
   for (const sx of [-1, 1]) {
-    for (const k of [1, 2]) {
-      g.add(box(0.7, 0.7, 0.06, 0xbfe6ff, sx * k * 1.0 + sx * 0.5, 1.25, 1.32));
-    }
+    windowAt(g, sx * 1.05, 1.35, 1.32, 0.42, 0.62, 0x7fb8a4, true);
+    windowAt(g, sx * 1.95, 1.35, 1.32, 0.42, 0.62, 0x7fb8a4, true);
   }
-  g.add(cyl(0.03, 0.03, 1.5, 0x8a8a8a, 2.9, 1.5, 1.3, 6));
-  const flag = box(0.7, 0.4, 0.03, 0xff7a7a, 3.25, 2.05, 1.3);
+  // 旗とばんてい（三角旗）
+  g.add(cyl(0.03, 0.03, 1.8, 0x8a8a8a, 3.1, 0.9, 1.5, 6));
+  const flag = box(0.8, 0.45, 0.03, 0xff7a7a, 3.5, 1.55, 1.5);
   g.add(flag);
+  const cols = [0xff8fb3, 0xfff08a, 0x8fd6f2, 0x9fe0a0, 0xc7a6ff, 0xffb27a];
+  for (let i = 0; i < 12; i++) {
+    const x = -2.5 + (i / 11) * 5;
+    const tri = new THREE.Mesh(new THREE.CircleGeometry(0.15, 3), mat(cols[i % cols.length], { side: THREE.DoubleSide }));
+    tri.rotation.z = Math.PI;
+    tri.position.set(x, 2.2 - Math.sin((i / 11) * Math.PI) * 0.25 + 0.0, 1.5);
+    g.add(tri);
+  }
+  g.add(bush(-2.9, 1.7, 1.1), bush(2.4, 1.85, 1.0), bush(-1.6, 1.9, 0.8));
   g.userData.update = (t) => { flag.rotation.y = Math.sin(t * 3) * 0.25; };
   return g;
 }
 
 function fountain() {
   const g = new THREE.Group();
-  g.add(cyl(1.9, 2.0, 0.5, 0xd9d4c7, 0, 0.25, 0, 24));
-  const water = new THREE.Mesh(new THREE.CircleGeometry(1.7, 24), new THREE.MeshLambertMaterial({ color: 0x8fd6f2 }));
+  g.add(blob(3, 3, 0.25));
+  g.add(cyl(1.95, 2.05, 0.55, 0xd9d4c7, 0, 0.27, 0, 32));
+  g.add(cyl(1.75, 1.75, 0.5, 0xe8e3d6, 0, 0.25, 0, 32));
+  const water = new THREE.Mesh(new THREE.CircleGeometry(1.72, 32), new THREE.MeshLambertMaterial({ color: 0x8fd6f2, emissive: 0x5ab8e0, emissiveIntensity: 0.4 }));
   water.rotation.x = -Math.PI / 2;
-  water.position.y = 0.46;
+  water.position.y = 0.56;
   g.add(water);
-  g.add(cyl(0.2, 0.3, 1.3, 0xd9d4c7, 0, 0.9, 0, 10));
-  g.add(cyl(0.7, 0.25, 0.2, 0xd9d4c7, 0, 1.55, 0, 16));
+  const ripple = new THREE.Mesh(new THREE.RingGeometry(0.3, 0.38, 32), new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.5, depthWrite: false }));
+  ripple.rotation.x = -Math.PI / 2; ripple.position.y = 0.58;
+  g.add(ripple);
+  g.add(cyl(0.2, 0.32, 1.1, 0xd9d4c7, 0, 1.05, 0, 14));
+  g.add(cyl(0.75, 0.25, 0.22, 0xd9d4c7, 0, 1.65, 0, 20));
+  g.add(ball(0.18, 0xe8e3d6, 0, 1.85, 0));
   const drops = [];
-  const dropMat = new THREE.MeshBasicMaterial({ color: 0xc9efff });
-  for (let i = 0; i < 24; i++) {
+  const dropMat = new THREE.MeshBasicMaterial({ color: 0xd9f3ff });
+  for (let i = 0; i < 30; i++) {
     const d = new THREE.Mesh(new THREE.SphereGeometry(0.06, 6, 4), dropMat);
     drops.push(d);
     g.add(d);
@@ -192,40 +425,122 @@ function fountain() {
     drops.forEach((d, i) => {
       const k = (t * 0.9 + i / drops.length) % 1;
       const a = (i / drops.length) * Math.PI * 2 * 3;
-      const out = Math.sin(k * Math.PI) * 0.55 + k * 0.9;
-      d.position.set(Math.cos(a) * out, 1.65 + Math.sin(k * Math.PI) * 1.1 - k * 0.8, Math.sin(a) * out);
+      const out = Math.sin(k * Math.PI) * 0.6 + k * 1.0;
+      d.position.set(Math.cos(a) * out, 1.95 + Math.sin(k * Math.PI) * 1.1 - k * 0.9, Math.sin(a) * out);
+    });
+    const k = (t * 0.5) % 1;
+    ripple.scale.setScalar(1 + k * 4);
+    ripple.material.opacity = 0.5 * (1 - k);
+  };
+  return g;
+}
+
+// 虹: やわらかくにじむ光のおび。いつもカメラのほうを向く。両はしに雲
+function rainbow() {
+  const g = new THREE.Group();
+  const bow = (inner, outer, alpha, flip) => new THREE.Mesh(
+    new THREE.RingGeometry(inner, outer, 128, 1, 0, Math.PI),
+    new THREE.ShaderMaterial({
+      transparent: true, depthWrite: false, side: THREE.DoubleSide, fog: false,
+      uniforms: { uIn: { value: inner }, uOut: { value: outer }, uAlpha: { value: alpha }, uFlip: { value: flip ? 1 : 0 } },
+      vertexShader: 'varying vec2 vP; void main(){ vP = position.xy; gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); }',
+      fragmentShader: `
+        varying vec2 vP; uniform float uIn; uniform float uOut; uniform float uAlpha; uniform float uFlip;
+        vec3 ramp(float t){
+          vec3 c0 = vec3(0.68,0.55,1.00); vec3 c1 = vec3(0.45,0.70,1.00); vec3 c2 = vec3(0.55,0.92,0.68);
+          vec3 c3 = vec3(1.00,0.93,0.45); vec3 c4 = vec3(1.00,0.70,0.40); vec3 c5 = vec3(1.00,0.50,0.55);
+          t *= 5.0;
+          if (t < 1.0) return mix(c0,c1,t); if (t < 2.0) return mix(c1,c2,t-1.0);
+          if (t < 3.0) return mix(c2,c3,t-2.0); if (t < 4.0) return mix(c3,c4,t-3.0);
+          return mix(c4,c5,t-4.0);
+        }
+        void main(){
+          float t = clamp((length(vP) - uIn) / (uOut - uIn), 0.0, 1.0);
+          if (uFlip > 0.5) t = 1.0 - t;
+          float edge = smoothstep(0.0, 0.28, t) * smoothstep(1.0, 0.72, t);   // ふちはふんわり消える
+          float foot = smoothstep(0.0, 0.22, vP.y / uOut);                    // 地面ちかくはすっと消える
+          gl_FragColor = vec4(ramp(t), edge * foot * uAlpha);
+          #include <colorspace_fragment>
+        }`,
+    }),
+  );
+  g.add(bow(11.0, 15.5, 0.62, false));
+  g.add(bow(17.0, 19.5, 0.2, true));
+  // 両はしの雲
+  const mk = (x, s) => {
+    const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: softDot(), color: 0xffffff, transparent: true, opacity: 0.85, depthWrite: false, fog: false }));
+    sp.scale.set(s * 1.6, s, 1);
+    sp.position.set(x, s * 0.3, 0.3);
+    return sp;
+  };
+  for (const side of [-1, 1]) {
+    g.add(mk(side * 13.2, 6), mk(side * 11.8, 4.5), mk(side * 14.8, 4.2), mk(side * 13.4, 3));
+  }
+  const sparkles = [];
+  for (let i = 0; i < 14; i++) {
+    const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: softDot(), color: 0xfff6c8, transparent: true, depthWrite: false, fog: false, blending: THREE.AdditiveBlending }));
+    s.scale.setScalar(0.5);
+    sparkles.push(s);
+    g.add(s);
+  }
+  g.userData.update = (t, cam, pos) => {
+    if (cam) g.rotation.y = Math.atan2(cam.x - pos.x, cam.z - pos.z);
+    sparkles.forEach((s, i) => {
+      const a = (i / sparkles.length) * Math.PI + Math.sin(t * 0.3 + i) * 0.04;
+      const r = 11.5 + ((i * 7) % 5) * 0.9;
+      s.position.set(Math.cos(a) * r, Math.sin(a) * r, 0.2);
+      s.material.opacity = 0.3 + 0.5 * Math.max(0, Math.sin(t * 1.6 + i * 1.9));
     });
   };
   return g;
 }
 
-function rainbow() {
-  const g = new THREE.Group();
-  [0xff6b6b, 0xffa94d, 0xffe066, 0x8ce99a, 0x74c0fc, 0xb197fc].forEach((c, i) => {
-    const arc = new THREE.Mesh(
-      new THREE.TorusGeometry(13 - i * 0.62, 0.34, 8, 64, Math.PI),
-      new THREE.MeshBasicMaterial({ color: c, transparent: true, opacity: 0.7, fog: false }),
-    );
-    g.add(arc);
-  });
-  return g;
-}
-
 function tower() {
   const g = new THREE.Group();
-  g.add(cyl(1.3, 1.5, 5.2, 0xf4e9ff, 0, 2.6, 0, 14));
-  g.add(cyl(1.55, 1.55, 0.3, 0xc7a6ff, 0, 5.3, 0, 14));
-  g.add(cone(1.6, 2.2, 0xff8fb3, 0, 6.5, 0, 14));
-  const star = new THREE.Mesh(new THREE.OctahedronGeometry(0.4, 0), new THREE.MeshBasicMaterial({ color: 0xffe066 }));
-  star.position.y = 8.1;
-  g.add(star);
-  g.add(box(0.8, 1.3, 0.08, 0x9a6a4a, 0, 0.65, 1.4));
-  for (const y of [2.6, 4.0]) g.add(box(0.45, 0.6, 0.06, 0xbfe6ff, 0, y, 1.33));
-  for (const sx of [-1, 1]) {
-    g.add(cyl(0.55, 0.65, 2.6, 0xf4e9ff, sx * 2.0, 1.3, 0.2, 12));
-    g.add(cone(0.75, 1.1, 0x74c0fc, sx * 2.0, 3.15, 0.2, 12));
+  g.add(blob(3.4, 3.4, 0.3));
+  g.add(cyl(1.6, 1.8, 0.4, 0xbdb6a6, 0, 0.2, 0, 24));
+  g.add(cyl(1.3, 1.5, 4.9, 0xf4e9ff, 0, 2.85, 0, 24));
+  for (const y of [1.6, 3.2, 4.7]) g.add(cyl(1.42 - y * 0.02, 1.42 - y * 0.02, 0.12, 0xc7a6ff, 0, y, 0, 24));
+  g.add(cyl(1.7, 1.55, 0.3, 0xc7a6ff, 0, 5.45, 0, 24));
+  g.add(cyl(1.4, 1.4, 0.6, 0xf4e9ff, 0, 5.9, 0, 24));
+  g.add(cone(1.75, 2.5, 0xff8fb3, 0, 7.45, 0, 24));
+  for (let i = 0; i < 6; i++) {
+    const a = (i / 6) * Math.PI * 2;
+    g.add(cone(0.22, 0.45, 0xffd45c, Math.cos(a) * 1.55, 5.7 + 0.22, Math.sin(a) * 1.55, 6));
   }
-  g.userData.update = (t) => { star.rotation.y = t * 1.5; star.position.y = 8.1 + Math.sin(t * 2) * 0.12; };
+  const star = new THREE.Mesh(new THREE.OctahedronGeometry(0.45, 0), new THREE.MeshBasicMaterial({ color: 0xffe066 }));
+  star.position.y = 9.2;
+  g.add(star);
+  const halo = new THREE.Sprite(new THREE.SpriteMaterial({ map: softDot(), color: 0xfff1a8, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending }));
+  halo.scale.setScalar(2.4); halo.position.y = 9.2;
+  g.add(halo);
+  const door = new THREE.Group();
+  archDoor(door, 0, 0, 0, 0.9, 1.5);
+  door.position.set(0, 0.4, 1.44);
+  g.add(door);
+  for (const [y, a] of [[2.6, 0.5], [3.9, -0.5], [4.8, 0.9], [2.4, -1.2]]) {
+    const win = new THREE.Group();
+    win.add(box(0.5, 0.7, 0.05, 0xffffff, 0, 0, 0), box(0.4, 0.6, 0.07, 0xffe6a6, 0, 0, 0.01));
+    win.children[1].material = glass;
+    const arch = new THREE.Mesh(new THREE.CircleGeometry(0.2, 16, 0, Math.PI), glass);
+    arch.position.set(0, 0.3, 0.05);
+    win.add(arch);
+    win.position.set(Math.sin(a) * 1.41, y, Math.cos(a) * 1.41);
+    win.rotation.y = a;
+    g.add(win);
+  }
+  for (const sx of [-1, 1]) {
+    g.add(cyl(0.6, 0.72, 2.8, 0xf4e9ff, sx * 2.1, 1.4, 0.1, 16));
+    g.add(cone(0.82, 1.2, 0x74c0fc, sx * 2.1, 3.4, 0.1, 16));
+    g.add(ball(0.08, 0xffd45c, sx * 2.1, 4.05, 0.1));
+    const w = box(0.25, 0.4, 0.05, 0xffe6a6, sx * 2.1, 1.9, 0.78);
+    w.material = glass;
+    g.add(w);
+  }
+  g.userData.update = (t) => {
+    star.rotation.y = t * 1.5; star.position.y = 9.2 + Math.sin(t * 2) * 0.12;
+    halo.position.y = star.position.y; halo.material.opacity = 0.6 + Math.sin(t * 2.4) * 0.2;
+  };
   return g;
 }
 
@@ -247,7 +562,7 @@ const PLAN = [
   { lv: 6, x: 14, z: 3, r: 1.1, avoid: 2.2, rot: -0.5, make: windmill },
   { lv: 7, x: 0, z: -14, r: 3.2, avoid: 4.2, make: school },
   { lv: 8, x: 6.5, z: 8, r: 2.0, avoid: 2.8, make: fountain },
-  { lv: 9, x: 0, z: -27, r: 0, avoid: 0, make: rainbow },
+  { lv: 9, x: 0, z: -31, r: 0, avoid: 0, make: rainbow },
   { lv: 10, x: -15, z: -14, r: 1.6, avoid: 3, rot: 0.6, make: tower },
   ...EXTRA_HOUSES.map(([x, z, rot, wall, roof], i) => ({
     lv: 11 + i, x, z, r: 1.3, avoid: 2.2, rot, make: () => house({ wall, roof, size: 1.8 }),
@@ -288,7 +603,7 @@ export function createTown(scene) {
       }
       lastLv = lv;
     },
-    update(dt, t) {
+    update(dt, t, camPos) {
       for (const it of items) {
         if (!it.shown) continue;
         if (it.pop < 1) {
@@ -297,7 +612,7 @@ export function createTown(scene) {
           const s = 1 + 2.2 * k * k * k + 1.2 * k * k; // ちょっとはねてから止まる
           it.group.scale.setScalar(Math.max(0.001, s));
         }
-        it.group.userData.update?.(t);
+        it.group.userData.update?.(t, camPos, it.group.position);
       }
     },
     // 建物の中に入らないよう、外に押しだす。押しだしたら true

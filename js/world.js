@@ -116,7 +116,7 @@ export function createWorld(container) {
       jump: takeJump(),
     });
     marker.material.opacity = Math.max(0, marker.material.opacity - dt * 1.2);
-    town.update(dt, time.value);
+    town.update(dt, time.value, camera.position);
 
     view.target.lerp(actor.position, 0.04);
     camera.position.set(
