@@ -48,6 +48,7 @@ export function startTutorial({ show, onDone }) {
 
   function place() {
     const step = STEPS[i];
+    document.body.classList.toggle('touring', step.tap === 'target'); // 横向きでもタブを出す
     const el = step.target();
     if (!el) { next(); return; }
     if (el.scrollIntoView && step.tap === 'any') el.scrollIntoView({ block: 'center' });
@@ -76,6 +77,8 @@ export function startTutorial({ show, onDone }) {
     const lx = Math.min(Math.max(16, cx - lw / 2), W - lw - 16);
     Object.assign(label.style, { left: `${lx}px`, width: `${lw}px`, top: below ? `${bottom + 68}px` : 'auto', bottom: below ? 'auto' : `${H - rect.top + 68}px` });
     count.textContent = `${i + 1} / ${STEPS.length}`;
+    // 光る所が上のバーにあるときは「とばす」を下に動かして、まちがえて押さないように
+    root.classList.toggle('skip-low', rect.top < 90);
   }
 
   function go(n) {
@@ -88,6 +91,7 @@ export function startTutorial({ show, onDone }) {
     setTimeout(place, 120);
     // 画面が切りかわったあとに位置を合わせ直す
     setTimeout(place, 450);
+    setTimeout(place, 800);
   }
 
   function next() { go(i + 1); }
@@ -119,6 +123,7 @@ export function startTutorial({ show, onDone }) {
   document.addEventListener('pointerup', onPointer, true);
 
   function finish() {
+    document.body.classList.remove('touring');
     document.removeEventListener('click', onTap, true);
     document.removeEventListener('pointerup', onPointer, true);
     window.removeEventListener('resize', onResize);
