@@ -150,7 +150,8 @@ Deno.serve(async (req) => {
       const raw = (Array.isArray(body.messages) ? body.messages : []).slice(-10)
         .map((m: { role?: string; text?: string }) => ({ role: m?.role === 'assistant' ? 'assistant' : 'user', content: clip(m?.text, 800) }))
         .filter((m: { content: string }) => m.content);
-      const msgs: { role: string; content: unknown }[] = [];
+      // deno-lint-ignore no-explicit-any
+      const msgs: { role: string; content: any }[] = [];
       for (const m of raw) {
         const last = msgs[msgs.length - 1];
         if (last && last.role === m.role) last.content += `\n${m.content}`; else msgs.push(m);
