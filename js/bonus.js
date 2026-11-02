@@ -1,5 +1,5 @@
 // ボーナス（原神のデイリー・イベントのような、えらべる追加のクエスト）。
-// 上の 🎁 ボタンからひらく。
+// 上のギフトのボタンからひらく。
 // - 見るだけ: 「きょうのおすすめ」「すすみ表」をひらくと少しポイント（1日1回ずつ）
 // - ドリル: 漢字・英単語・計算を5もんずつ（1日1回ずつポイント。そのあとは練習）
 // - きょうのチャレンジ: タイマー30分
@@ -11,6 +11,7 @@ import { runQuestions } from './runner.js';
 import { buildSteps } from './planner.js';
 import { levelInfo, totalXp, streak, week } from './progress.js';
 import { minutesOn, sessions, SUBJECT_COLORS } from './timer.js';
+import { icon } from './icons.js';
 
 export const LOOK_POINTS = 3;
 const DRILL_PER_CORRECT = 5;
@@ -42,17 +43,17 @@ function goals(p) {
   const quests = dates.filter((d) => p.daily?.[d]).length;
   return {
     daily: [
-      { id: 'min30', ic: '⏱', label: 'タイマーで 30分 勉強', now: minutesOn(p, today()), goal: 30, reward: 15 },
+      { id: 'min30', ic: 'clock-3', label: 'タイマーで 30分 勉強', now: minutesOn(p, today()), goal: 30, reward: 15 },
     ],
     weekly: [
-      { id: 'stamp5', ic: '📅', label: 'スタンプを 5日 あつめる', now: stamps, goal: 5, reward: 50 },
-      { id: 'min120', ic: '⏱', label: '今週 120分 勉強', now: weekMin, goal: 120, reward: 50 },
-      { id: 'quest5', ic: '⚔️', label: 'まいにちクエストを 5回', now: quests, goal: 5, reward: 30 },
+      { id: 'stamp5', ic: 'calendar-check', label: 'スタンプを 5日 あつめる', now: stamps, goal: 5, reward: 50 },
+      { id: 'min120', ic: 'timer', label: '今週 120分 勉強', now: weekMin, goal: 120, reward: 50 },
+      { id: 'quest5', ic: 'trophy', label: 'まいにちクエストを 5回', now: quests, goal: 5, reward: 30 },
     ],
   };
 }
 
-// 🎁 についた数字（いま受けとれる・やれるもの）
+// ギフトについた数字（いま受けとれる・やれるもの）
 export function bonusCount(p) {
   const { day, wk } = state(p);
   const g = goals(p);
@@ -83,7 +84,7 @@ function sheet(cls, ...kids) {
 
 const bar = (now, goal) => h('span', { class: 'gbar' }, h('i', { style: `width:${Math.min(100, Math.round((now / goal) * 100))}%` }));
 
-// ---- 🎁 ボーナスの一覧 -----------------------------------------------------------
+// ---- ボーナスの一覧 -----------------------------------------------------------
 
 export function openBonus(p, deps) {
   document.querySelector('.sheet.bonus-sheet')?.remove();
@@ -91,18 +92,18 @@ export function openBonus(p, deps) {
   const g = goals(p);
 
   const row = ({ ic, label, sub, reward, done, ready, onTap, progress }) => h('li', { class: `quest-row ${done ? 'done' : ''} ${ready ? 'ready' : ''}` },
-    h('span', { class: 'q-ic' }, ic),
+    h('span', { class: 'q-ic' }, icon(ic)),
     h('span', { class: 'q-main' }, h('b', {}, label), progress || (sub ? h('small', {}, sub) : null)),
     done
-      ? h('span', { class: 'q-done' }, '✓')
-      : h('button', { class: `q-go ${ready ? 'claim' : ''}`, onclick: onTap }, ready ? 'うけとる' : `⭐${reward}`));
+      ? h('span', { class: 'q-done' }, icon('check'))
+      : h('button', { class: `q-go ${ready ? 'claim' : ''}`, onclick: onTap }, ready ? 'うけとる' : [icon('sprout'), `${reward}`]));
 
   const reopen = () => { s.close(); deps.render(); openBonus(p, deps); };
 
   const look = [
-    row({ ic: '👀', label: 'きょうのおすすめを 見る', reward: LOOK_POINTS, done: day.lookRec,
+    row({ ic: 'eye', label: 'きょうのおすすめを 見る', reward: LOOK_POINTS, done: day.lookRec,
       onTap: () => { s.close(); deps.openRecommend(); } }),
-    row({ ic: '📊', label: 'すすみ表を 見る', reward: LOOK_POINTS, done: day.lookProg,
+    row({ ic: 'chart-column', label: 'すすみ表を 見る', reward: LOOK_POINTS, done: day.lookProg,
       onTap: () => { s.close(); openProgress(p, deps); } }),
   ];
 
@@ -130,8 +131,8 @@ export function openBonus(p, deps) {
   // 週のおわりまで
   const left = 6 - ((new Date().getDay() + 6) % 7);
   const s = sheet('bonus-card',
-    h('p', { class: 'sheet-title' }, '🎁 ボーナス'),
-    h('p', { class: 'sheet-sub' }, 'もっと ⭐ をあつめたいときに'),
+    h('p', { class: 'sheet-title' }, icon('gift'), ' ボーナス'),
+    h('p', { class: 'sheet-sub' }, 'もっと ポイントを あつめたいときに'),
     h('div', { class: 'q-group' }, h('h4', {}, 'きょう'), h('ul', { class: 'quest-list' }, look, drills, g.daily.map((x) => goalRow(x, day)))),
     h('div', { class: 'q-group event' }, h('h4', {}, '今週のイベント', h('small', {}, left ? `のこり${left}日` : 'きょうまで')),
       h('ul', { class: 'quest-list' }, g.weekly.map((x) => goalRow(x, wk)))),
@@ -161,9 +162,9 @@ export function openRecommend(p, recs, deps) {
     h('p', { class: 'sheet-title' }, 'きょうのおすすめ'),
     h('ol', { class: 'rec-list' }, recs.map((r, i) => h('li', {},
       h('button', { class: 'rec-item', style: `--i:${i}`, onclick: () => { s.close(); r.act(); } },
-        h('span', { class: 'q-ic' }, r.ic),
+        h('span', { class: 'q-ic' }, icon(r.ic)),
         h('span', { class: 'q-main' }, h('b', {}, r.text), r.sub ? h('small', {}, r.sub) : null),
-        h('span', { class: 'go-arrow' }, '▶'))))),
+        h('span', { class: 'go-arrow' }, icon('chevron-right')))))),
   );
   lookReward(p, 'lookRec', deps);
 }
@@ -184,17 +185,17 @@ export function openProgress(p, deps) {
   const maxSub = Math.max(1, ...subjects.map(([, m]) => m));
 
   sheet('prog-card',
-    h('p', { class: 'sheet-title' }, '📊 すすみ表'),
+    h('p', { class: 'sheet-title' }, icon('chart-column'), ' すすみ表'),
     h('div', { class: 'prog-lv' },
       h('span', { class: 'lv' }, `Lv${lv.lv}`),
       h('span', { class: 'q-main' }, bar(lv.into, lv.need), h('small', {}, `あと ${lv.left} で Lv${lv.lv + 1}`))),
     h('div', { class: 'stat4' },
-      h('div', {}, h('b', {}, `🔥${st.n}`), h('small', {}, 'れんぞく')),
+      h('div', {}, h('b', {}, icon('flame'), `${st.n}`), h('small', {}, 'れんぞく')),
       h('div', {}, h('b', {}, `${weekMin}分`), h('small', {}, '今週')),
       h('div', {}, h('b', {}, `${allMin}分`), h('small', {}, 'るいけい')),
-      h('div', {}, h('b', {}, `⭐${p.points}`), h('small', {}, 'ポイント'))),
+      h('div', {}, h('b', {}, icon('sprout'), `${p.points}`), h('small', {}, 'ポイント'))),
     h('div', { class: 'week' }, week(p).map((d) => h('div', { class: `day ${d.done ? 'done' : ''} ${d.today ? 'today' : ''} ${d.future ? 'future' : ''}` },
-      h('span', { class: 'stamp' }, d.done ? '✓' : ''), h('small', {}, d.label)))),
+      h('span', { class: 'stamp' }, d.done ? icon('check') : ''), h('small', {}, d.label)))),
     h('div', { class: 'q-group' }, h('h4', {}, 'テスト・宿題・目標'),
       items.length
         ? h('ul', { class: 'prog-items' }, items.map((i) => {

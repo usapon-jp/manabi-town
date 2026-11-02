@@ -61,9 +61,9 @@ export function buildDaily(bucket, seed, rand = seededRandom(seed)) {
 
 // ボーナスのドリル（1教科だけ5もん）。毎日のクエストとは別の問題になるよう、たねを変える
 export const DRILLS = [
-  { id: 'kanji', label: '漢字ドリル', ic: '✍️' },
-  { id: 'english', label: '英単語ドリル', ic: '🔤' },
-  { id: 'math', label: '計算ドリル', ic: '🧮' },
+  { id: 'kanji', label: '漢字ドリル', ic: 'pen-line' },
+  { id: 'english', label: '英単語ドリル', ic: 'languages' },
+  { id: 'math', label: '計算ドリル', ic: 'calculator' },
 ];
 export const DRILL_COUNT = 5;
 
