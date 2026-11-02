@@ -2,12 +2,13 @@
 // - 種類（宿題・チャレンジ・自主学習・テスト勉強）と教科を選んで、集中（時間をきめる）か計るだけ
 // - 1分 = 1ポイント。集中を最後までやりきると +10
 // - 時計は「始めた時刻」から数えるので、画面を消しても正しく進む
-// - 25分ごとに休けいの声かけ。1回は最大90分
+// - 20分ごとに休けいの声かけ（時間は 20・40・60分）。1回は最大90分
+// - ひよこマーク: しつもん・れんしゅう もんだい・20分クイズチャレンジ（js/challenge.js）
 // - 記録はあとから種類・教科・時間を直せる（ポイントも合わせて直る）
 import { h, toast } from './ui.js';
 import { SUBJECTS, today, toISO, save, currentProfile } from './store.js';
 import * as bgm from './bgm.js';
-import { openAsk } from './ask.js';
+import { openPiyo, piyoButton } from './challenge.js';
 import { icon } from './icons.js';
 
 export const KINDS = [
@@ -19,9 +20,9 @@ export const KINDS = [
 export const SUBJECT_COLORS = {
   '国語': '#d78b9f', '算数・数学': '#7f985e', '理科': '#d8b85a', '社会': '#c98766', '英語': '#7aa6bd', 'その他': '#9aa897',
 };
-const PRESETS = [15, 25, 45, 60];
+const PRESETS = [20, 40, 60];
 const MAX_MIN = 90;
-const BREAK_EVERY = 25;
+const BREAK_EVERY = 20;
 const BONUS = 10;
 
 const kindOf = (id) => KINDS.find((k) => k.id === id) || KINDS[2];
@@ -30,6 +31,7 @@ const mmss = (sec) => `${String(Math.floor(sec / 60)).padStart(2, '0')}:${String
 
 function prefs(p) {
   if (!p.timerPrefs) p.timerPrefs = { kind: 'self', subject: SUBJECTS[0], mode: 'focus', minutes: 25, bgm: true };
+  if (!PRESETS.includes(p.timerPrefs.minutes)) p.timerPrefs.minutes = 20;
   return p.timerPrefs;
 }
 
@@ -72,7 +74,9 @@ export function renderTimerTab(panel, p, deps) {
         h('button', { class: `bgm-toggle ${pf.bgm ? 'on' : ''}`, 'aria-label': 'BGM', onclick: () => set('bgm', !pf.bgm) }, icon('music-2')),
         bgmName,
         h('button', { class: 'link', onclick: () => openBgmPicker(rerender) }, 'えらぶ')),
-      h('button', { class: 'btn primary start', onclick: () => startTimer(p, {}, deps) }, icon('play'), ' スタート')),
+      h('div', { class: 'start-row' },
+        h('button', { class: 'btn primary start', onclick: () => startTimer(p, {}, deps) }, icon('play'), ' スタート'),
+        piyoButton(p, deps, { subject: pf.subject }))),
 
     weekChart(p, wk),
     todayList(p, deps, rerender),
@@ -251,7 +255,7 @@ function openRunning(p, deps) {
   const pauseBtn = h('button', { class: 'btn' }, icon('pause'), ' 一時停止');
   const doneBtn = h('button', { class: 'btn primary' }, icon('check'), ' 完了');
   const music = h('button', { class: `bgm-toggle ${bgm.isPlaying() ? 'on' : ''}`, 'aria-label': 'BGM' }, icon('music-2'));
-  const askBtn = h('button', { class: 'bgm-toggle ask-toggle', 'aria-label': 'ピヨ先生に しつもん', onclick: () => openAsk(currentProfile(), { subject: t.subject }) }, icon('message-circle'));
+  const askBtn = piyoButton(p, deps, { subject: t.subject, fromTimer: true });
   const layer = h('div', { class: 'runner timer-run' },
     h('div', { class: 'runner-card' },
       h('div', { class: 'runner-top' },
