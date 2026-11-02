@@ -56,6 +56,8 @@ const CSS = `
 .wuse { position: fixed; right: calc(28px + env(safe-area-inset-right, 0px)); bottom: calc(var(--tabs-h, 0px) + env(safe-area-inset-bottom, 0px) + 120px); z-index: 4; display: flex; flex-direction: column; align-items: center; gap: 6px; }
 .wuse[hidden] { display: none; }
 @media (orientation: landscape) and (max-height: 540px) { .wuse { bottom: calc(env(safe-area-inset-bottom, 0px) + 120px); } }
+/* 横向きで画面がひくい（iPhone SE など）とき、「つくる」が道具ボタンとかさならないよう、道具ボタンの左がわへ */
+@media (orientation: landscape) and (max-height: 420px) { .wedit { right: calc(106px + env(safe-area-inset-right, 0px)); } }
 .wuse button { all: unset; box-sizing: border-box; cursor: pointer; display: grid; place-items: center; width: 62px; height: 62px; border-radius: 50%; color: #fff;
   background: rgba(70, 58, 48, 0.22); border: 1.5px solid rgba(255, 255, 255, 0.7); box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.14);
   -webkit-backdrop-filter: blur(2px); backdrop-filter: blur(2px); touch-action: none; -webkit-touch-callout: none; -webkit-user-select: none; user-select: none; -webkit-tap-highlight-color: transparent; transition: transform 0.12s; }
@@ -214,7 +216,7 @@ export function createEditor({ container, scene, cut, wind, pick, rotate }) {
     const pts = walk.pts;
     const t = toolById(walk.kind || hand.id);
     walk.pts = null; walk.last = null;
-    if (!pts || pts.length < (t.op === 'plant' ? 2 : 4)) return;
+    if (!pts || pts.length < 2) return;   // 1点だけ（その場で1回おした）でも、1つの操作として保存する
     const op = t.op === 'plant' ? { t: 'plant', s: st.species, seed: walk.seed, pts } : { t: t.op, r: handRadius(t), pts };
     if (commit(op) && t.op === 'dig') replay();   // 高さが変わるので、花などを置きなおす
   }
