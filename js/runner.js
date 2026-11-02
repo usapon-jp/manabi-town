@@ -90,6 +90,7 @@ export function runQuestions(title, questions, onFinish) {
       h('div', { class: 'q-box' },
         h('p', { class: 'prompt' }, q.prompt),
         q.big ? h('p', { class: `big ${kind === 'write' ? 'reading' : ''}` }, q.big) : null,
+        q.context ? contextLine(q.context, q.big) : null,
       ),
       answerArea,
       h('div', { class: 'runner-foot' }, feedback, next),
@@ -210,4 +211,10 @@ function numberPad(onSubmit) {
   });
 
   return h('div', { class: 'number-answer' }, h('div', { class: 'answer-row' }, display, ok), pad);
+}
+
+// れいぶん: 「＿」のところに 問題のことばを 線つきで入れる（例: ふるさとの［きょうど］りょうりを 食べる）
+function contextLine(sentence, word) {
+  const [before, after = ''] = sentence.split('＿');
+  return h('p', { class: 'context' }, before, h('span', { class: 'context-word' }, word), after);
 }
