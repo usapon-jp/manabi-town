@@ -295,7 +295,7 @@ function scatter({ template, count, flowerColors, clusters, clusterSpread, scale
 
 // 種類ごとの色・大きさ・ゆれ方。野原にはえる花も、子どもがうえる花も、ここの設定をつかう
 export const SPECIES = {
-  buttercup: { make: buttercup, colors: [0xffe03a, 0xffd620, 0xffdc2e, 0xffe85a, 0xffcf1a], scale: [0.9, 1.7], gain: 0.1, tilt: 0.12, label: 'きいろい花' },
+  buttercup: { make: buttercup, colors: [0xffe03a, 0xffd620, 0xffdc2e, 0xffe85a, 0xffcf1a], scale: [0.5, 0.85], gain: 0.1, tilt: 0.12, label: 'きいろい花' },
   lupine: { make: lupine, colors: [0xb497f5, 0x9d7ef0, 0xff9dbd, 0xffd0e0, 0x8fc2f5, 0xffffff], scale: [0.85, 1.35], gain: 0.14, tilt: 0.12, label: 'むらさきの花' },
   tulip: { make: tulip, colors: [0xff7a8a, 0xff9dbd, 0xffb27a, 0xfff08a, 0xffffff, 0xff5f7a], scale: [0.9, 1.4], gain: 0.12, tilt: 0.12, label: 'チューリップ' },
   clover: { make: clover, colors: [0xffffff, 0xfff0f5, 0xffe6ef], scale: [0.9, 1.5], gain: 0.08, tilt: 0.05, label: 'シロツメクサ' },
