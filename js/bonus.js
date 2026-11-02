@@ -12,6 +12,8 @@ import { buildSteps } from './planner.js';
 import { levelInfo, totalXp, streak, week } from './progress.js';
 import { minutesOn, sessions, SUBJECT_COLORS } from './timer.js';
 import { icon } from './icons.js';
+import { recordResults, dueReview, startReview, REVIEW_MAX, REVIEW_PER_CORRECT, REVIEW_CLEAR } from './review.js';
+import { openWeak, startWeak, openTestEntry, WEAK_PER_CORRECT, WEAK_CLEAR } from './tests.js';
 
 export const LOOK_POINTS = 3;
 const DRILL_PER_CORRECT = 5;
@@ -61,6 +63,7 @@ export function bonusCount(p) {
   if (!day.lookRec) n += 1;
   if (!day.lookProg) n += 1;
   DRILLS.forEach((d) => { if (!day[`drill:${d.id}`]) n += 1; });
+  if (dueReview(p).length) n += 1;
   g.daily.forEach((x) => { if (!day[x.id] && x.now >= x.goal) n += 1; });
   g.weekly.forEach((x) => { if (!wk[x.id] && x.now >= x.goal) n += 1; });
   return n;
@@ -115,6 +118,17 @@ export function openBonus(p, deps) {
       onTap: () => { s.close(); startDrill(p, d, deps); } });
   });
 
+  // やりなおし・にがて（成績につながるクエスト）
+  const due = dueReview(p).length;
+  const fix = [
+    due ? row({ ic: 'notebook-pen', label: `やりなおし ${Math.min(due, REVIEW_MAX)}もん`, sub: `まちがえた問題を もういちど・1もん${REVIEW_PER_CORRECT}`,
+      reward: Math.min(due, REVIEW_MAX) * REVIEW_PER_CORRECT + REVIEW_CLEAR, onTap: () => { s.close(); startReview(p, deps); } }) : null,
+    ...openWeak(p).slice(0, 3).map((w) => row({ ic: 'target', label: `にがて: ${w.topic}`, sub: `${w.subject}・ピヨ先生の 3もん`,
+      reward: 3 * WEAK_PER_CORRECT + WEAK_CLEAR, onTap: (e) => { s.close(); startWeak(p, w, deps); } })),
+    row({ ic: 'trophy', label: '実力テストの点を 入れる', sub: 'テストが かえってきたら', reward: '30〜100',
+      onTap: () => { s.close(); openTestEntry(p, deps); } }),
+  ];
+
   const goalRow = (x, store) => {
     const done = !!store[x.id];
     const ready = !done && x.now >= x.goal;
@@ -134,6 +148,7 @@ export function openBonus(p, deps) {
     h('p', { class: 'sheet-title' }, icon('gift'), ' ボーナス'),
     h('p', { class: 'sheet-sub' }, 'もっと ポイントを あつめたいときに'),
     h('div', { class: 'q-group' }, h('h4', {}, 'きょう'), h('ul', { class: 'quest-list' }, look, drills, g.daily.map((x) => goalRow(x, day)))),
+    h('div', { class: 'q-group' }, h('h4', {}, 'せいせきアップ'), h('ul', { class: 'quest-list' }, fix)),
     h('div', { class: 'q-group event' }, h('h4', {}, '今週のイベント', h('small', {}, left ? `のこり${left}日` : 'きょうまで')),
       h('ul', { class: 'quest-list' }, g.weekly.map((x) => goalRow(x, wk)))),
   );
@@ -142,7 +157,8 @@ export function openBonus(p, deps) {
 
 export function startDrill(p, d, deps) {
   const key = `drill:${d.id}`;
-  runQuestions(d.label, buildDrill(d.id, gradeBucket(p), `${p.id}:${today()}`), (score, total) => {
+  runQuestions(d.label, buildDrill(d.id, gradeBucket(p), `${p.id}:${today()}`), (score, total, results) => {
+    recordResults(p, results, d.label);
     const { day } = state(p);
     if (day[key]) { save(); return 'れんしゅうなので ポイントはないよ'; }
     day[key] = { score, total };
