@@ -369,7 +369,7 @@ textarea { resize: vertical; }
 @media (prefers-reduced-motion: reduce) { .tour-hand, .tour-ring { animation: none; } }
 
 /* ---- ピヨを動かす（うさぽん村と同じ形） ---- */
-.pad { position: fixed; inset: auto 0 calc(var(--tabs-h) + env(safe-area-inset-bottom)) 0; height: 0; z-index: 3; }
+.ctrl-pad { position: fixed; inset: auto 0 calc(var(--tabs-h) + env(safe-area-inset-bottom)) 0; height: 0; z-index: 3; }
 #joy {
   position: absolute;
   left: calc(26px + env(safe-area-inset-left, 0px));
@@ -397,7 +397,7 @@ textarea { resize: vertical; }
 #joy .d { bottom: 7px; left: calc(50% - 5px); border-top: 7px solid #fff; border-bottom: 0; }
 #joy .l { left: 7px; top: calc(50% - 5px); border-right: 7px solid #fff; border-left: 0; }
 #joy .r { right: 7px; top: calc(50% - 5px); border-left: 7px solid #fff; border-right: 0; }
-.pad .tb {
+.ctrl-pad .tb {
   position: absolute;
   display: grid; place-items: center;
   margin: 0; padding: 0;
@@ -407,7 +407,7 @@ textarea { resize: vertical; }
   touch-action: none; -webkit-touch-callout: none;
   transition: transform 0.12s;
 }
-.pad .tb:active { transform: scale(0.92); }
+.ctrl-pad .tb:active { transform: scale(0.92); }
 #btnDash { width: 66px; height: 66px; right: calc(22px + env(safe-area-inset-right, 0px)); bottom: 22px; background: linear-gradient(180deg, #ffd9ad, #f8b26a); }
 #btnDash.hold { box-shadow: 0 0 0 3px #fff3c4, 0 0 18px rgba(255, 190, 90, 0.9); }
 #btnJump { width: 56px; height: 56px; right: calc(98px + env(safe-area-inset-right, 0px)); bottom: 14px; background: linear-gradient(180deg, #ebe0fb, #d8c6f5); }
