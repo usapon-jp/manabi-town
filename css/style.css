@@ -73,7 +73,7 @@ input, textarea { -webkit-user-select: text; user-select: text; }
   pointer-events: none;
   z-index: 3;
 }
-/* 上のバー: Lv とけいけんち、🔥れんぞく、⭐ */
+/* 上のバー: Lv とけいけんち、れんぞく、ポイント */
 .hud { align-items: flex-start; }
 .hud .who, .hud .stats span {
   background: var(--card);
@@ -671,7 +671,7 @@ button.go:active { transform: scale(0.97); animation: none; }
 .done-card .big-num { margin: 0; font-size: 64px; font-weight: 800; line-height: 1; animation: pop-in 0.45s cubic-bezier(0.3, 1.7, 0.5, 1) backwards; }
 .done-card .big-num small { font-size: 22px; margin-left: 4px; }
 
-/* ---- 🎁 ボーナス（えらべる追加クエスト）・おすすめ・すすみ表 ---- */
+/* ---- ボーナス（えらべる追加クエスト）・おすすめ・すすみ表 ---- */
 .bonus-btn {
   pointer-events: auto; position: relative;
   width: 38px; height: 38px; border-radius: 50%; padding: 0; flex-shrink: 0;
@@ -737,7 +737,7 @@ button.go:active { transform: scale(0.97); animation: none; }
 @media (prefers-reduced-motion: reduce) { .bonus-btn, .rec-item, .q-go.claim { animation: none; } }
 
 /* ---- 向き: スマホの横向き ----------------------------------------------------
-   遊ぶ（ホーム）は横で両手。タブは左にしまって ☰ で出す。
+   遊ぶ（ホーム）は横で両手。タブは左にしまって メニューで出す。
    勉強の画面は左にタブを立てて、まん中に縦長の列（並びは縦と同じ）。 */
 .menu-btn { display: none; }
 @media (orientation: landscape) and (max-height: 540px) {
@@ -760,7 +760,7 @@ button.go:active { transform: scale(0.97); animation: none; }
   #btnDash { right: calc(28px + env(safe-area-inset-right, 0px)); }
   #btnJump { right: calc(104px + env(safe-area-inset-right, 0px)); }
 
-  /* ホーム（横）: タブをしまい、左上に ☰ と小さな「つぎはこれ！」 */
+  /* ホーム（横）: タブをしまい、左上にメニューと小さな「つぎはこれ！」 */
   body[data-tab="home"]:not(.menu-open):not(.touring) .tabs { transform: translateX(-100%); box-shadow: none; }
   body[data-tab="home"] .menu-btn {
     display: grid; place-items: center; position: fixed; z-index: 5;
@@ -800,3 +800,52 @@ button.go:active { transform: scale(0.97); animation: none; }
   .sheet { align-items: center; padding: 10px; }
   .sheet-card { max-height: calc(100dvh - 20px); overflow-y: auto; }
 }
+
+/* ---- 操作ボタン: うさぽん村の最新版（白いすけるボタン） ---- */
+#joy { background: rgba(255, 255, 255, 0.05); border: 1.5px solid rgba(255, 255, 255, 0.42); box-shadow: none; }
+#knob { background: rgba(255, 255, 255, 0.42); border: 1.5px solid rgba(255, 255, 255, 0.75); box-shadow: none; }
+#joy.act { border-color: rgba(255, 226, 168, 0.85); }
+#joy.act #knob { background: rgba(255, 226, 168, 0.68); border-color: #ffe2a8; box-shadow: 0 0 12px rgba(255, 226, 168, 0.55); }
+#joy .chev { opacity: 0.5; }
+.ctrl-pad .tb, #btnDash, #btnJump {
+  background: rgba(255, 255, 255, 0.13); border: 1.5px solid rgba(255, 255, 255, 0.55); color: #fff;
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.14);
+  -webkit-backdrop-filter: blur(2px); backdrop-filter: blur(2px);
+}
+.ctrl-pad .tb:active, #btnDash.hold { background: rgba(255, 226, 168, 0.36); border-color: #ffe2a8; box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.14), 0 0 14px rgba(255, 226, 168, 0.55); }
+.mk-k { stroke: #fff; stroke-width: 2.4; }
+.mk-fa, .mk-fb { fill: rgba(255, 255, 255, 0.22); }
+
+/* ---- 線のアイコン（たまの勉強タイマーと同じ lucide の形） ---- */
+.ic { width: 1.15em; height: 1.15em; vertical-align: -0.2em; flex-shrink: 0; stroke-width: 1.9; }
+.tabs button span { display: grid; place-items: center; }
+.tabs button .ic { width: 24px; height: 24px; vertical-align: 0; }
+.tabs button.active { color: var(--accent); }
+.hud .stats span { display: inline-flex; align-items: center; gap: 4px; }
+.hud .fire .ic { color: #d9785c; }
+.hud .points .ic, .stat4 .ic, .q-go .ic, .reward .ic, .pts .ic { color: var(--accent); }
+.hud .fire:not(.on) .ic { color: var(--ink-soft); }
+.hud .fire:not(.on) { filter: none; }
+.bonus-btn .ic { width: 20px; height: 20px; color: var(--navy); vertical-align: 0; }
+.menu-btn .ic { width: 20px; height: 20px; vertical-align: 0; }
+.q-ic { display: grid; place-items: center; width: 36px; height: 36px; border-radius: 12px; background: var(--leaf-soft); color: var(--accent-dark); }
+.q-ic .ic { width: 20px; height: 20px; vertical-align: 0; }
+.quest-row.done .q-ic { background: #efe5d2; color: var(--ink-soft); }
+.q-done .ic { width: 16px; height: 16px; vertical-align: 0; stroke-width: 2.6; }
+.q-go { display: inline-flex; align-items: center; gap: 3px; }
+.go-arrow .ic { width: 24px; height: 24px; stroke-width: 2.4; }
+.day .stamp .ic { width: 16px; height: 16px; stroke-width: 3; vertical-align: 0; }
+.task .check .ic { width: 16px; height: 16px; stroke-width: 3; vertical-align: 0; }
+.fold .ic { width: 18px; height: 18px; vertical-align: 0; }
+.note-ic .ic { width: 34px; height: 34px; color: var(--accent); }
+.bgm-toggle { display: grid; place-items: center; }
+.bgm-toggle .ic, .bgm-item .play .ic { width: 18px; height: 18px; vertical-align: 0; }
+.bgm-toggle:not(.on) { opacity: 0.55; }
+.tour-hand .ic { width: 52px; height: 52px; color: #fff; fill: #fff; stroke: var(--navy); stroke-width: 1.4; filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.35)); }
+.tour-hand.from-top .ic { transform: rotate(180deg); }
+.star-pop .ic { width: 22px; height: 22px; color: #e7b54c; fill: #f3d27a; stroke-width: 1.6; }
+.tour-hand .ic { fill: none; stroke: #fff; stroke-width: 2; }
+.timer-run .chip.soft { color: var(--ink); }
+.tabs { padding-left: 6px; padding-right: 6px; }
+.tabs button { margin: 6px 2px; border-radius: 18px; transition: background 0.15s, color 0.15s; }
+.tabs button.active { background: var(--accent); color: #fff; }

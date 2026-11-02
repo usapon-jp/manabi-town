@@ -13,6 +13,7 @@ import { levelInfo, totalXp, streak, week } from './progress.js';
 import { renderTimerTab, startTimer, resumeIfRunning, kindForItem, minutesOn } from './timer.js';
 import { openBonus, bonusCount, openRecommend, openProgress, startDrill } from './bonus.js';
 import { DRILLS } from './quests.js';
+import { icon } from './icons.js';
 
 const POINTS_HOMEWORK = 20;
 const POINTS_TEST = 50;
@@ -58,11 +59,13 @@ if ('serviceWorker' in navigator) {
 
 tabs.forEach((b) => b.addEventListener('click', () => { document.body.classList.remove('menu-open'); show(b.dataset.tab); }));
 
-// 横向き（遊ぶ画面）では、タブを左にしまっておき ☰ で出す
+// 横向き（遊ぶ画面）では、タブを左にしまっておき メニューのボタンで出す
 const menuBtn = document.getElementById('menuBtn');
+menuBtn.append(icon('menu'));
+document.querySelectorAll('.tabs [data-ic]').forEach((el) => el.append(icon(el.dataset.ic)));
 menuBtn.addEventListener('click', () => {
   const open = document.body.classList.toggle('menu-open');
-  menuBtn.textContent = open ? '✕' : '☰';
+  menuBtn.replaceChildren(icon(open ? 'x' : 'menu'));
 });
 
 function gain(p, n, reason, opts) {
@@ -70,7 +73,7 @@ function gain(p, n, reason, opts) {
   addPoints(p, n, reason, opts);
   const after = levelInfo(totalXp(p)).lv;
   if (after > before) {
-    toast(`レベルアップ！ Lv${after} 🎉`);
+    toast(`レベルアップ！ Lv${after}`);
     setTimeout(() => world?.celebrate(), 300);
   } else {
     toast(`+${n} ポイント！`);
@@ -128,16 +131,16 @@ function render() {
       h('span', { class: 'name' }, p.name),
       h('span', { class: 'xp', title: `あと${lv.left}でレベルアップ` }, h('i', { style: `width:${Math.round((lv.into / lv.need) * 100)}%` }))),
     h('div', { class: 'stats' },
-      h('span', { class: `fire ${st.doneToday ? 'on' : ''}`, title: 'れんぞく日数' }, `🔥${st.n}`),
-      h('span', { class: 'points' }, `⭐${p.points}`),
+      h('span', { class: `fire ${st.doneToday ? 'on' : ''}`, title: 'れんぞく日数' }, icon('flame'), `${st.n}`),
+      h('span', { class: 'points' }, icon('sprout'), `${p.points}`),
       h('button', { class: 'bonus-btn', 'aria-label': 'ボーナス', onclick: () => openBonus(p, bonusDeps) },
-        '🎁', bonusN ? h('i', { class: 'badge' }, bonusN) : null)),
+        icon('gift'), bonusN ? h('i', { class: 'badge' }, bonusN) : null)),
   );
   hud.hidden = false;
   document.querySelector('.tabs').hidden = false;
   menuBtn.hidden = false;
   document.body.dataset.tab = tab;
-  if (tab !== 'home') { document.body.classList.remove('menu-open'); menuBtn.textContent = '☰'; }
+  if (tab !== 'home') { document.body.classList.remove('menu-open'); menuBtn.replaceChildren(icon('menu')); }
   const home = tab === 'home';
   world?.setActive(home);
   panel.hidden = home;
@@ -212,22 +215,22 @@ function recommendations(p) {
   const next = tasks.find((t) => !t.done);
   const recs = [];
   if (next) {
-    recs.push({ ic: '👉', text: next.label, sub: `つぎは これ！・${next.tag}`,
+    recs.push({ ic: 'pencil', text: next.label, sub: `つぎは これ！・${next.tag}`,
       act: () => (next.kind === 'daily' ? startDaily(p) : openStep(p, next, (t) => toggleTask(p, t))) });
   } else {
-    recs.push({ ic: '🎉', text: 'きょうの分は ぜんぶ できた！', sub: '草原で あそぼう', act: () => show('home') });
+    recs.push({ ic: 'party-popper', text: 'きょうの分は ぜんぶ できた！', sub: '草原で あそぼう', act: () => show('home') });
   }
   const test = p.items.filter((i) => !i.done && i.type === 'test' && daysUntil(i.date) >= 0).sort((a, b) => a.date.localeCompare(b.date))[0];
   if (test) {
     const total = buildSteps(test).length;
-    recs.push({ ic: '🎯', text: `${test.subject}テストまで ${daysLabel(daysUntil(test.date))}`, sub: `すすみ ${Math.min(total, test.stepsDone || 0)} / ${total}`, act: () => openProgress(p, bonusDeps) });
+    recs.push({ ic: 'target', text: `${test.subject}テストまで ${daysLabel(daysUntil(test.date))}`, sub: `すすみ ${Math.min(total, test.stepsDone || 0)} / ${total}`, act: () => openProgress(p, bonusDeps) });
   }
-  if (minutesOn(p, today()) < 30) recs.push({ ic: '⏱', text: 'タイマーで 15分 やってみよう', sub: `きょう ${minutesOn(p, today())}分`, act: () => show('timer') });
+  if (minutesOn(p, today()) < 30) recs.push({ ic: 'clock-3', text: 'タイマーで 15分 やってみよう', sub: `きょう ${minutesOn(p, today())}分`, act: () => show('timer') });
   const day = p.bonus?.days?.[today()] || {};
   const drills = DRILLS.filter((d) => !day[`drill:${d.id}`]);
   if (drills.length) {
     const d = drills[new Date().getDate() % drills.length];
-    recs.push({ ic: d.ic, text: `${d.label}で ⭐をあつめよう`, sub: '5もん・ボーナス', act: () => startDrill(p, d, bonusDeps) });
+    recs.push({ ic: d.ic, text: `${d.label}で ポイントをあつめよう`, sub: '5もん・ボーナス', act: () => startDrill(p, d, bonusDeps) });
   }
   return recs.slice(0, 4);
 }
@@ -242,8 +245,8 @@ function renderHome(p) {
   const hour = new Date().getHours();
   const hello = hour < 11 ? 'おはよう！' : hour >= 18 ? 'おかえり！' : '';
   let words;
-  if (!nextTask) words = `きょうの分 ぜんぶできた！${st.n > 1 ? `🔥${st.n}日れんぞく！` : 'すごい！'}`;
-  else if (doneCount === 0) words = `${hello}${!st.doneToday && st.n > 0 ? `1こやると 🔥${st.n + 1}日れんぞく！` : 'まずは1こだけ やってみよう'}`;
+  if (!nextTask) words = `きょうの分 ぜんぶできた！${st.n > 1 ? `${st.n}日れんぞく！` : 'すごい！'}`;
+  else if (doneCount === 0) words = `${hello}${!st.doneToday && st.n > 0 ? `1こやると ${st.n + 1}日れんぞく！` : 'まずは1こだけ やってみよう'}`;
   else if (lastDone) words = `「${lastDone}」できたね！ あと${tasks.length - doneCount}こ`;
   else words = `いいちょうし！ あと${tasks.length - doneCount}こ`;
 
@@ -253,19 +256,19 @@ function renderHome(p) {
     ? h('button', { class: 'go', onclick: () => (nextTask.kind === 'daily' ? startDaily(p) : openStep(p, nextTask, toggle)) },
       h('span', { class: 'go-label' }, 'つぎは これ！', h('span', { class: 'chip' }, nextTask.tag)),
       h('span', { class: 'go-task' }, nextTask.label),
-      h('span', { class: 'go-arrow', 'aria-hidden': 'true' }, '▶'))
-    : h('div', { class: 'go done' }, h('span', { class: 'go-task' }, '🎉 きょうは ぜんぶ おわり！草原で あそぼう'));
+      h('span', { class: 'go-arrow', 'aria-hidden': 'true' }, icon('chevron-right')))
+    : h('div', { class: 'go done' }, h('span', { class: 'go-task' }, icon('party-popper'), ' きょうは ぜんぶ おわり！草原で あそぼう'));
 
   const bar = h('div', { class: 'today-bar' },
     h('div', { class: 'segs' }, tasks.map((t) => h('i', { class: t.done ? 'on' : '' }))),
     h('button', { class: 'count', 'aria-label': 'すすみ表', onclick: () => openProgress(p, bonusDeps) }, `${doneCount} / ${tasks.length}`),
-    h('button', { class: 'mins', onclick: () => show('timer') }, `⏱${minutesOn(p, today())}分`));
+    h('button', { class: 'mins', onclick: () => show('timer') }, icon('clock-3'), `${minutesOn(p, today())}分`));
 
   const stamps = h('div', { class: 'week' }, week(p).map((d) => h('div', { class: `day ${d.done ? 'done' : ''} ${d.today ? 'today' : ''} ${d.future ? 'future' : ''}` },
-    h('span', { class: 'stamp' }, d.done ? '✓' : ''), h('small', {}, d.label))));
+    h('span', { class: 'stamp' }, d.done ? icon('check') : ''), h('small', {}, d.label))));
 
   const list = h('ul', { class: 'tasks' }, tasks.map((t) => h('li', { class: `task ${t.done ? 'checked' : ''}` },
-    h('button', { class: 'check', 'aria-label': t.done ? 'もどす' : 'できた', onclick: () => toggle(t) }, t.done ? '✓' : ''),
+    h('button', { class: 'check', 'aria-label': t.done ? 'もどす' : 'できた', onclick: () => toggle(t) }, t.done ? icon('check') : ''),
     h('button', { class: 'task-label', onclick: () => (t.kind === 'daily' ? show('quest') : openStep(p, t, toggle)) },
       h('span', { class: 'chip soft' }, t.tag), ` ${t.label}`,
       t.item ? h('small', {}, ` ${daysLabel(daysUntil(t.item.date))}`) : null))));
@@ -276,7 +279,7 @@ function renderHome(p) {
       h('button', { class: 'coach-face', 'aria-label': 'きょうのおすすめ', onclick: () => bonusDeps.openRecommend() },
         h('img', { src: 'assets/icons/icon-192.png', alt: '', width: 40, height: 40 })),
       h('p', {}, words),
-      h('button', { class: 'fold', 'aria-label': folded ? 'ひらく' : 'たたむ', onclick: () => { folded = !folded; render(); } }, folded ? '▼' : '▲')),
+      h('button', { class: 'fold', 'aria-label': folded ? 'ひらく' : 'たたむ', onclick: () => { folded = !folded; render(); } }, icon(folded ? 'chevron-down' : 'chevron-up'))),
     h('div', { class: 'today-body' },
       bar,
       goBtn,
@@ -299,8 +302,8 @@ function openStep(p, t, toggle) {
       h('p', { class: 'sheet-sub' }, `${t.item.title}・${daysLabel(daysUntil(t.item.date))}`),
       t.done
         ? h('button', { class: 'btn', onclick: () => { close(); toggle(t); } }, 'まだだった（もどす）')
-        : h('button', { class: 'btn primary big-btn', onclick: () => { close(); startTimer(p, { kind: kindForItem(t.item), subject: t.item.subject, item: t.item, stepLabel: t.label }, timerDeps); } }, '⏱ タイマーで はじめる'),
-      t.done ? null : h('button', { class: 'btn', onclick: () => { close(); toggle(t); } }, 'もう できた！ ⭐+10'),
+        : h('button', { class: 'btn primary big-btn', onclick: () => { close(); startTimer(p, { kind: kindForItem(t.item), subject: t.item.subject, item: t.item, stepLabel: t.label }, timerDeps); } }, icon('clock-3'), ' タイマーで はじめる'),
+      t.done ? null : h('button', { class: 'btn', onclick: () => { close(); toggle(t); } }, 'もう できた！ ', icon('sprout'), '+10'),
       h('button', { class: 'link', onclick: close }, 'あとで')));
   document.body.append(sheet);
 }
@@ -463,7 +466,7 @@ function renderSettings(p) {
       h('h3', {}, 'つかう人をかえる'),
       h('ul', { class: 'people' }, s.profiles.map((x) => h('li', {},
         h('button', { class: `btn ${x.id === p.id ? 'primary' : ''}`, onclick: () => { switchProfile(x.id); show('home'); } },
-          `${x.name}（${gradeLabel(x)}） ⭐${x.points}`),
+          `${x.name}（${gradeLabel(x)}） `, icon('sprout'), `${x.points}`),
       ))),
       h('details', {}, h('summary', {}, 'あたらしく ついか'), profileForm('きょうだいも ここで ついかできます。', 'ついか')),
     ),

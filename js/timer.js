@@ -7,12 +7,13 @@
 import { h, toast } from './ui.js';
 import { SUBJECTS, today, toISO, save } from './store.js';
 import * as bgm from './bgm.js';
+import { icon } from './icons.js';
 
 export const KINDS = [
-  { id: 'homework', label: '宿題', ic: '📝' },
-  { id: 'challenge', label: 'チャレンジ', ic: '🏅' },
-  { id: 'self', label: '自主学習', ic: '📚' },
-  { id: 'testprep', label: 'テスト勉強', ic: '🎯' },
+  { id: 'homework', label: '宿題', ic: 'notebook-text' },
+  { id: 'challenge', label: 'チャレンジ', ic: 'medal' },
+  { id: 'self', label: '自主学習', ic: 'book-open' },
+  { id: 'testprep', label: 'テスト勉強', ic: 'target' },
 ];
 export const SUBJECT_COLORS = {
   '国語': '#d78b9f', '算数・数学': '#7f985e', '理科': '#d8b85a', '社会': '#c98766', '英語': '#7aa6bd', 'その他': '#9aa897',
@@ -60,7 +61,7 @@ export function renderTimerTab(panel, p, deps) {
 
     h('div', { class: 'card setup' },
       h('p', { class: 'label' }, 'なにをする？'),
-      h('div', { class: 'picks' }, KINDS.map((k) => chip(pf.kind === k.id, `${k.ic} ${k.label}`, () => set('kind', k.id)))),
+      h('div', { class: 'picks' }, KINDS.map((k) => chip(pf.kind === k.id, [icon(k.ic), ` ${k.label}`], () => set('kind', k.id)))),
       h('p', { class: 'label' }, 'きょうか'),
       h('div', { class: 'picks' }, SUBJECTS.map((s) => chip(pf.subject === s, s, () => set('subject', s), SUBJECT_COLORS[s]))),
       h('div', { class: 'seg' },
@@ -68,10 +69,10 @@ export function renderTimerTab(panel, p, deps) {
         h('button', { class: pf.mode === 'free' ? 'on' : '', onclick: () => set('mode', 'free') }, '計るだけ')),
       pf.mode === 'focus' ? h('div', { class: 'picks times' }, PRESETS.map((m) => chip(pf.minutes === m, `${m}分`, () => set('minutes', m)))) : null,
       h('div', { class: 'bgm-row' },
-        h('button', { class: `bgm-toggle ${pf.bgm ? 'on' : ''}`, 'aria-label': 'BGM', onclick: () => set('bgm', !pf.bgm) }, pf.bgm ? '♪' : '♪̸'),
+        h('button', { class: `bgm-toggle ${pf.bgm ? 'on' : ''}`, 'aria-label': 'BGM', onclick: () => set('bgm', !pf.bgm) }, icon('music-2')),
         bgmName,
         h('button', { class: 'link', onclick: () => openBgmPicker(rerender) }, 'えらぶ')),
-      h('button', { class: 'btn primary start', onclick: () => startTimer(p, {}, deps) }, '▶ スタート')),
+      h('button', { class: 'btn primary start', onclick: () => startTimer(p, {}, deps) }, icon('play'), ' スタート')),
 
     weekChart(p, wk),
     todayList(p, deps, rerender),
@@ -116,7 +117,7 @@ function recordRow(p, s, deps, rerender) {
   const k = kindOf(s.kind);
   const row = h('li', { class: 'rec' },
     h('i', { class: 'dot', style: `background:${SUBJECT_COLORS[s.subject] || '#9aa897'}` }),
-    h('span', { class: 'what' }, `${k.ic} ${k.label}・${s.subject}`),
+    h('span', { class: 'what' }, icon(k.ic), ` ${k.label}・${s.subject}`),
     h('b', {}, `${s.minutes}分`),
     h('button', { class: 'link', onclick: () => row.replaceWith(editRow(p, s, deps, rerender)) }, 'なおす'));
   return row;
@@ -168,14 +169,14 @@ async function openBgmPicker(onClose) {
   const groups = [['standard', 'いつものBGM'], ['old', '前のタイマーの曲'], ['own', 'とりこんだ曲']];
   const sheet = h('div', { class: 'sheet', onclick: (e) => { if (e.target === sheet) close(); } },
     h('div', { class: 'sheet-card bgm-card' },
-      h('p', { class: 'sheet-title' }, '♪ BGM'),
+      h('p', { class: 'sheet-title' }, icon('music-2'), ' BGM'),
       groups.map(([from, label]) => {
         const ts = tracks.filter((t) => t.from === from);
         if (!ts.length) return null;
         return h('div', { class: 'bgm-group' }, h('p', { class: 'label' }, label), ts.map((t) => h('div', { class: `bgm-item ${t.id === sel ? 'on' : ''}` },
-          h('button', { class: 'play', 'aria-label': 'ためしにきく', onclick: () => { bgm.play(t.id).catch(() => { status.textContent = 'ならせなかった…'; }); } }, '▶'),
-          h('button', { class: 'name', onclick: () => { bgm.setSelected(t.id); close(); } }, `${t.kind === 'video' ? '🎬 ' : ''}${t.name}`),
-          t.id === sel ? h('span', { class: 'check' }, '✓') : null,
+          h('button', { class: 'play', 'aria-label': 'ためしにきく', onclick: () => { bgm.play(t.id).catch(() => { status.textContent = 'ならせなかった…'; }); } }, icon('play')),
+          h('button', { class: 'name', onclick: () => { bgm.setSelected(t.id); close(); } }, t.kind === 'video' ? icon('film') : null, ` ${t.name}`),
+          t.id === sel ? h('span', { class: 'check' }, icon('check')) : null,
           t.from === 'own' ? h('button', { class: 'link', onclick: async () => { await bgm.removeTrack(t.id); close(); openBgmPicker(onClose); } }, 'けす') : null)));
       }),
       h('label', { class: 'vol' }, '音の大きさ', h('input', { type: 'range', min: 0, max: 1, step: 0.05, value: bgm.volume(), oninput: (e) => bgm.setVolume(Number(e.target.value)) })),
@@ -230,20 +231,20 @@ function openRunning(p, deps) {
   const cheer = h('p', { class: 'cheer' }, CHEERS[0]);
   const ptsBar = h('i', {});
   const ptsText = h('b', {}, '+0pt');
-  const pauseBtn = h('button', { class: 'btn' }, '⏸ 一時停止');
-  const doneBtn = h('button', { class: 'btn primary' }, '✓ 完了');
-  const music = h('button', { class: `bgm-toggle ${bgm.isPlaying() ? 'on' : ''}`, 'aria-label': 'BGM' }, '♪');
+  const pauseBtn = h('button', { class: 'btn' }, icon('pause'), ' 一時停止');
+  const doneBtn = h('button', { class: 'btn primary' }, icon('check'), ' 完了');
+  const music = h('button', { class: `bgm-toggle ${bgm.isPlaying() ? 'on' : ''}`, 'aria-label': 'BGM' }, icon('music-2'));
   const layer = h('div', { class: 'runner timer-run' },
     h('div', { class: 'runner-card' },
       h('div', { class: 'runner-top' },
         h('span', { class: 'chip', style: `background:${SUBJECT_COLORS[t.subject] || ''}` }, t.subject),
-        h('span', { class: 'chip soft' }, `${k.ic} ${k.label}`),
+        h('span', { class: 'chip soft' }, icon(k.ic), ` ${k.label}`),
         h('span', { class: 'spacer' }),
         music),
       t.stepLabel ? h('p', { class: 'step-label' }, t.stepLabel) : null,
       h('div', { class: 'clock' }, svg, h('div', { class: 'face' }, time, sub)),
       h('div', { class: 'study-pic' }, h('img', { src: 'assets/icons/icon-192.png', alt: '' }), cheer),
-      h('div', { class: 'pts' }, h('span', {}, '⭐ かくとくポイント'), ptsText, h('div', { class: 'pts-bar' }, ptsBar)),
+      h('div', { class: 'pts' }, h('span', {}, icon('sprout'), ' かくとくポイント'), ptsText, h('div', { class: 'pts-bar' }, ptsBar)),
       h('div', { class: 'timer-btns' }, pauseBtn, doneBtn),
       h('button', { class: 'link reset' }, 'やめる（記録しない）')));
   document.body.append(layer);
@@ -283,7 +284,7 @@ function openRunning(p, deps) {
     const pts = Math.min(MAX_MIN, min);
     ptsText.textContent = `+${pts}pt`;
     ptsBar.style.width = `${Math.min(100, (sec / ((t.planned || BREAK_EVERY) * 60)) * 100)}%`;
-    pauseBtn.textContent = t.pausedAt ? '▶ さいかい' : '⏸ 一時停止';
+    pauseBtn.replaceChildren(icon(t.pausedAt ? 'play' : 'pause'), t.pausedAt ? ' さいかい' : ' 一時停止');
     layer.classList.toggle('paused', !!t.pausedAt);
     cheer.textContent = t.pausedAt ? 'ひとやすみ中' : CHEERS[Math.floor(sec / 300) % CHEERS.length];
     if (min >= MAX_MIN) { finish(false); return; }
@@ -331,9 +332,9 @@ function showDone(p, s, t, bonus, deps) {
   const card = h('div', { class: 'sheet' }, h('div', { class: 'sheet-card done-card' },
     h('p', { class: 'big-num' }, `${s.minutes}`, h('small', {}, '分')),
     h('p', { class: 'sheet-title' }, bonus ? 'さいごまで やりきった！' : 'おつかれさま！'),
-    h('p', { class: 'reward' }, `⭐ +${s.points}${bonus ? `（やりきり +${bonus}）` : ''}`),
+    h('p', { class: 'reward' }, icon('sprout'), ` +${s.points}${bonus ? `（やりきり +${bonus}）` : ''}`),
     item && t.stepLabel ? h('p', { class: 'sheet-sub' }, `「${t.stepLabel}」は できた？`) : null,
-    item && t.stepLabel ? h('button', { class: 'btn primary', onclick: () => { card.remove(); deps.completeStepFor(item, t.stepLabel); } }, 'できた！ ⭐+10') : null,
+    item && t.stepLabel ? h('button', { class: 'btn primary', onclick: () => { card.remove(); deps.completeStepFor(item, t.stepLabel); } }, 'できた！ ', icon('sprout'), '+10') : null,
     h('button', { class: `btn ${item && t.stepLabel ? '' : 'primary'}`, onclick: close }, item && t.stepLabel ? 'まだ（つづきは あとで）' : 'もどる')));
   document.body.append(card);
 }
