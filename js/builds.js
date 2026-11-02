@@ -73,6 +73,7 @@ export function createBuilds({ scene, wind, cut }) {
   function apply(op) {
     if (op.t === 'path') cut.stroke(op.pts, op.r);
     else if (op.t === 'dig') cut.stroke(op.pts, op.r, 'b');
+    else if (op.t === 'seed') cut.stroke(op.pts, op.r, 'e');
     else if (op.t === 'pond') cut.pond(op.pts);
     else if (op.t === 'plant') for (let i = 0; i < op.pts.length / 2; i++) stampItems(op.s, op.pts[i * 2], op.pts[i * 2 + 1], op.seed, i).forEach(layer.add);
     else if (op.t === 'ring') { rings.add(buildRing(op)); cut.fill(op.pts); }

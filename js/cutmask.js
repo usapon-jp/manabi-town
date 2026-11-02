@@ -25,6 +25,16 @@ export function createCutMask() {
 
   function stamp(x, z, r, ch = 'r') {
     const px = toPx(x); const py = toPx(z); const pr = (r / (2 * CUT_R)) * N;
+    if (ch === 'e') {
+      // 草のタネ: 道（赤）と花だんの土（緑）だけを消す。ほった所（青）は残す
+      ctx.globalCompositeOperation = 'multiply';
+      const ge = ctx.createRadialGradient(px, py, 0, px, py, pr);
+      ge.addColorStop(0, '#00f'); ge.addColorStop(0.72, '#00f'); ge.addColorStop(1, '#fff');
+      ctx.fillStyle = ge;
+      ctx.fillRect(px - pr, py - pr, pr * 2, pr * 2);
+      ctx.globalCompositeOperation = 'lighten';
+      return;
+    }
     const g = ctx.createRadialGradient(px, py, 0, px, py, pr);
     g.addColorStop(0, DIG_COLOR[ch]); g.addColorStop(0.72, DIG_COLOR[ch]); g.addColorStop(1, '#000');
     ctx.fillStyle = g;
