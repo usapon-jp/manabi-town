@@ -22,6 +22,8 @@ import { icon } from './icons.js';
 import { askAI, aiLeft, DAY_LIMIT } from './ai.js';
 import { recordResults, dueReview, startReview, reviewStats, REVIEW_PER_CORRECT } from './review.js';
 import { openTestEntry, openWeak, startWeak, testHistory } from './tests.js';
+import { startSync } from './sync.js';
+import { syncCard, openLogin, openPicker, askPin, pinField, pinFor } from './account.js';
 import { openPlanChat, startCheck, summary as planSummary, PLAN_BONUS } from './coach.js';
 import { isAdult, todayRoutines, checkRoutine, renderRoutineTab, consultCta, openConsult, ROUTINE_POINTS, ADULT_SUBJECTS } from './adult.js';
 
@@ -92,6 +94,15 @@ window.addEventListener('manabi-save-error', () => {
 window.addEventListener('manabi-restored', () => toast('データがこわれていたので、きのうまでの分に もどしたよ', 6000));
 // ほかのタブで進んだら、こちらの画面も新しくする
 window.addEventListener('manabi-synced', () => render());
+// ほかの端末と そろえる（ログインしているときだけ）
+startSync();
+window.addEventListener('manabi-sync-merged', () => toast('ほかの端末の 同じ名前の人と、進みを ひとつに まとめたよ', 5000));
+// ログインしたら「だれが つかう？」
+function afterLogin() {
+  toast('ログインしたよ。進みを そろえたよ');
+  if (getState().profiles.length > 1 || !currentProfile()) openPicker((id) => { switchProfile(id); show('home'); }, { closable: !!currentProfile() });
+  else show('home');
+}
 
 // オフラインでも開けるようにする（https か localhost のときだけ動く）
 if ('serviceWorker' in navigator) {
@@ -215,7 +226,8 @@ function renderWelcome() {
   bubble.hidden = true;
   document.querySelector('.tabs').hidden = true;
   panel.hidden = false;
-  fill(panel, profileForm('はじめまして！ピヨだよ。きみの名前と学年をおしえてね。', 'はじめる'));
+  fill(panel, profileForm('はじめまして！ピヨだよ。きみの名前と学年をおしえてね。', 'はじめる'),
+    h('button', { class: 'btn', onclick: () => openLogin(afterLogin) }, icon('cloud'), ' ほかの端末で もう つかっている（ログイン）'));
 }
 
 function profileForm(message, label) {
@@ -699,20 +711,27 @@ function renderSettings(p) {
   const grade = h('select', {}, GRADES.map((g) => h('option', { value: g.id }, g.label)));
   grade.value = p.grade;
   const code = h('textarea', { rows: 5, placeholder: 'Claudeからもらった とりこみコードを ここに貼る' });
+  const pin = pinField(p, (v) => { updateProfile(p, { pinHash: v }); render(); });
 
   fill(panel, 
     h('h2', {}, 'せってい'),
-    h('form', { class: 'card form', onsubmit: (e) => {
+    h('form', { class: 'card form', onsubmit: async (e) => {
       e.preventDefault();
       if (!name.value.trim()) return;
-      updateProfile(p, { name: name.value.trim(), grade: grade.value });
-      toast('ほぞんしたよ');
+      if (pin.box.value && pin.box.value.length !== 4) { toast('あいことばは 4けたの数字にしてね'); return; }
+      const fields = { name: name.value.trim(), grade: grade.value };
+      if (pin.box.value) fields.pinHash = await pinFor(p, pin.box.value);
+      updateProfile(p, fields);
+      toast(pin.box.value ? 'ほぞんしたよ。あいことばを わすれないでね' : 'ほぞんしたよ');
       render();
     } },
     h('h3', {}, 'じぶん'),
     h('label', {}, 'なまえ', name),
     h('label', {}, '学年', grade),
+    pin.el,
     h('button', { class: 'btn primary', type: 'submit' }, 'ほぞん')),
+
+    syncCard(afterLogin),
 
     h('div', { class: 'card form' },
       h('h3', {}, 'とりこみ'),
@@ -729,7 +748,7 @@ function renderSettings(p) {
     ),
 
     planCard(p),
-    feedbackCard(p, 'settings', 'v44'),
+    feedbackCard(p, 'settings', 'v47'),
     aiCard(),
     photosCard(p),
     dataCard(),
@@ -737,13 +756,13 @@ function renderSettings(p) {
     h('div', { class: 'card form' },
       h('h3', {}, 'つかう人をかえる'),
       h('ul', { class: 'people' }, s.profiles.map((x) => h('li', {},
-        h('button', { class: `btn ${x.id === p.id ? 'primary' : ''}`, onclick: () => { switchProfile(x.id); show('home'); } },
-          `${x.name}（${gradeLabel(x)}） `, icon('sprout'), `${x.points}`),
+        h('button', { class: `btn ${x.id === p.id ? 'primary' : ''}`, onclick: async () => { if (x.id === p.id || await askPin(x)) { switchProfile(x.id); show('home'); } } },
+          `${x.name}（${gradeLabel(x)}） `, icon('sprout'), `${x.points}`, x.pinHash ? icon('lock') : null),
       ))),
       h('details', {}, h('summary', {}, 'あたらしく ついか'), profileForm('きょうだいも ここで ついかできます。', 'ついか')),
     ),
     h('button', { class: 'btn', onclick: () => { show('home'); setTimeout(() => runTutorial(p), 300); } }, 'つかいかたを もういちど見る'),
-    h('p', { class: 'note' }, 'お試し版のデータは、この端末のブラウザの中だけに保存されます。'),
+    h('p', { class: 'note' }, 'データは この端末にも 保存されます。ログインすると ほかの端末とも そろいます。'),
   );
 }
 
