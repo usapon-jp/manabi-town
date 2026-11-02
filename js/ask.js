@@ -17,6 +17,7 @@ export function openAsk(p, { subject } = {}) {
   let photo = null;      // つぎのしつもんに つける写真（data URL）
   let busy = false;
   const voice = createVoice();
+  let closed = false;
   let voiceOn = false;   // 音声モード: 返事を読み上げて、おわったら また聞きとる
   let subj = subject || '';
 
@@ -49,7 +50,7 @@ export function openAsk(p, { subject } = {}) {
   } }, icon('volume-x'));
   function setMic(on) { mic.classList.toggle('on', on); }
   function listen() {
-    if (busy) return;
+    if (busy || closed) return;
     setMic(true);
     input.placeholder = 'きいてるよ…はなしてね';
     voice.listen({
@@ -66,7 +67,7 @@ export function openAsk(p, { subject } = {}) {
     h('button', { type: 'button', class: 'chat-cam', 'aria-label': 'しゃしんを とる', onclick: () => file.click() }, icon('camera')),
     h('button', { type: 'button', class: 'chat-cam', 'aria-label': 'しりょうから えらぶ', onclick: () => openPhotos(p, { pick: 1, onPick: (urls) => { if (urls[0]) { photo = urls[0]; showThumb(); } } }) }, icon('folder')),
     input, mic, h('button', { class: 'chat-send', type: 'submit', 'aria-label': 'おくる' }, icon('send')));
-  const close = () => { voice.destroy(); layer.remove(); document.body.classList.remove('running'); };
+  const close = () => { closed = true; voiceOn = false; voice.destroy(); layer.remove(); document.body.classList.remove('running'); };
   const layer = h('div', { class: 'chat ask' },
     h('div', { class: 'chat-top' },
       h('img', { src: 'assets/icons/icon-192.png', alt: '', width: 36, height: 36 }),
@@ -98,9 +99,10 @@ export function openAsk(p, { subject } = {}) {
     try {
       const r = await askAI({ action: 'ask', grade: gradeLabel(p), subject: subj, messages, image: sticky || undefined }, { timeout: 45000 });
       wait.remove();
+      if (closed) return;
       messages.push({ role: 'assistant', text: r.say || '' });
       bubble('assistant', r.say || '', r.svg ? diagram(r.svg) : null);
-      if (voiceOn && r.say) voice.speak(r.say, () => { if (voiceOn && canListen) listen(); });
+      if (voiceOn && !closed && r.say) voice.speak(r.say, () => { if (voiceOn && !closed && canListen) listen(); });
     } catch (e) {
       wait.remove();
       messages.pop();   // 送れなかった質問は もどす
