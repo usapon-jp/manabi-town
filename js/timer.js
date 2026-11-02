@@ -164,17 +164,34 @@ async function openBgmPicker(onClose) {
     status.textContent = '読みこみ中…';
     try { const n = await bgm.importLibrary(f); status.textContent = `${n}曲 入れたよ`; close(); openBgmPicker(onClose); } catch (e) { status.textContent = '読めなかった…前のタイマーの「書き出し」ファイルを選んでね'; }
   } });
+  const again = () => { bgm.stop(); sheet.remove(); openBgmPicker(onClose); };
+  const list = bgm.playlist();
+  const byId = new Map(tracks.map((t) => [t.id, t]));
+  const modes = [['one', '1きょく', 'repeat-1'], ['all', 'じゅんばん', 'repeat'], ['shuffle', 'シャッフル', 'shuffle']];
+  const listBox = h('div', { class: 'bgm-list' },
+    h('p', { class: 'label' }, icon('list-music'), ' プレイリスト（ながく きく・くりかえし）'),
+    list.length ? [
+      h('label', { class: 'bgm-use' }, h('input', { type: 'checkbox', checked: bgm.useList() || null, onchange: (e) => { bgm.setUseList(e.target.checked); again(); } }), ' リストで ながす'),
+      h('div', { class: 'bgm-modes' }, modes.map(([m, label, ic]) => h('button', { type: 'button', class: `bgm-mode ${bgm.mode() === m ? 'on' : ''}`, onclick: () => { bgm.setMode(m); again(); } }, icon(ic), h('span', {}, label)))),
+      h('ol', { class: 'bgm-order' }, list.filter((id) => byId.has(id)).map((id, i, a) => h('li', {},
+        h('span', { class: 'bgm-n' }, `${i + 1}`), h('span', { class: 'bgm-t' }, byId.get(id).name),
+        h('button', { type: 'button', 'aria-label': 'うえへ', disabled: i === 0 || null, onclick: () => { bgm.movePlaylist(id, -1); again(); } }, icon('chevron-up')),
+        h('button', { type: 'button', 'aria-label': 'したへ', disabled: i === a.length - 1 || null, onclick: () => { bgm.movePlaylist(id, 1); again(); } }, icon('chevron-down')),
+        h('button', { type: 'button', 'aria-label': 'リストから はずす', onclick: () => { bgm.togglePlaylist(id); again(); } }, icon('x')))))]
+      : h('p', { class: 'sheet-sub' }, '曲の「＋」を おすと、リストに入るよ'));
   const sel = bgm.selectedId();
   const groups = [['standard', 'いつものBGM'], ['old', '前のタイマーの曲'], ['own', 'とりこんだ曲']];
   const sheet = h('div', { class: 'sheet', onclick: (e) => { if (e.target === sheet) close(); } },
     h('div', { class: 'sheet-card bgm-card' },
       h('p', { class: 'sheet-title' }, icon('music-2'), ' BGM'),
+      listBox,
       groups.map(([from, label]) => {
         const ts = tracks.filter((t) => t.from === from);
         if (!ts.length) return null;
         return h('div', { class: 'bgm-group' }, h('p', { class: 'label' }, label), ts.map((t) => h('div', { class: `bgm-item ${t.id === sel ? 'on' : ''}` },
           h('button', { class: 'play', 'aria-label': 'ためしにきく', onclick: () => { bgm.play(t.id).catch(() => { status.textContent = 'ならせなかった…'; }); } }, icon('play')),
           h('button', { class: 'name', onclick: () => { bgm.setSelected(t.id); close(); } }, t.kind === 'video' ? icon('film') : null, ` ${t.name}`),
+          h('button', { class: `add ${list.includes(t.id) ? 'on' : ''}`, 'aria-label': list.includes(t.id) ? 'リストから はずす' : 'リストに入れる', onclick: () => { bgm.togglePlaylist(t.id); again(); } }, icon(list.includes(t.id) ? 'list-music' : 'plus')),
           t.id === sel ? h('span', { class: 'check' }, icon('check')) : null,
           t.from === 'own' ? h('button', { class: 'link', onclick: async () => { await bgm.removeTrack(t.id); close(); openBgmPicker(onClose); } }, 'けす') : null)));
       }),
