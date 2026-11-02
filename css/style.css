@@ -800,3 +800,23 @@ button.go:active { transform: scale(0.97); animation: none; }
   .sheet { align-items: center; padding: 10px; }
   .sheet-card { max-height: calc(100dvh - 20px); overflow-y: auto; }
 }
+
+/* ---- きょうのカードは、ふだん小さなクエストマーク（のこり数のバッジつき）にたたむ ---- */
+.quest-mark {
+  position: relative; display: grid; place-items: center; width: 54px; height: 54px; padding: 0; cursor: pointer;
+  border-radius: 50%; background: var(--card); border: 2px solid var(--line); box-shadow: var(--soft); -webkit-tap-highlight-color: transparent;
+}
+.quest-mark:active { transform: scale(0.95); }
+.quest-ic { width: 28px; height: 28px; fill: #e0a52f; stroke: #e0a52f; stroke-width: 3.6; stroke-linecap: round; }
+.quest-badge {
+  position: absolute; top: -5px; right: -5px; min-width: 24px; height: 24px; padding: 0 6px; box-sizing: border-box;
+  display: grid; place-items: center; border-radius: 12px; background: #e5604d; color: #fff; border: 2px solid #fff;
+  font-size: 14px; font-weight: 800; line-height: 1; box-shadow: 0 1px 4px rgba(80, 40, 20, 0.3);
+}
+.bubble:not(.mini) .quest-mark { display: none; }
+.bubble.mini {
+  left: calc(16px + env(safe-area-inset-left, 0px)); right: auto; width: auto; margin: 0; padding: 0;
+  background: none; border: 0; box-shadow: none; max-height: none; overflow: visible;
+  top: calc(env(safe-area-inset-top) + 64px);
+}
+.bubble.mini .card-body { display: none; }
