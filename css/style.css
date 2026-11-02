@@ -1165,3 +1165,14 @@ body:not([data-tab="home"]) .world.loading::after { display: none; }
 #runner.over { z-index: 40; }
 .chal-clock { flex: 1; text-align: center; font-weight: 800; font-size: 20px; color: #5c7a3e; font-variant-numeric: tabular-nums; }
 .chal-clock.over { color: #c0583f; }
+
+.chal-photo { display: grid; gap: 6px; text-align: left; }
+.chal-photo .label { display: flex; align-items: center; gap: 6px; margin: 0; }
+.chal-photo-row { display: flex; gap: 8px; align-items: center; }
+.chal-photo-row select { flex: 1; min-width: 0; padding: 10px; border-radius: 12px; border: 2px solid var(--line); background: #fff; font: inherit; }
+.chal-thumbs { display: flex; gap: 8px; flex-wrap: wrap; }
+.chal-thumb { position: relative; width: 64px; }
+.chal-thumb img { width: 64px; height: 64px; object-fit: cover; border-radius: 10px; border: 2px solid var(--line); }
+.chal-thumb small { display: block; text-align: center; font-size: 11px; }
+.chal-thumb button { position: absolute; top: -6px; right: -6px; width: 22px; height: 22px; border-radius: 50%; border: 0; background: #fff; box-shadow: var(--soft); display: grid; place-items: center; padding: 0; }
+.chal-thumb button svg { width: 12px; height: 12px; }

@@ -9,6 +9,7 @@ import { runQuestions } from './runner.js';
 import { recordResults } from './review.js';
 import { askAI, aiErrorText, aiLeft } from './ai.js';
 import { openAsk } from './ask.js';
+import { shrink } from './scan.js';
 import { sessions } from './timer.js';
 import { icon } from './icons.js';
 
@@ -49,13 +50,13 @@ function topicFor(p, subject) {
   return t ? `${t.title} ${t.range || ''}`.slice(0, 80) : '';
 }
 
-async function makeFor(p, subject, n, seed) {
+async function makeFor(p, subject, n, seed, pics = []) {
   const bucket = gradeBucket(p);
   const rand = seededRandom(`chal:${subject}:${seed}`);
-  if (subject === '国語') return shuffle(buildDrill('kanji', bucket, seed, rand), rand).slice(0, n);
-  if (subject === '英語') return buildDrill('english', bucket, seed, rand).slice(0, n);
-  if (subject === '算数・数学') return buildDrill('math', bucket, seed, rand).slice(0, n);
-  const r = await askAI({ action: 'quiz', subject, grade: gradeLabel(p), topic: topicFor(p, subject), count: Math.min(5, n) }, { timeout: 30000 });
+  if (!pics.length && subject === '国語') return shuffle(buildDrill('kanji', bucket, seed, rand), rand).slice(0, n);
+  if (!pics.length && subject === '英語') return buildDrill('english', bucket, seed, rand).slice(0, n);
+  if (!pics.length && subject === '算数・数学') return buildDrill('math', bucket, seed, rand).slice(0, n);
+  const r = await askAI({ action: 'quiz', subject, grade: gradeLabel(p), topic: topicFor(p, subject), count: Math.min(5, n), images: pics }, { timeout: 40000 });
   return (r.questions || []).filter((q) => q && q.q && Array.isArray(q.options) && q.options.length >= 2 && Number.isInteger(q.answer) && q.answer >= 0 && q.answer < q.options.length)
     .slice(0, n).map((q) => ({ kind: 'choice', subject, prompt: String(q.q), options: q.options.map(String), answer: q.answer }));
 }
@@ -68,13 +69,13 @@ function interleave(lists) {
 }
 
 let making = false;
-async function build(p, subjects, n) {
+async function build(p, subjects, n, photos = {}) {
   const seed = `${p.id}:${today()}:${Date.now() % 100000}`;
   // AI は きょうの のこり回数ぶんだけ（ならべて送ると 上限を こえるので、先にけずる）
   let left = aiLeft();
-  const use = subjects.filter((s) => LOCAL.includes(s) || left-- > 0);
+  const use = subjects.filter((s) => (LOCAL.includes(s) && !photos[s]?.length) || left-- > 0);
   if (use.length < subjects.length) toast('きょうの AI の回数が たりないから、ある教科だけ');
-  const lists = await Promise.all(use.map((s) => makeFor(p, s, n, seed).catch((e) => { toast(`${s}: ${aiErrorText(e)}`); return []; })));
+  const lists = await Promise.all(use.map((s) => makeFor(p, s, n, seed, photos[s] || []).catch((e) => { toast(`${s}: ${aiErrorText(e)}`); return []; })));
   return interleave(lists);
 }
 
@@ -97,27 +98,53 @@ async function practice(p, deps, subject, over) {
 // ---- クイズチャレンジ（20分）---------------------------------------------------
 export function openChallenge(p, deps) {
   let picked = new Set(SETS[5]);
+  const photos = {};   // 教科 -> 写真（data URL）の配列。この画面のあいだだけ
   let cancelled = false;
   const close = () => { cancelled = true; sheet.remove(); };
   const chips = h('div', { class: 'picks subjects' });
   const info = h('p', { class: 'sheet-sub' });
   const go = h('button', { class: 'btn primary', type: 'button' }, icon('play'), ` スタート（${CHALLENGE_MIN}分）`);
   const presets = h('div', { class: 'picks' });
+  const photoBox = h('div', { class: 'chal-photo' });
+  const photoSel = h('select', {});
+  const file = h('input', { type: 'file', accept: 'image/*', capture: 'environment', hidden: true, onchange: async () => {
+    const f = file.files[0]; file.value = '';
+    if (!f) return;
+    const s = photoSel.value;
+    if ((photos[s] || []).length >= 3) { toast('1教科 3まいまで'); return; }
+    try { (photos[s] ||= []).push(await shrink(f)); } catch { toast('この写真は ひらけなかった'); return; }
+    draw();
+  } });
+  function drawPhotos() {
+    const sel = ALL9.filter((s) => picked.has(s));
+    const keep = photoSel.value;
+    photoSel.replaceChildren(...sel.map((s) => h('option', { value: s }, s)));
+    if (sel.includes(keep)) photoSel.value = keep;
+    const thumbs = Object.entries(photos).filter(([s, a]) => picked.has(s) && a.length)
+      .flatMap(([s, a]) => a.map((src, i) => h('span', { class: 'chal-thumb' }, h('img', { src, alt: '' }), h('small', {}, s),
+        h('button', { type: 'button', 'aria-label': '写真をはずす', onclick: () => { a.splice(i, 1); draw(); } }, icon('x')))));
+    photoBox.replaceChildren(
+      h('p', { class: 'label' }, icon('camera'), ' 教科書・プリントの写真を わたす（なくてもOK）'),
+      h('p', { class: 'sheet-sub' }, '写真があると、その中から 問題を作るよ'),
+      h('div', { class: 'chal-photo-row' }, photoSel, h('button', { type: 'button', class: 'btn small', disabled: !sel.length || null, onclick: () => file.click() }, icon('camera'), ' 撮る・えらぶ')),
+      thumbs.length ? h('div', { class: 'chal-thumbs' }, thumbs) : null, file);
+  }
   const draw = () => {
     chips.replaceChildren(...ALL9.map((s) => h('button', { type: 'button', class: `pick ${picked.has(s) ? 'on' : ''}`,
       onclick: () => { if (picked.has(s)) picked.delete(s); else picked.add(s); draw(); } }, s)));
     presets.replaceChildren(...[3, 5, 9].map((n) => h('button', { type: 'button', class: `pick ${picked.size === n && SETS[n].every((s) => picked.has(s)) ? 'on' : ''}`,
       onclick: () => { picked = new Set(SETS[n]); draw(); } }, `${n}教科`)));
     const n = picked.size;
-    const ai = [...picked].filter((s) => !LOCAL.includes(s)).length;
+    const ai = [...picked].filter((s) => !LOCAL.includes(s) || photos[s]?.length).length;
     info.textContent = n ? `${n}教科を ${CHALLENGE_MIN}分で まわるよ。時間が来たら そのもんだいで おしまい。${ai ? `（${ai}教科は AIが 問題を作るよ）` : ''}` : '教科を えらんでね';
     go.disabled = !n;
+    drawPhotos();
   };
   go.addEventListener('click', async () => {
     if (making || !picked.size) return;
     making = true; go.disabled = true; go.textContent = 'ピヨ先生が 問題を作り中…';
     const subjects = ALL9.filter((s) => picked.has(s));
-    const qs = await build(p, subjects, PER[picked.size <= 3 ? 3 : picked.size <= 5 ? 5 : 9]).finally(() => { making = false; });
+    const qs = await build(p, subjects, PER[picked.size <= 3 ? 3 : picked.size <= 5 ? 5 : 9], photos).finally(() => { making = false; });
     if (cancelled) return;   // 問題を作っている間に やめた
     if (!qs.length) { toast('うまく問題が作れなかった…あとで もういちど'); draw(); go.replaceChildren(icon('play'), ` スタート（${CHALLENGE_MIN}分）`); return; }
     cancelled = true; sheet.remove();
@@ -126,7 +153,7 @@ export function openChallenge(p, deps) {
   const sheet = h('div', { class: 'sheet', onclick: (e) => { if (e.target === sheet) close(); } },
     h('div', { class: 'sheet-card piyo-menu' },
       h('p', { class: 'sheet-title' }, piyo(), ` クイズチャレンジ ${CHALLENGE_MIN}分`),
-      presets, chips, info, go,
+      presets, chips, photoBox, info, go,
       h('button', { class: 'link', type: 'button', onclick: close }, 'やめる')));
   draw();
   document.body.append(sheet);
