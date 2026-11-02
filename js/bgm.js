@@ -175,9 +175,14 @@ async function sourceFor(track) {
   return playerUrl;
 }
 
+// 再生のたびに番号をふる。読みこみ中に stop() や別の play() がきたら、古いほうは鳴らさない
+let playToken = 0;
+
 export async function play(id = meta.selected) {
   stop();
+  const token = playToken;
   const tracks = await listTracks();
+  if (token !== playToken) return null;
   const track = tracks.find((t) => t.id === id) || STANDARD[0];
   const el = document.createElement(track.kind === 'video' ? 'video' : 'audio');
   el.loop = true;
@@ -185,14 +190,23 @@ export async function play(id = meta.selected) {
   el.setAttribute('playsinline', '');
   el.volume = volume();
   el.style.display = 'none';
+  const src = await sourceFor(track);
+  if (token !== playToken) { if (src.startsWith('blob:')) URL.revokeObjectURL(src); return null; }
   document.body.append(el);
   player = el;
-  el.src = await sourceFor(track);
-  await el.play();
+  el.src = src;
+  try {
+    await el.play();
+  } catch (e) {
+    if (token !== playToken) return null;
+    throw e;
+  }
+  if (token !== playToken) { el.pause(); el.remove(); return null; }
   return track;
 }
 
 export function stop() {
+  playToken += 1;
   if (player) { player.pause(); player.remove(); player = null; }
   if (playerUrl) { URL.revokeObjectURL(playerUrl); playerUrl = null; }
 }

@@ -1,6 +1,6 @@
 // オフラインでも開けるように、アプリの部品を端末にしまっておく。
 // 部品を変えたら VERSION を上げる（古いしまい場所は消える）。
-const VERSION = 'manabi-v33';
+const VERSION = 'manabi-v34';
 const FILES = [
   './',
   'index.html',
@@ -61,7 +61,8 @@ self.addEventListener('install', (e) => {
 self.addEventListener('activate', (e) => {
   e.waitUntil(
     caches.keys()
-      .then((keys) => Promise.all(keys.filter((k) => k !== VERSION).map((k) => caches.delete(k))))
+      // このアプリ（manabi-）の古いしまい場所だけ消す。同じドメインのほかのアプリのものは消さない
+      .then((keys) => Promise.all(keys.filter((k) => k.startsWith('manabi-') && k !== VERSION).map((k) => caches.delete(k))))
       .then(() => self.clients.claim()),
   );
 });

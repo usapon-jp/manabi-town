@@ -992,3 +992,5 @@ body:not([data-tab="home"]) .world.loading::after { display: none; }
 @keyframes load-pulse { 50% { opacity: 0.55; } }
 .world canvas { transition: opacity 0.6s ease; }
 .world.loading canvas { opacity: 0; }
+.toast { white-space: normal; width: max-content; max-width: calc(100vw - 32px); border-radius: 18px; text-align: center; line-height: 1.5; font-weight: 500; }
+.data-out { width: 100%; font-size: 12px; font-family: ui-monospace, monospace; }

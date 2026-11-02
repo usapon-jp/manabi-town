@@ -16,12 +16,12 @@ export function h(tag, attrs = {}, ...children) {
 }
 
 let toastTimer;
-export function toast(text) {
+export function toast(text, ms = 2200) {
   const el = document.getElementById('toast');
   el.textContent = text;
   el.classList.add('show');
   clearTimeout(toastTimer);
-  toastTimer = setTimeout(() => el.classList.remove('show'), 2200);
+  toastTimer = setTimeout(() => el.classList.remove("show"), ms);
 }
 
 export function daysLabel(days) {
