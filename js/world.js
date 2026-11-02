@@ -9,6 +9,7 @@ import { heightAt } from './terrain.js';
 import { createEditor } from './editor.js';
 import { currentProfile, onChange } from './store.js';
 import { levelInfo, totalXp } from './progress.js';
+import { loadQuality, saveLowQuality, SLOW_FRAME_SEC, WARMUP_FRAMES, SAMPLE_FRAMES } from './quality.js';
 
 const WALK_RADIUS = 12;   // ひとりで散歩するときのはんい
 const ROAM_RADIUS = 28;   // 自分で動かすときに行けるはんい
@@ -17,7 +18,9 @@ const normName = (s) => String(s).toLowerCase().replace(/[^a-z0-9]/g, '');
 
 export function createWorld(container) {
   const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false });
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+  let quality = loadQuality();   // 'high' か 'low'（ふるい端末では草や花をへらす）
+  const pixelRatio = () => (quality === 'low' ? 1 : Math.min(window.devicePixelRatio || 1, 2));
+  renderer.setPixelRatio(pixelRatio());
   container.appendChild(renderer.domElement);
 
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
@@ -29,6 +32,7 @@ export function createWorld(container) {
 
   // 絵本のような草原（空・雲海・草・花・木・ちょうちょ）
   const meadow = createMeadow(scene);
+  meadow.setQuality(quality);
   const ground = meadow.ground;
   const time = { value: 0 };
 
@@ -96,6 +100,15 @@ export function createWorld(container) {
   });
   canvas.addEventListener('pointercancel', () => { drag = null; if (editor.active) editor.pointer('cancel'); });
 
+  const perf = { frames: 0, sum: 0 };
+  function setQuality(q, save) {
+    quality = q;
+    meadow.setQuality(q);
+    renderer.setPixelRatio(pixelRatio());
+    resize();
+    if (save) saveLowQuality();
+  }
+
   function resize() {
     const w = container.clientWidth || 1;
     const h = container.clientHeight || 1;
@@ -110,8 +123,18 @@ export function createWorld(container) {
   let running = false;
   function frame() {
     if (!running) return;
-    const dt = Math.min(clock.getDelta(), 0.05);
+    const rawDt = clock.getDelta();
+    const dt = Math.min(rawDt, 0.05);
     time.value += dt;
+    // カクカクしていたら、自動で「ひかえめ」の画質に下げて、つぎからもそうする
+    if (quality === 'high' && rawDt < 2.0) {   // タブを閉じていた直後の長い空白は数えない
+      perf.frames += 1;
+      if (perf.frames > WARMUP_FRAMES) perf.sum += Math.min(rawDt, 0.5);
+      if (perf.frames >= WARMUP_FRAMES + SAMPLE_FRAMES) {
+        if (perf.sum / SAMPLE_FRAMES > SLOW_FRAME_SEC) setQuality('low', true);
+        else { perf.frames = WARMUP_FRAMES; perf.sum = 0; }
+      }
+    }
     const move = readMove();
     // カメラから見た向き: スティックの上 = 画面の奥
     const fx = -Math.sin(view.angle); const fz = -Math.cos(view.angle);
@@ -147,6 +170,7 @@ export function createWorld(container) {
       if (on) { clock.getDelta(); resize(); requestAnimationFrame(frame); }
     },
     celebrate() { actor.jump(); },
+    quality: () => quality,
     warp(x, z, angle, dist) { actor.position.set(x, heightAt(x, z), z); view.target.copy(actor.position); if (angle != null) view.angle = angle; if (dist) view.dist = dist; },
   };
 }
