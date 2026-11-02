@@ -56,6 +56,8 @@ GitHub Pages で `main` のルートを公開すればそのまま動く。three
 | `js/data/` | 漢字・英単語の問題リスト（学年ごと） |
 | `js/runner.js` | 1問ずつ出して答え合わせする画面 |
 | `js/timer.js`, `js/bgm.js` | 勉強タイマーと BGM |
+| `js/bonus.js` | ボーナス・おすすめ・すすみ表 |
+| `js/icons.js` | 線のアイコン（lucide、たまの勉強タイマーと同じ形）。絵文字は使わず `icon('house')` を使う |
 | `js/importer.js` | とりこみコードの読み込み |
 | `js/store.js` | 保存と、学年・日付の道具 |
 

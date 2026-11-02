@@ -10,6 +10,7 @@ import { currentProfile, save, onChange } from './store.js';
 import { heightAt } from './terrain.js';
 import { createBuilds, STAMP_STEP, loopLength, LOOP_MIN } from './builds.js';
 import { SPECIES, SPECIES_KEYS } from './plants.js';
+import { icon } from './icons.js';
 
 const MAX_OPS = 300;      // 覚えておく操作の数（保存の大きさをおさえる）
 const MAX_PTS = 400;      // ひとなぞりの点の数
@@ -32,11 +33,9 @@ const CSS = `
 .wedit button.on, .wedit-sub button.on { background: #8aa66a; color: #fff; border-color: #6f8c52; }
 .wedit button[disabled] { opacity: 0.45; cursor: default; }
 .wedit .fab { display: grid; place-items: center; gap: 3px; padding: 8px 4px; font-size: 12px; }
-.wedit .fab svg { width: 30px; height: 30px; }
+.wedit .fab svg { width: 28px; height: 28px; stroke-width: 1.8; }
 .wedit .fab { background: rgba(255, 255, 255, 0.13); border: 1.5px solid rgba(255, 255, 255, 0.55); color: #fff; box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.14);
   -webkit-backdrop-filter: blur(2px); backdrop-filter: blur(2px); text-shadow: 0 1px 3px rgba(0, 0, 0, 0.6); }
-.wedit .fab .mk-k { stroke: #fff; }
-.wedit .fab .mk-fa { fill: rgba(255, 255, 255, 0.22); }
 .wedit .fab svg { filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.5)); }
 .wedit .fab.on { background: rgba(138, 166, 106, 0.85); border-color: rgba(255, 255, 255, 0.8); }
 .wedit .tools { display: flex; flex-direction: column; gap: 5px; }
@@ -91,7 +90,7 @@ export function createEditor({ container, scene, cut, wind, pick, rotate }) {
   root.hidden = true;
   root.innerHTML = `
     <button type="button" class="fab" data-a="toggle" aria-label="つくる">
-      <svg class="mk-ic" viewBox="0 0 48 48" aria-hidden="true"><path class="mk-k" d="M24 41V22"/><path class="mk-k mk-fa" d="M24 26c-8 0-12.5-4.5-12.5-12 7.5 0 12.5 4.5 12.5 12z"/><path class="mk-k mk-fa" d="M24 22c0-6 4-10.5 11-10.5 0 6-4 10.5-11 10.5z"/></svg>
+      <span class="fab-ic"></span>
       <span>つくる</span>
     </button>
     <div class="tools" hidden>
@@ -103,6 +102,7 @@ export function createEditor({ container, scene, cut, wind, pick, rotate }) {
       <button type="button" data-a="undo">もどす</button>
       <button type="button" data-a="done">おわり</button>
     </div>`;
+  root.querySelector('.fab-ic').replaceWith(icon('sprout'));
   container.appendChild(root);
   // 「はな」のときだけ出る、画面した中央の道具ぶくろ
   const sub = document.createElement('div');

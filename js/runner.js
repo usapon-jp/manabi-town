@@ -2,6 +2,7 @@
 // 画面いっぱいに出して、問題・答えるところ・つぎへ、をはっきり分ける。
 import { h } from './ui.js';
 import { createInkPad } from './ink/pad.js';
+import { icon } from './icons.js';
 
 const PRAISE = ['せいかい！', 'すごい！', 'やったね！', 'ばっちり！'];
 export const KYOKASHO = '"UD Digi Kyokasho N-R", "UD デジタル 教科書体 N-R", YuKyokasho, "Klee One", "Hiragino Mincho ProN", serif';
@@ -69,7 +70,7 @@ export function runQuestions(title, questions, onFinish) {
     const dots = h('div', { class: 'dots', 'aria-hidden': 'true' },
       questions.map((_, i) => h('i', { class: i < index ? 'done' : i === index ? 'now' : '' })));
 
-    // 正解ははずんで⭐が飛ぶ、まちがいはぷるっとゆれる
+    // 正解ははずんで星が飛ぶ、まちがいはぷるっとゆれる
     function react(ok) {
       const box = layer.querySelector('.q-box');
       if (!box) return;
@@ -115,12 +116,12 @@ export function runQuestions(title, questions, onFinish) {
   render();
 }
 
-// ⭐ がはじけて飛ぶ
+// 星がはじけて飛ぶ
 function burst(box, count = 8) {
   for (let i = 0; i < count; i += 1) {
     const a = (Math.PI * 2 * i) / count + Math.random() * 0.4;
     const d = 70 + Math.random() * 60;
-    const star = h('span', { class: 'star-pop', 'aria-hidden': 'true', style: `--dx:${Math.cos(a) * d}px;--dy:${Math.sin(a) * d - 30}px;--r:${Math.round(Math.random() * 180 - 90)}deg` }, i % 3 ? '⭐' : '✨');
+    const star = h('span', { class: 'star-pop', 'aria-hidden': 'true', style: `--dx:${Math.cos(a) * d}px;--dy:${Math.sin(a) * d - 30}px;--r:${Math.round(Math.random() * 180 - 90)}deg` }, icon(i % 3 ? 'star' : 'sparkles'));
     box.append(star);
     setTimeout(() => star.remove(), 800);
   }
@@ -139,7 +140,7 @@ function writeArea(q, onJudge) {
     h('button', { class: 'judge ok', onclick: () => done(true) }, h('b', {}, '○'), '書けた！'),
     h('button', { class: 'judge ng', onclick: () => done(false) }, h('b', {}, '×'), '書けなかった'));
   const note = h('div', { class: 'notebook' },
-    h('span', { class: 'note-ic', 'aria-hidden': 'true' }, '📓'),
+    h('span', { class: 'note-ic', 'aria-hidden': 'true' }, icon('notebook-pen')),
     h('p', {}, 'ノートに 書いてみよう'));
 
   reveal.addEventListener('click', () => {
@@ -175,7 +176,7 @@ function memoArea(pads) {
   pads.push(pad);
   return h('div', { class: 'memo' },
     h('div', { class: 'memo-head' },
-      h('span', {}, '✏️ メモ（指で書けるよ）'),
+      h('span', {}, icon('pencil'), ' メモ（指で書けるよ）'),
       h('button', { class: 'link', onclick: () => pad.undo() }, 'もどす'),
       h('button', { class: 'link', onclick: () => pad.clear() }, 'けす')),
     pad.el);

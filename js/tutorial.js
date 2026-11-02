@@ -1,6 +1,7 @@
 // はじめてのチュートリアル。説明は短く、タップする場所を指と光る輪で見せる。
 // まわりを暗くして、光っている所だけ本当にタップできる。
 import { h } from './ui.js';
+import { icon } from './icons.js';
 
 const STEPS = [
   { text: 'スティックで ピヨを動かそう', target: () => document.getElementById('joy'), tap: 'any', pad: 8 },
@@ -9,8 +10,8 @@ const STEPS = [
   { text: 'ざっくりでOK。毎日の分に わけるよ', target: () => document.querySelector('form.card'), tap: 'any', pad: 6 },
   { text: 'ホームに もどろう', target: () => tab('home'), tap: 'target', open: 'home' },
   { text: 'きょうのクエストは ここ。数字は のこりだよ', target: () => document.querySelector('.quest-mark') || document.querySelector('.go'), tap: 'any', pad: 6 },
-  { text: '毎日つづけて 🔥をのばそう', target: () => document.querySelector('.hud .stats'), tap: 'any', pad: 6 },
-  { text: 'もっと⭐がほしいときは 🎁', target: () => document.querySelector('.bonus-btn'), tap: 'any', pad: 6 },
+  { text: '毎日つづけて れんぞく日数を のばそう', target: () => document.querySelector('.hud .stats'), tap: 'any', pad: 6 },
+  { text: 'ポイントを もっと ほしいときは ここ', target: () => document.querySelector('.bonus-btn'), tap: 'any', pad: 6 },
   { text: '毎日のクエストは ここ', target: () => tab('quest'), tap: 'target', open: 'quest' },
   { text: 'タイマーで 勉強を計ろう', target: () => tab('timer'), tap: 'target', open: 'timer' },
 ];
@@ -34,7 +35,7 @@ export function startTutorial({ show, onDone }) {
   let i = 0;
   const blocks = [0, 1, 2, 3].map(() => h('div', { class: 'tour-dim' }));
   const ring = h('div', { class: 'tour-ring' });
-  const hand = h('div', { class: 'tour-hand', 'aria-hidden': 'true' }, '👆');
+  const hand = h('div', { class: 'tour-hand', 'aria-hidden': 'true' }, icon('pointer'));
   const label = h('div', { class: 'tour-label' });
   const count = h('span', { class: 'tour-count' });
   const skip = h('button', { class: 'tour-skip', onclick: () => finish() }, 'とばす');
@@ -69,7 +70,6 @@ export function startTutorial({ show, onDone }) {
     // 指は下半分の目標なら上から、上半分なら下から
     const below = rect.top + rect.height / 2 < H * 0.5;
     const cx = rect.left + rect.width / 2;
-    hand.textContent = below ? '👆' : '👇';
     hand.classList.toggle('from-top', !below);
     Object.assign(hand.style, { left: `${cx - 28}px`, top: below ? `${bottom + 4}px` : `${rect.top - 64}px` });
     label.textContent = step.text;
