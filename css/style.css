@@ -78,7 +78,7 @@ input, textarea { -webkit-user-select: text; user-select: text; }
   position: fixed;
   left: 16px;
   right: 16px;
-  bottom: calc(var(--tabs-h) + env(safe-area-inset-bottom) + 16px);
+  top: calc(env(safe-area-inset-top) + 64px);
   max-width: 520px;
   margin: 0 auto;
   background: var(--card);
@@ -286,7 +286,7 @@ textarea { resize: vertical; }
 .toast {
   position: fixed;
   left: 50%;
-  bottom: calc(var(--tabs-h) + env(safe-area-inset-bottom) + 20px);
+  bottom: calc(var(--tabs-h) + env(safe-area-inset-bottom) + 150px);
   transform: translate(-50%, 20px);
   background: var(--ink);
   color: #fff;
@@ -302,7 +302,10 @@ textarea { resize: vertical; }
 .toast.show { opacity: 1; transform: translate(-50%, 0); }
 
 /* ---- きょうやること ---- */
-.bubble { max-height: calc(100% - var(--tabs-h) - env(safe-area-inset-bottom) - env(safe-area-inset-top) - 120px); overflow-y: auto; }
+.bubble { max-height: calc(100% - var(--tabs-h) - env(safe-area-inset-bottom) - env(safe-area-inset-top) - 260px); overflow-y: auto; }
+.bubble.folded .tasks, .bubble.folded .bubble-actions { display: none; }
+.bubble.folded p { margin: 0; }
+.fold { float: right; margin: -4px -6px 0 8px; border: 0; background: none; font: inherit; font-size: 13px; color: var(--ink-soft); padding: 4px 6px; }
 .tasks { list-style: none; margin: 0 0 12px; padding: 0; display: grid; gap: 6px; }
 .task { display: flex; align-items: center; gap: 10px; }
 .task .check {
@@ -364,3 +367,52 @@ textarea { resize: vertical; }
 @keyframes tour-glow { 50% { box-shadow: 0 0 0 6px #fff1a0, 0 0 34px 10px rgba(255, 236, 140, 1); } }
 @keyframes tour-nudge { 25% { transform: translateX(-8px); } 75% { transform: translateX(8px); } }
 @media (prefers-reduced-motion: reduce) { .tour-hand, .tour-ring { animation: none; } }
+
+/* ---- ピヨを動かす（うさぽん村と同じ形） ---- */
+.pad { position: fixed; inset: auto 0 calc(var(--tabs-h) + env(safe-area-inset-bottom)) 0; height: 0; z-index: 3; }
+#joy {
+  position: absolute;
+  left: calc(26px + env(safe-area-inset-left, 0px));
+  bottom: 22px;
+  width: 112px; height: 112px;
+  border-radius: 50%;
+  border: 1.5px solid rgba(255, 255, 255, 0.85);
+  background: radial-gradient(circle, rgba(255, 255, 255, 0.18) 0, rgba(60, 90, 50, 0.22) 100%);
+  box-shadow: 0 0 0 1px rgba(60, 90, 50, 0.14), 0 4px 16px rgba(60, 90, 50, 0.16);
+  touch-action: none;
+}
+#knob {
+  position: absolute; left: 50%; top: 50%;
+  width: 48px; height: 48px; margin: -24px 0 0 -24px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.6);
+  border: 1.5px solid rgba(255, 255, 255, 0.9);
+  pointer-events: none;
+  transition: background 0.12s, border-color 0.12s;
+}
+#joy.act { border-color: rgba(255, 226, 168, 0.95); }
+#joy.act #knob { background: rgba(255, 226, 168, 0.8); border-color: #ffe2a8; box-shadow: 0 0 12px rgba(255, 226, 168, 0.6); }
+#joy .chev { position: absolute; width: 0; height: 0; border: 5px solid transparent; opacity: 0.6; pointer-events: none; }
+#joy .u { top: 7px; left: calc(50% - 5px); border-bottom: 7px solid #fff; border-top: 0; }
+#joy .d { bottom: 7px; left: calc(50% - 5px); border-top: 7px solid #fff; border-bottom: 0; }
+#joy .l { left: 7px; top: calc(50% - 5px); border-right: 7px solid #fff; border-left: 0; }
+#joy .r { right: 7px; top: calc(50% - 5px); border-left: 7px solid #fff; border-right: 0; }
+.pad .tb {
+  position: absolute;
+  display: grid; place-items: center;
+  margin: 0; padding: 0;
+  border-radius: 50%;
+  border: 1.5px solid rgba(255, 255, 255, 0.95);
+  box-shadow: 0 0 0 1px rgba(91, 66, 88, 0.16), 0 4px 16px rgba(70, 45, 80, 0.18);
+  touch-action: none; -webkit-touch-callout: none;
+  transition: transform 0.12s;
+}
+.pad .tb:active { transform: scale(0.92); }
+#btnDash { width: 66px; height: 66px; right: calc(22px + env(safe-area-inset-right, 0px)); bottom: 22px; background: linear-gradient(180deg, #ffd9ad, #f8b26a); }
+#btnDash.hold { box-shadow: 0 0 0 3px #fff3c4, 0 0 18px rgba(255, 190, 90, 0.9); }
+#btnJump { width: 56px; height: 56px; right: calc(98px + env(safe-area-inset-right, 0px)); bottom: 14px; background: linear-gradient(180deg, #ebe0fb, #d8c6f5); }
+.mk-ic { width: 36px; height: 36px; overflow: visible; }
+#btnJump .mk-ic { width: 30px; height: 30px; }
+.mk-k { stroke: #8f6e86; stroke-width: 2.4; stroke-linecap: round; stroke-linejoin: round; fill: none; }
+.mk-fa { fill: #fffaf0; }
+.mk-fb { fill: rgba(255, 255, 255, 0.4); }

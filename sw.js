@@ -1,6 +1,6 @@
 // オフラインでも開けるように、アプリの部品を端末にしまっておく。
 // 部品を変えたら VERSION を上げる（古いしまい場所は消える）。
-const VERSION = 'manabi-v2';
+const VERSION = 'manabi-v3';
 const FILES = [
   './',
   'index.html',
@@ -13,6 +13,7 @@ const FILES = [
   'assets/models/piyo_base_rig.glb',
   'css/style.css',
   'js/characters.js',
+  'js/controls.js',
   'js/data/english.js',
   'js/data/kanji.js',
   'js/importer.js',
