@@ -132,7 +132,7 @@ Deno.serve(async (req) => {
       try { r = m ? JSON.parse(m[0]) : {}; } catch { r = {}; }
       const items = (Array.isArray(r.items) ? r.items : []).slice(0, 20)
         .filter((i: Record<string, unknown>) => i && i.title && /^\d{4}-\d{2}-\d{2}$/.test(String(i.date)))
-        .map((i: Record<string, unknown>) => ({ type: i.type === 'test' ? 'test' : 'homework', subject: clip(i.subject, 10) || 'その他', title: clip(i.title, 40), range: clip(i.range, 40), date: String(i.date) }));
+        .map((i: Record<string, unknown>) => ({ type: i.type === 'test' ? 'test' : 'homework', subject: ['国語', '理科', '社会', '英語'].includes(clip(i.subject, 10)) ? clip(i.subject, 10) : /算数|数学/.test(clip(i.subject, 10)) ? '算数・数学' : 'その他', title: clip(i.title, 40), range: clip(i.range, 40), date: String(i.date) }));
       return ok({ items, note: clip(r.note, 120) });
     }
     if (body.action === 'judge') {

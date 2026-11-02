@@ -1113,3 +1113,4 @@ body:not([data-tab="home"]) .world.loading::after { display: none; }
 .scan-on .chip { white-space: nowrap; flex-shrink: 0; writing-mode: horizontal-tb; }
 .scan-on select { flex: 1; }
 .scan-on input[type=checkbox] { width: 24px; height: 24px; flex-shrink: 0; accent-color: var(--accent); }
+.scan-row input.need { border-color: #e5604d; background: #fff1ee; }
