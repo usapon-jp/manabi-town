@@ -9,7 +9,7 @@ import { icon } from './icons.js';
 const MAX_SIDE = 1280;
 
 // 写真を小さくして base64（JPEG）にする
-function shrink(file) {
+export function shrink(file) {
   return new Promise((resolve, reject) => {
     const url = URL.createObjectURL(file);
     const img = new Image();

@@ -5,8 +5,9 @@
 // - 25分ごとに休けいの声かけ。1回は最大90分
 // - 記録はあとから種類・教科・時間を直せる（ポイントも合わせて直る）
 import { h, toast } from './ui.js';
-import { SUBJECTS, today, toISO, save } from './store.js';
+import { SUBJECTS, today, toISO, save, currentProfile } from './store.js';
 import * as bgm from './bgm.js';
+import { openAsk } from './ask.js';
 import { icon } from './icons.js';
 
 export const KINDS = [
@@ -250,12 +251,14 @@ function openRunning(p, deps) {
   const pauseBtn = h('button', { class: 'btn' }, icon('pause'), ' 一時停止');
   const doneBtn = h('button', { class: 'btn primary' }, icon('check'), ' 完了');
   const music = h('button', { class: `bgm-toggle ${bgm.isPlaying() ? 'on' : ''}`, 'aria-label': 'BGM' }, icon('music-2'));
+  const askBtn = h('button', { class: 'bgm-toggle ask-toggle', 'aria-label': 'ピヨ先生に しつもん', onclick: () => openAsk(currentProfile(), { subject: t.subject }) }, icon('message-circle'));
   const layer = h('div', { class: 'runner timer-run' },
     h('div', { class: 'runner-card' },
       h('div', { class: 'runner-top' },
         h('span', { class: 'chip', style: `background:${SUBJECT_COLORS[t.subject] || ''}` }, t.subject),
         h('span', { class: 'chip soft' }, icon(k.ic), ` ${k.label}`),
         h('span', { class: 'spacer' }),
+        askBtn,
         music),
       t.stepLabel ? h('p', { class: 'step-label' }, t.stepLabel) : null,
       h('div', { class: 'clock' }, svg, h('div', { class: 'face' }, time, sub)),
