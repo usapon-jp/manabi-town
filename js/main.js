@@ -11,6 +11,7 @@ import { startTutorial } from './tutorial.js';
 import { openRescue } from './rescue.js';
 import { scanButton } from './scan.js';
 import { feedbackCard } from './feedback.js';
+import { photosCard } from './photos.js';
 import { openAsk } from './ask.js';
 import { bindControls } from './controls.js';
 import { levelInfo, totalXp, streak, week } from './progress.js';
@@ -731,6 +732,7 @@ function renderSettings(p) {
     planCard(p),
     feedbackCard(p, 'settings', 'v44'),
     aiCard(),
+    photosCard(p),
     dataCard(),
 
     h('div', { class: 'card form' },

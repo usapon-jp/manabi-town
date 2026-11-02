@@ -86,8 +86,13 @@ Deno.serve(async (req) => {
         '問題文はみじかく。学年で習っていない漢字はひらがなに。計算問題は答えを自分でたしかめてから出す。',
         '返事は JSON だけ: {"questions":[{"q":"問題文","options":["A","B","C"],"answer":正解の番号(0から)}]}',
       ].join('\n');
-      const text = await claude(key, [{ type: 'text', text:
-        `教科: ${clip(body.subject, 20)}\n学年: ${clip(body.grade, 20)}\nにがてなところ: ${clip(body.topic, 80)}` }], system, 900);
+      // 教科書やプリントの写真（さいだい3まい）があれば、その内容から問題を作る
+      const pics = (Array.isArray(body.images) ? body.images : []).slice(0, 3)
+        .map((x: unknown) => clip(x, 1_500_000).replace(/^data:image\/\w+;base64,/, '')).filter(Boolean)
+        .map((data: string) => ({ type: 'image', source: { type: 'base64', media_type: 'image/jpeg', data } }));
+      const sys2 = pics.length ? system + '\n写真に教科書やプリントが写っている。その内容にそった問題だけを作る。読めない所は問題にしない。' : system;
+      const text = await claude(key, [...pics, { type: 'text', text:
+        `教科: ${clip(body.subject, 20)}\n学年: ${clip(body.grade, 20)}\nにがてなところ: ${clip(body.topic, 80)}` }], sys2, 900);
       const m = text.match(/\{[\s\S]*\}/);
       const r = m ? JSON.parse(m[0]) : { questions: [] };
       return ok({ questions: Array.isArray(r.questions) ? r.questions.slice(0, count) : [] });

@@ -9,17 +9,33 @@ import { currentProfile, gradeLabel } from './store.js';
 const PRAISE = ['せいかい！', 'すごい！', 'やったね！', 'ばっちり！'];
 export const KYOKASHO = '"UD Digi Kyokasho N-R", "UD デジタル 教科書体 N-R", YuKyokasho, "Klee One", "Hiragino Mincho ProN", serif';
 
-export function runQuestions(title, questions, onFinish) {
+export function runQuestions(title, questions, onFinish, opts = {}) {
   const layer = document.getElementById('runner');
+  // opts.minutes: 時間を決めた挑戦。時間になったら、いまの問題を答えたところで おしまい
+  const endAt = opts.minutes ? Date.now() + opts.minutes * 60000 : 0;
+  const clock = h('span', { class: 'chal-clock', hidden: !endAt });
+  let clockId = 0;
+  const tickClock = () => {
+    const left = Math.max(0, endAt - Date.now());
+    clock.textContent = left > 0 ? `${Math.floor(left / 60000)}:${String(Math.floor(left / 1000) % 60).padStart(2, '0')}` : 'じかん！';
+    clock.classList.toggle('over', left <= 0);
+  };
+  if (endAt) { tickClock(); clockId = setInterval(tickClock, 500); }
+  const timeUp = () => endAt && Date.now() >= endAt;
   let index = 0;
   let score = 0;
   let pads = [];
+  let finished = false;
   const results = []; // [{ q, ok }]（まちがえた問題を、あとで やりなおしに出すため）
 
   function cleanup() { pads.forEach((p) => p.destroy()); pads = []; }
 
   function close() {
     cleanup();
+    clearInterval(clockId);
+    // とちゅうで とじても、できた分は きろくに入れる
+    if (!finished && results.length && opts.onAbort) opts.onAbort(score, results.length, results);
+    layer.classList.remove('over');
     layer.hidden = true;
     layer.replaceChildren();
     document.body.classList.remove('running');
@@ -31,7 +47,7 @@ export function runQuestions(title, questions, onFinish) {
     const feedback = h('div', { class: 'feedback', role: 'status' });
     const next = h('button', { class: 'btn primary next', hidden: true, onclick: () => {
       index += 1;
-      if (index < questions.length) render(); else finish();
+      if (index < questions.length && !timeUp()) render(); else finish();
     } }, index + 1 < questions.length ? 'つぎへ' : 'けっかを見る');
 
     function judge(ok, answerText) {
@@ -88,7 +104,7 @@ export function runQuestions(title, questions, onFinish) {
     layer.replaceChildren(h('div', { class: `runner-card kind-${kind}` },
       h('div', { class: 'runner-top' },
         h('span', { class: 'chip' }, q.subject),
-        dots,
+        endAt ? clock : dots,
         h('span', { class: 'progress' }, `${index + 1} / ${questions.length}`),
         h('button', { class: 'close', 'aria-label': 'とじる', onclick: close }, '×'),
       ),
@@ -104,7 +120,11 @@ export function runQuestions(title, questions, onFinish) {
   }
 
   function finish() {
+    finished = true;
     cleanup();
+    clearInterval(clockId);
+    // 時間で おわった とき、やっていない問題は かぞえない
+    if (results.length < questions.length) questions = questions.slice(0, results.length);
     setTimeout(() => { const b = layer.querySelector('.q-box'); if (b) burst(b, 14); }, 250);
     const perfect = score === questions.length;
     const extra = onFinish(score, questions.length, results);
