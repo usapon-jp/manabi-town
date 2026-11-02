@@ -1,4 +1,4 @@
-// 「草をかった場所」の地図。見えない大きな白黒の絵（白＝かった所）で持つ。
+// 「草をかった場所」の地図。見えない大きな絵で持つ（赤＝みち、緑＝花だんの土）。
 // 草・花は、白い所では短くなる（かりあと）。地面は、白い所だけ土の道の色になる。
 // 方眼ではなく、指でなぞったとおりの自由な形がそのまま出る。
 import * as THREE from 'three';
@@ -22,7 +22,7 @@ export function createCutMask() {
   function stamp(x, z, r) {
     const px = toPx(x); const py = toPx(z); const pr = (r / (2 * CUT_R)) * N;
     const g = ctx.createRadialGradient(px, py, 0, px, py, pr);
-    g.addColorStop(0, '#fff'); g.addColorStop(0.72, '#fff'); g.addColorStop(1, '#000');
+    g.addColorStop(0, '#f00'); g.addColorStop(0.72, '#f00'); g.addColorStop(1, '#000');
     ctx.fillStyle = g;
     ctx.fillRect(px - pr, py - pr, pr * 2, pr * 2);
   }
@@ -40,6 +40,17 @@ export function createCutMask() {
         for (let k = 1; k <= n; k++) stamp(lx + ((x - lx) * k) / n, lz + ((z - lz) * k) / n, r);
         lx = x; lz = z;
       }
+      tex.needsUpdate = true;
+    },
+    // 花だんの中（とじた形）を土にする
+    fill(pts) {
+      if (pts.length < 6) return;
+      ctx.fillStyle = '#0f0'; ctx.strokeStyle = '#0f0'; ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.moveTo(toPx(pts[0]), toPx(pts[1]));
+      for (let i = 2; i < pts.length; i += 2) ctx.lineTo(toPx(pts[i]), toPx(pts[i + 1]));
+      ctx.closePath();
+      ctx.fill(); ctx.stroke();
       tex.needsUpdate = true;
     },
     clear() {

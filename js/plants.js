@@ -293,14 +293,89 @@ function scatter({ template, count, flowerColors, clusters, clusterSpread, scale
   return g;
 }
 
+// 種類ごとの色・大きさ・ゆれ方。野原にはえる花も、子どもがうえる花も、ここの設定をつかう
+export const SPECIES = {
+  buttercup: { make: buttercup, colors: [0xffe03a, 0xffd620, 0xffdc2e, 0xffe85a, 0xffcf1a], scale: [0.9, 1.7], gain: 0.1, tilt: 0.12, label: 'きいろい花' },
+  lupine: { make: lupine, colors: [0xb497f5, 0x9d7ef0, 0xff9dbd, 0xffd0e0, 0x8fc2f5, 0xffffff], scale: [0.85, 1.35], gain: 0.14, tilt: 0.12, label: 'むらさきの花' },
+  tulip: { make: tulip, colors: [0xff7a8a, 0xff9dbd, 0xffb27a, 0xfff08a, 0xffffff, 0xff5f7a], scale: [0.9, 1.4], gain: 0.12, tilt: 0.12, label: 'チューリップ' },
+  clover: { make: clover, colors: [0xffffff, 0xfff0f5, 0xffe6ef], scale: [0.9, 1.5], gain: 0.08, tilt: 0.05, label: 'シロツメクサ' },
+  dandelion: { make: dandelion, colors: [0xffffff, 0xffffff, 0xfff6c8, 0xffe14a, 0xffdd33], scale: [0.9, 1.5], gain: 0.14, tilt: 0.12, label: 'タンポポ' },
+};
+export const SPECIES_KEYS = Object.keys(SPECIES);
+
 export function makePlants(wind) {
   const g = new THREE.Group();
-  const T = { buttercup: buttercup(), lupine: lupine(), tulip: tulip(), clover: clover(), dandelion: dandelion() };
-  const buttercupColors = [0xffe03a, 0xffd620, 0xffdc2e, 0xffe85a, 0xffcf1a];
-  g.add(scatter({ template: T.buttercup, count: 110, flowerColors: buttercupColors, clusters: 9, clusterSpread: 1.9, scale: [0.9, 1.7], wind, gain: 0.1 }));
-  g.add(scatter({ template: T.lupine, count: 260, flowerColors: [0xb497f5, 0x9d7ef0, 0xff9dbd, 0xffd0e0, 0x8fc2f5, 0xffffff], clusters: 10, clusterSpread: 1.6, scale: [0.85, 1.35], wind, gain: 0.14 }));
-  g.add(scatter({ template: T.tulip, count: 220, flowerColors: [0xff7a8a, 0xff9dbd, 0xffb27a, 0xfff08a, 0xffffff, 0xff5f7a], clusters: 10, clusterSpread: 1.5, scale: [0.9, 1.4], wind, gain: 0.12 }));
-  g.add(scatter({ template: T.clover, count: 160, flowerColors: [0xffffff, 0xfff0f5, 0xffe6ef], clusters: 12, clusterSpread: 2.2, scale: [0.9, 1.5], tilt: 0.05, wind, gain: 0.08 }));
-  g.add(scatter({ template: T.dandelion, count: 200, flowerColors: [0xffffff, 0xffffff, 0xfff6c8, 0xffe14a, 0xffdd33], clusters: 8, clusterSpread: 2.4, scale: [0.9, 1.5], wind, gain: 0.14 }));
+  const counts = { buttercup: [110, 9, 1.9], lupine: [260, 10, 1.6], tulip: [220, 10, 1.5], clover: [160, 12, 2.2], dandelion: [200, 8, 2.4] };
+  for (const key of SPECIES_KEYS) {
+    const sp = SPECIES[key];
+    const [count, clusters, clusterSpread] = counts[key];
+    g.add(scatter({ template: sp.make(), count, flowerColors: sp.colors, clusters, clusterSpread, scale: sp.scale, tilt: sp.tilt, wind, gain: sp.gain }));
+  }
   return g;
+}
+
+// ---- 子どもがうえる花 ------------------------------------------------------
+// 種類ごとに、あらかじめ大きめの入れ物（インスタンス）を用意しておき、うえた数だけ見せる。
+// 場所とむきは「種(seed)」から決まるので、保存するのは点と種だけでよい。かった場所でも消えない。
+
+export const LAYER_CAP = 600; // 1種類あたりの上限
+
+export function createPlantLayer(wind) {
+  const group = new THREE.Group();
+  const parts = {};
+  for (const key of SPECIES_KEYS) {
+    const sp = SPECIES[key];
+    const { foliage, petals, H } = sp.make();
+    const fMat = new THREE.MeshLambertMaterial({ vertexColors: true, side: THREE.DoubleSide, emissive: 0x3d6a28, emissiveIntensity: 0.3 });
+    const pMat = new THREE.MeshLambertMaterial({ side: THREE.DoubleSide, emissive: 0x555555, emissiveIntensity: 0.22 });
+    addWind(fMat, wind, H, sp.gain, 1);   // 1 = かった場所で消えない
+    addWind(pMat, wind, H, sp.gain, 1);
+    const fm = new THREE.InstancedMesh(foliage, fMat, LAYER_CAP);
+    const pm = new THREE.InstancedMesh(petals, pMat, LAYER_CAP);
+    for (const m of [fm, pm]) { m.frustumCulled = false; m.count = 0; group.add(m); }
+    pm.setColorAt(0, new THREE.Color(0xffffff));
+    parts[key] = { fm, pm, n: 0 };
+  }
+  const m4 = new THREE.Matrix4(); const q = new THREE.Quaternion(); const e = new THREE.Euler();
+  const s = new THREE.Vector3(); const v = new THREE.Vector3(); const c = new THREE.Color();
+
+  // 1本ぶんを足す。item = { s: 種類, x, z, rot, k, tx, tz, col }
+  function add(it) {
+    const part = parts[it.s];
+    if (!part || part.n >= LAYER_CAP) return false;
+    e.set(it.tx, it.rot, it.tz);
+    q.setFromEuler(e);
+    s.set(it.k, it.k * 1.05, it.k);
+    v.set(it.x, heightAt(it.x, it.z) - 0.02, it.z);
+    m4.compose(v, q, s);
+    part.fm.setMatrixAt(part.n, m4);
+    part.pm.setMatrixAt(part.n, m4);
+    part.pm.setColorAt(part.n, c.set(SPECIES[it.s].colors[it.col % SPECIES[it.s].colors.length]));
+    part.n += 1;
+    part.fm.count = part.n; part.pm.count = part.n;
+    part.fm.instanceMatrix.needsUpdate = true; part.pm.instanceMatrix.needsUpdate = true;
+    if (part.pm.instanceColor) part.pm.instanceColor.needsUpdate = true;
+    return true;
+  }
+  function clear() {
+    for (const p of Object.values(parts)) { p.n = 0; p.fm.count = 0; p.pm.count = 0; }
+  }
+  return { group, add, clear, count: (key) => parts[key].n };
+}
+
+// うえたスタンプ1つ（中心 x,z）から、まわりに3本の花を決める。おなじ種からはいつも同じ形になる
+export function stampItems(species, x, z, seed, index) {
+  const sp = SPECIES[species];
+  let a = (seed * 2654435761 + index * 40503) >>> 0;
+  const rnd = () => { a |= 0; a = (a + 0x6d2b79f5) | 0; let t = Math.imul(a ^ (a >>> 15), 1 | a); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
+  const items = [];
+  for (let i = 0; i < 3; i++) {
+    const ang = rnd() * Math.PI * 2; const r = Math.sqrt(rnd()) * 0.5;
+    items.push({
+      s: species, x: x + Math.cos(ang) * r, z: z + Math.sin(ang) * r,
+      rot: rnd() * Math.PI * 2, k: sp.scale[0] + rnd() * (sp.scale[1] - sp.scale[0]),
+      tx: (rnd() - 0.5) * 2 * sp.tilt, tz: (rnd() - 0.5) * 2 * sp.tilt, col: Math.floor(rnd() * 100),
+    });
+  }
+  return items;
 }

@@ -62,7 +62,7 @@ export function createWorld(container) {
   canvas.style.touchAction = 'none';
   // 「つくる」: 草をかって道をつくるなど、子どもが草原を作りかえる（editor.js）
   const editor = createEditor({
-    container, scene, cut: meadow.cut,
+    container, scene, cut: meadow.cut, wind: meadow.wind,
     rotate: (d) => { view.angle += d; },
     pick: (e) => {
       const rect = canvas.getBoundingClientRect();

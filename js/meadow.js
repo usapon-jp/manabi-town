@@ -155,7 +155,10 @@ function makeGround(cut) {
       float sp = 0.5 + 0.5 * sin(vXZ.x * 9.0) * sin(vXZ.y * 11.0);
       vec3 soil = vec3(0.79, 0.60, 0.31) * (0.93 + 0.07 * sp);
       diffuseColor.rgb = mix(diffuseColor.rgb, diffuseColor.rgb * 0.8, rim);
-      diffuseColor.rgb = mix(diffuseColor.rgb, soil, inner);`);
+      diffuseColor.rgb = mix(diffuseColor.rgb, soil, inner);
+      float bm = texture2D(uCut, (vXZ + uCutR) / (2.0 * uCutR)).g;
+      vec3 bedSoil = vec3(0.14, 0.075, 0.04) * (0.9 + 0.1 * sp);
+      diffuseColor.rgb = mix(diffuseColor.rgb, bedSoil, smoothstep(0.4, 0.62, bm));`);
   };
   return new THREE.Mesh(geo, mat);
 }
@@ -414,6 +417,7 @@ export function createMeadow(scene) {
   return {
     ground,
     cut,
+    wind,
     update(dt, t, actorPos, camPos) {
       wind.uTime.value = t;
       wind.uActor.value.copy(actorPos);
