@@ -72,6 +72,8 @@ export function createBuilds({ scene, wind, cut }) {
   // 1つの操作を足す（plant の途中経過は editor が addStamp で足す）
   function apply(op) {
     if (op.t === 'path') cut.stroke(op.pts, op.r);
+    else if (op.t === 'dig') cut.stroke(op.pts, op.r, 'b');
+    else if (op.t === 'pond') cut.pond(op.pts);
     else if (op.t === 'plant') for (let i = 0; i < op.pts.length / 2; i++) stampItems(op.s, op.pts[i * 2], op.pts[i * 2 + 1], op.seed, i).forEach(layer.add);
     else if (op.t === 'ring') { rings.add(buildRing(op)); cut.fill(op.pts); }
   }
@@ -80,7 +82,8 @@ export function createBuilds({ scene, wind, cut }) {
     // 保存された操作ぜんぶから、はじめから作りなおす
     rebuild(ops) {
       cut.clear(); layer.clear(); disposeRings();
-      for (const op of ops) apply(op);
+      for (const op of ops) if (op.t === 'dig' || op.t === 'pond') apply(op);   // 高さが決まってから、花やかこみを置く
+      for (const op of ops) if (op.t !== 'dig' && op.t !== 'pond') apply(op);
     },
     apply,
     addStamp(species, x, z, seed, index) { stampItems(species, x, z, seed, index).forEach(layer.add); },

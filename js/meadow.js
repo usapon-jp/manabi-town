@@ -2,7 +2,7 @@
 // world.js から createMeadow(scene) で呼ぶ。毎フレーム meadow.update(dt, t, actorPos) を呼ぶ。
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
-import { heightAt } from './terrain.js';
+import { heightAt, dug } from './terrain.js';
 import { isTownSpot } from './town.js';
 import { makeWind, addWind } from './wind.js';
 import { makePlants } from './plants.js';
@@ -126,8 +126,9 @@ function makeClouds() {
 
 // ---- 地面 ----------------------------------------------------------------
 
-function makeGround(cut) {
-  const geo = new THREE.RingGeometry(0.01, 46, 96, 42);
+function makeGround(cut, wind) {
+  // 川や池をほれるよう、細かく区切っておく（約0.5m）。ほり下げはシェーダーが行う
+  const geo = new THREE.RingGeometry(0.01, 46, 360, 92);
   geo.rotateX(-Math.PI / 2);
   const pos = geo.attributes.position;
   const col = new Float32Array(pos.count * 3);
@@ -147,8 +148,21 @@ function makeGround(cut) {
   mat.onBeforeCompile = (shader) => {
     shader.uniforms.uCut = cut.uniforms.uCut;
     shader.uniforms.uCutR = cut.uniforms.uCutR;
-    shader.vertexShader = 'varying vec2 vXZ;\n' + shader.vertexShader.replace('#include <begin_vertex>', '#include <begin_vertex>\n vXZ = position.xz;');
-    shader.fragmentShader = 'varying vec2 vXZ;\nuniform sampler2D uCut;\nuniform float uCutR;\n' + shader.fragmentShader.replace('#include <color_fragment>', `#include <color_fragment>
+    shader.uniforms.uWaterTime = wind.uTime;
+    shader.vertexShader = `varying vec2 vXZ;
+      uniform sampler2D uCut; uniform float uCutR;
+      float digD(vec2 p) { return 0.34 * smoothstep(0.15, 0.85, texture2D(uCut, (p + uCutR) / (2.0 * uCutR)).b); }
+      ` + shader.vertexShader
+      .replace('#include <beginnormal_vertex>', `vec3 objectNormal = normalize(vec3(normal) + vec3(
+          (digD(position.xz + vec2(0.4, 0.0)) - digD(position.xz - vec2(0.4, 0.0))) / 0.8, 0.0,
+          (digD(position.xz + vec2(0.0, 0.4)) - digD(position.xz - vec2(0.0, 0.4))) / 0.8));
+        #ifdef USE_TANGENT
+        vec3 objectTangent = vec3(tangent.xyz);
+        #endif`)
+      .replace('#include <begin_vertex>', `#include <begin_vertex>
+        vXZ = position.xz;
+        transformed.y -= digD(position.xz);`);
+    shader.fragmentShader = 'varying vec2 vXZ;\nuniform sampler2D uCut;\nuniform float uCutR;\nuniform float uWaterTime;\n' + shader.fragmentShader.replace('#include <color_fragment>', `#include <color_fragment>
       float pm = texture2D(uCut, (vXZ + uCutR) / (2.0 * uCutR)).r;
       float inner = smoothstep(0.42, 0.62, pm);
       float rim = smoothstep(0.28, 0.42, pm) * (1.0 - inner);
@@ -158,7 +172,16 @@ function makeGround(cut) {
       diffuseColor.rgb = mix(diffuseColor.rgb, soil, inner);
       float bm = texture2D(uCut, (vXZ + uCutR) / (2.0 * uCutR)).g;
       vec3 bedSoil = vec3(0.14, 0.075, 0.04) * (0.9 + 0.1 * sp);
-      diffuseColor.rgb = mix(diffuseColor.rgb, bedSoil, smoothstep(0.4, 0.62, bm));`);
+      diffuseColor.rgb = mix(diffuseColor.rgb, bedSoil, smoothstep(0.4, 0.62, bm));
+      // 川・池: ふちは湿った土、まんなかは水（かんたんな水面）
+      float bw = texture2D(uCut, (vXZ + uCutR) / (2.0 * uCutR)).b;
+      float wet = smoothstep(0.12, 0.3, bw);
+      float wat = smoothstep(0.3, 0.46, bw);
+      diffuseColor.rgb = mix(diffuseColor.rgb, diffuseColor.rgb * 0.5, wet * (1.0 - wat));
+      float rp = sin(vXZ.x * 2.7 + uWaterTime * 1.1) * sin(vXZ.y * 2.3 - uWaterTime * 0.8) + 0.5 * sin((vXZ.x + vXZ.y) * 5.1 + uWaterTime * 2.0);
+      vec3 wcol = mix(vec3(0.22, 0.62, 0.8), vec3(0.05, 0.28, 0.5), smoothstep(0.5, 0.95, bw));
+      wcol += vec3(0.5, 0.6, 0.6) * pow(max(0.0, 0.5 + 0.5 * rp), 5.0) * 0.35;
+      diffuseColor.rgb = mix(diffuseColor.rgb, wcol, wat);`);
   };
   return new THREE.Mesh(geo, mat);
 }
@@ -404,7 +427,8 @@ export function createMeadow(scene) {
   sun.position.copy(SUN_DIR).multiplyScalar(30);
   scene.add(sun);
 
-  const ground = makeGround(cut);
+  const ground = makeGround(cut, wind);
+  dug.at = cut.digAt;
   const clouds = makeClouds();
   const grass = makeGrass(wind);
   const flowers = makeFlowers(wind);

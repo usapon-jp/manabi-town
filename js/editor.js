@@ -1,6 +1,7 @@
 // 「つくる」: 子どもが草原を自分で作りかえる。
 //   みち … 草をかって、指でなぞった自由な形の道をつくる
 //   はな … 好きな場所に花をうえる／なぞった形を丸太・石でかこんで花だんにする
+//   かわ … 地面をほって川（ながれ）や小さな池をつくる（水はかんたんな水面）
 // やったことは1つずつ「操作」として覚えるので、「もどす」でいつでも取り消せ、
 // 操作のたびにプロフィールへ自動で保存される（きょうだいごとに別の草原）。
 // 画面の部品は world のコンテナの中に自分で作る（index.html・css・main.js には触らない）。
@@ -16,6 +17,7 @@ const MIN_STEP = 0.35;    // 点を打つ最小のきょり（m）。細かす�
 const RING_STEP = 0.5;
 const ROAM = 29;          // つくれるはんい（中心から）
 const BRUSH = [0.7, 1.2, 1.9];
+const RBRUSH = [0.6, 0.95, 1.4];   // 川のはば
 const BRUSH_NAME = ['ほそい', 'ふつう', 'ふとい'];
 const DOT = { buttercup: '#ffd62e', lupine: '#a58bf0', tulip: '#ff8fae', clover: '#f4f1ea', dandelion: '#ffe777' };
 
@@ -52,7 +54,7 @@ const CSS = `
 export function createEditor({ container, scene, cut, wind, pick, rotate }) {
   const st = {
     editing: false, tool: 'path', size: 1, stroke: null, loadedId: null, visible: false,
-    bedMode: 'plant', species: 'tulip', border: 'log',
+    bedMode: 'plant', species: 'tulip', border: 'log', riverMode: 'line',
   };
   const builds = createBuilds({ scene, wind, cut });
 
@@ -89,7 +91,7 @@ export function createEditor({ container, scene, cut, wind, pick, rotate }) {
     <div class="tools" hidden>
       <button type="button" data-a="tool" data-v="path">みち</button>
       <button type="button" data-a="tool" data-v="bed">はな</button>
-      <button type="button" data-a="tool" data-v="river" disabled>かわ</button>
+      <button type="button" data-a="tool" data-v="river">かわ</button>
       <button type="button" class="size" data-a="size"></button>
       <div class="row2"><button type="button" data-a="left" aria-label="左をむく">◀</button><button type="button" data-a="right" aria-label="右をむく">▶</button></div>
       <button type="button" data-a="undo">もどす</button>
@@ -101,9 +103,10 @@ export function createEditor({ container, scene, cut, wind, pick, rotate }) {
   sub.className = 'wedit-sub';
   sub.hidden = true;
   sub.innerHTML = `
-    <button type="button" data-s="mode" data-v="plant">うえる</button>
+    <span data-group="river"><button type="button" data-s="rmode" data-v="line">ながれ</button> <button type="button" data-s="rmode" data-v="pond">いけ</button></span>
+    <span data-group="bed"><button type="button" data-s="mode" data-v="plant">うえる</button>
     <button type="button" data-s="mode" data-v="ring">かこむ</button>
-    <span class="sep"></span>
+    <span class="sep"></span></span>
     <span data-group="plant">${SPECIES_KEYS.map((k) => `<button type="button" class="sw" data-s="species" data-v="${k}" aria-label="${SPECIES[k].label}" style="background:${DOT[k]}"></button>`).join(' ')}</span>
     <span data-group="ring"><button type="button" data-s="border" data-v="log">まるた</button> <button type="button" data-s="border" data-v="stone">いし</button></span>`;
   container.appendChild(sub);
@@ -122,14 +125,18 @@ export function createEditor({ container, scene, cut, wind, pick, rotate }) {
     root.querySelectorAll('[data-a="tool"]').forEach((b) => b.classList.toggle('on', b.dataset.v === st.tool));
     const dot = 8 + st.size * 5;
     q('size').innerHTML = `<i style="width:${dot}px;height:${dot}px"></i><span>${BRUSH_NAME[st.size]}</span>`;
-    q('size').hidden = st.tool !== 'path';
+    q('size').hidden = !(st.tool === 'path' || (st.tool === 'river' && st.riverMode === 'line'));
     q('undo').disabled = !(ops() || []).length;
-    sub.hidden = !(st.editing && st.tool === 'bed');
+    sub.hidden = !(st.editing && (st.tool === 'bed' || st.tool === 'river'));
     sub.querySelectorAll('[data-s="mode"]').forEach((b) => b.classList.toggle('on', b.dataset.v === st.bedMode));
     sub.querySelectorAll('[data-s="species"]').forEach((b) => b.classList.toggle('on', b.dataset.v === st.species));
     sub.querySelectorAll('[data-s="border"]').forEach((b) => b.classList.toggle('on', b.dataset.v === st.border));
-    sub.querySelector('[data-group="plant"]').hidden = st.bedMode !== 'plant';
-    sub.querySelector('[data-group="ring"]').hidden = st.bedMode !== 'ring';
+    sub.querySelectorAll('[data-s="rmode"]').forEach((b) => b.classList.toggle('on', b.dataset.v === st.riverMode));
+    const bed = st.tool === 'bed';
+    sub.querySelector('[data-group="river"]').hidden = bed;
+    sub.querySelector('[data-group="bed"]').hidden = !bed;
+    sub.querySelector('[data-group="plant"]').hidden = !bed || st.bedMode !== 'plant';
+    sub.querySelector('[data-group="ring"]').hidden = !bed || st.bedMode !== 'ring';
   }
   root.addEventListener('click', (e) => {
     const b = e.target.closest('button');
@@ -148,6 +155,7 @@ export function createEditor({ container, scene, cut, wind, pick, rotate }) {
     if (!b) return;
     const k = b.dataset.s;
     if (k === 'mode') st.bedMode = b.dataset.v;
+    else if (k === 'rmode') st.riverMode = b.dataset.v;
     else if (k === 'species') st.species = b.dataset.v;
     else if (k === 'border') st.border = b.dataset.v;
     refreshButtons();
@@ -209,7 +217,7 @@ export function createEditor({ container, scene, cut, wind, pick, rotate }) {
     say('ひとつ もどしたよ');
   }
 
-  const brushR = () => (st.tool === 'path' ? BRUSH[st.size] : st.bedMode === 'plant' ? 0.55 : 0.3);
+  const brushR = () => (st.tool === 'path' ? BRUSH[st.size] : st.tool === 'river' ? (st.riverMode === 'line' ? RBRUSH[st.size] : 0.3) : st.bedMode === 'plant' ? 0.55 : 0.3);
   function place(p) {
     const r = Math.hypot(p.x, p.z);
     if (r > ROAM) { p.x *= ROAM / r; p.z *= ROAM / r; }
@@ -230,6 +238,13 @@ export function createEditor({ container, scene, cut, wind, pick, rotate }) {
         const r = BRUSH[st.size];
         st.stroke = { kind: 'path', r, pts: [round(p.x), round(p.z)], last };
         cut.stroke([p.x, p.z], r);
+      } else if (st.tool === 'river' && st.riverMode === 'line') {
+        const r = RBRUSH[st.size];
+        st.stroke = { kind: 'dig', r, pts: [round(p.x), round(p.z)], last };
+        cut.stroke([p.x, p.z], r, 'b');
+      } else if (st.tool === 'river') {
+        st.stroke = { kind: 'pond', pts: [round(p.x), round(p.z)], last };
+        drawTrail(st.stroke.pts, false);
       } else if (st.tool === 'bed' && st.bedMode === 'plant') {
         const seed = 1 + Math.floor(Math.random() * 1e6);
         st.stroke = { kind: 'plant', s: st.species, seed, pts: [], last };
@@ -245,15 +260,15 @@ export function createEditor({ container, scene, cut, wind, pick, rotate }) {
       const s = st.stroke;
       if (!s) return;
       const d = Math.hypot(p.x - s.last.x, p.z - s.last.z);
-      if (s.kind === 'path') {
+      if (s.kind === 'path' || s.kind === 'dig') {
         if (d < MIN_STEP || s.pts.length >= MAX_PTS * 2) return;
-        cut.stroke([s.last.x, s.last.z, p.x, p.z], s.r);
+        cut.stroke([s.last.x, s.last.z, p.x, p.z], s.r, s.kind === 'dig' ? 'b' : 'r');
         s.pts.push(round(p.x), round(p.z));
         s.last = { x: p.x, z: p.z };
       } else if (s.kind === 'plant') {
         if (d < STAMP_STEP) return;
         stamp(s, p);
-      } else if (s.kind === 'ring') {
+      } else if (s.kind === 'ring' || s.kind === 'pond') {
         if (d < RING_STEP || s.pts.length >= MAX_PTS * 2) return;
         s.pts.push(round(p.x), round(p.z));
         s.last = { x: p.x, z: p.z };
@@ -267,6 +282,11 @@ export function createEditor({ container, scene, cut, wind, pick, rotate }) {
       if (!s) return;
       if (type !== 'up') { replay(); return; }     // とちゅうでキャンセルされたら、なかったことにする
       if (s.kind === 'path') commit({ t: 'path', r: s.r, pts: s.pts });
+      else if (s.kind === 'dig') { if (commit({ t: 'dig', r: s.r, pts: s.pts })) replay(); }   // 高さが変わるので、花などを置きなおす
+      else if (s.kind === 'pond') {
+        if (loopLength(s.pts) < LOOP_MIN) { say('もっと ひろく かこんでね'); return; }
+        if (commit({ t: 'pond', pts: s.pts })) replay();
+      }
       else if (s.kind === 'plant') { if (s.pts.length) commit({ t: 'plant', s: s.s, seed: s.seed, pts: s.pts }); }
       else if (s.kind === 'ring') {
         if (loopLength(s.pts) < LOOP_MIN) { say('もっと ひろく かこんでね'); return; }

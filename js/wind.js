@@ -37,7 +37,7 @@ export function addWind(material, wind, h, gain, stub = 0) {
         mvPosition.xz += sway * wk;
         // かった場所では、根もとにむけてちぢめる
         vec4 cm = texture2D(uCut, (wroot.xz + uCutR) / (2.0 * uCutR));
-        float cutv = smoothstep(0.35, 0.65, max(cm.r, cm.g));
+        float cutv = smoothstep(0.35, 0.65, max(max(cm.r, cm.g), cm.b));
         vec3 cd = mvPosition.xyz - wroot.xyz;
         cd.y *= mix(1.0, ${stub.toFixed(3)}, cutv);
         cd.xz *= mix(1.0, ${stub > 0 ? '1.0' : '0.0'}, cutv);
