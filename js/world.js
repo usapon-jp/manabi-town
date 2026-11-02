@@ -3,6 +3,9 @@ import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { CHARACTERS } from './characters.js';
 import { readMove, takeJump } from './controls.js';
+import { createTown, isTownSpot } from './town.js';
+import { currentProfile, onChange } from './store.js';
+import { levelInfo, totalXp } from './progress.js';
 
 const GROUND_RADIUS = 34;
 const WALK_RADIUS = 12;   // ひとりで散歩するときのはんい
@@ -55,7 +58,18 @@ export function createWorld(container) {
   marker.position.y = 0.03;
   scene.add(marker);
 
-  const actor = createActor(scene, CHARACTERS.piyo);
+  // 勉強したぶんだけ街が育つ（レベルに合わせて建物がふえる）
+  const town = createTown(scene);
+  let shownLv = 0;
+  const refreshTown = () => {
+    const p = currentProfile();
+    const lv = p ? levelInfo(totalXp(p)).lv : 1;
+    if (lv !== shownLv) { town.setLevel(lv, shownLv > 0); shownLv = lv; }
+  };
+  refreshTown();
+  onChange(refreshTown);
+
+  const actor = createActor(scene, CHARACTERS.piyo, town);
 
   // 操作: タップで移動、ドラッグでまわす
   const raycaster = new THREE.Raycaster();
@@ -121,6 +135,7 @@ export function createWorld(container) {
     });
     marker.material.opacity = Math.max(0, marker.material.opacity - dt * 1.2);
     motes.userData.update(time.value);
+    town.update(dt, time.value);
 
     view.target.lerp(actor.position, 0.04);
     camera.position.set(
@@ -145,7 +160,7 @@ export function createWorld(container) {
 
 // ---- キャラクター -------------------------------------------------------
 
-function createActor(scene, config) {
+function createActor(scene, config, town) {
   const root = new THREE.Group();
   scene.add(root);
 
@@ -184,7 +199,7 @@ function createActor(scene, config) {
     () => body.add(fallbackChick(config)),
   );
 
-  const state = { target: null, phase: 0, idle: 0, nextWander: 3, jumpT: -1, y: 0, vy: 0, airJumps: 0, manual: 0 };
+  const state = { target: null, phase: 0, idle: 0, nextWander: 3, jumpT: -1, y: 0, vy: 0, airJumps: 0, manual: 0, stuck: 0 };
   const GRAVITY = 22;
   const JUMP_V = 7.2;
 
@@ -235,6 +250,14 @@ function createActor(scene, config) {
         }
       }
       state.manual = Math.max(0, state.manual - dt);
+
+      // 建物や池には入れない。ぶつかったままの行き先はあきらめる
+      if (town.pushOut(root.position)) {
+        state.stuck += dt;
+        if (state.stuck > 0.8) { state.target = null; state.stuck = 0; }
+      } else {
+        state.stuck = 0;
+      }
 
       // ジャンプ（空中でもう1回とべる）
       const onGround = state.y <= 0.0001;
@@ -330,6 +353,13 @@ function randomInDisc(radius, min = 0) {
   return [Math.cos(a) * r, Math.sin(a) * r];
 }
 
+// 街の建物を置く場所をよけて選ぶ
+function freeSpot(radius, min = 0, pad = 0) {
+  let p = randomInDisc(radius, min);
+  for (let i = 0; i < 8 && isTownSpot(p[0], p[1], pad); i++) p = randomInDisc(radius, min);
+  return p;
+}
+
 function makeGrass(time) {
   const height = 0.42;
   const geo = new THREE.PlaneGeometry(0.07, height, 1, 4);
@@ -359,7 +389,7 @@ function makeGrass(time) {
   const s = new THREE.Vector3();
   const c = new THREE.Color();
   for (let i = 0; i < GRASS_COUNT; i++) {
-    const [x, z] = randomInDisc(GROUND_RADIUS - 6);
+    const [x, z] = freeSpot(GROUND_RADIUS - 6);
     q.setFromAxisAngle(new THREE.Vector3(0, 1, 0), Math.random() * Math.PI);
     const k = 0.6 + Math.random() * 0.8;
     s.set(1, k, 1);
@@ -378,7 +408,7 @@ function makeFlowers() {
   const m = new THREE.Matrix4();
   const c = new THREE.Color();
   for (let i = 0; i < FLOWER_COUNT; i++) {
-    const [x, z] = randomInDisc(GROUND_RADIUS - 8);
+    const [x, z] = freeSpot(GROUND_RADIUS - 8);
     m.makeTranslation(x, 0.28 + Math.random() * 0.15, z);
     mesh.setMatrixAt(i, m);
     mesh.setColorAt(i, c.set(colors[i % colors.length]));
@@ -391,7 +421,7 @@ function makeTrees() {
   const leafMats = [0x7cc06a, 0x8fd07a, 0x6db35e].map((color) => new THREE.MeshLambertMaterial({ color, flatShading: true }));
   const trees = [];
   for (let i = 0; i < 10; i++) {
-    const [x, z] = randomInDisc(GROUND_RADIUS - 6, 15);
+    const [x, z] = freeSpot(GROUND_RADIUS - 6, 15, 1.5);
     const t = new THREE.Group();
     const h = 1.2 + Math.random() * 0.8;
     const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.15, 0.22, h, 8), trunkMat);
