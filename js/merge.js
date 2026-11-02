@@ -13,9 +13,9 @@ const LOG_MAX = 200;
 const isObj = (v) => v !== null && typeof v === 'object' && !Array.isArray(v);
 export const same = (a, b) => a === b || JSON.stringify(a) === JSON.stringify(b);
 
-function byId(arr) {
-  return arr.length > 0 && arr.every((x) => isObj(x) && (typeof x.id === 'string' || typeof x.id === 'number'));
-}
+// 並びの1こを見分ける名前: id か key（ふりかえりの記録）。どちらもなければ中身そのもの
+const okId = (v) => typeof v === 'string' || typeof v === 'number';
+const ident = (x) => (isObj(x) && okId(x.id) ? `id:${x.id}` : isObj(x) && okId(x.key) ? `key:${x.key}` : `json:${JSON.stringify(x)}`);
 const logKey = (e) => `${e.at}|${e.n}|${e.reason}`;
 
 function mergeLog(b, l, r) {
@@ -32,49 +32,42 @@ function mergeLog(b, l, r) {
 }
 
 function mergeById(b, l, r) {
-  const bm = new Map((Array.isArray(b) ? b : []).filter(isObj).map((x) => [x.id, x]));
-  const lm = new Map(l.map((x) => [x.id, x]));
-  const rm = new Map(r.map((x) => [x.id, x]));
-  const order = [...r.map((x) => x.id), ...l.map((x) => x.id).filter((id) => !rm.has(id))];
+  const bm = new Map((Array.isArray(b) ? b : []).map((x) => [ident(x), x]));
+  const lm = new Map(l.map((x) => [ident(x), x]));
+  const rm = new Map(r.map((x) => [ident(x), x]));
+  const order = [...new Set([...rm.keys(), ...lm.keys()])];
   const out = [];
   order.forEach((id) => {
     const bi = bm.get(id); const li = lm.get(id); const ri = rm.get(id);
-    if (li && ri) { out.push(merge3(bi, li, ri)); return; }
-    const only = li || ri;
-    if (!bi) { out.push(only); return; }          // 片方で ふえた
+    if (lm.has(id) && rm.has(id)) { out.push(merge3(bi, li, ri)); return; }
+    const only = lm.has(id) ? li : ri;
+    if (!bm.has(id)) { out.push(only); return; }          // 片方で ふえた
     if (!same(only, bi)) out.push(only);          // 片方で消えたが、もう片方で変えていた → のこす
   });
   return out;
 }
 
+// 並び: 1こずつ見分けて、両方の追加をあわせ、どちらかで消したものは消す。
+// id/key のあるもの（テスト・宿題・ふりかえり）は中身もまとめる。ないもの（実力テストの記録など）は同じ中身を1つに
+// 同じものが2こ以上ある並び（座標の数の列など、順番に意味があるもの）は、まぜずに この端末のほうをとる
+const uniq = (a) => new Set(a.map(ident)).size === a.length;
 function mergeArray(b, l, r) {
-  if (byId(l) || byId(r)) {
-    if ((byId(l) || !l.length) && (byId(r) || !r.length)) return mergeById(b, l, r);
-  }
-  if (l.every((x) => typeof x !== 'object') && r.every((x) => typeof x !== 'object')) {
-    // 文字や数の並び: 両方の追加をあわせ、どちらかで消したものは消す
-    const bs = new Set(Array.isArray(b) ? b : []);
-    const ls = new Set(l); const rs = new Set(r);
-    const out = [];
-    [...r, ...l].forEach((x) => {
-      if (out.includes(x)) return;
-      if (bs.has(x) && (!ls.has(x) || !rs.has(x))) return;
-      out.push(x);
-    });
-    return out;
-  }
-  return l;
+  if (!uniq(l) || !uniq(r) || (Array.isArray(b) && !uniq(b))) return l;
+  return mergeById(b, l, r);
 }
 
 export function merge3(b, l, r, key) {
-  if (same(l, r)) return l;
+  // ポイント・けいけんちは、同じ数でも「両方で同じだけ ふえた」かもしれないので、先に足す
+  if (ADD.has(key) && typeof l === 'number' && typeof r === 'number' && typeof b === 'number') return Math.max(0, r + (l - b));
+  const grew = isObj(l) && isObj(b) && [...ADD].some((k) => typeof b[k] === 'number' && l[k] !== b[k]);
+  if (same(l, r) && !grew) return l;
   if (b !== undefined && same(l, b)) return r;
   if (b !== undefined && same(r, b)) return l;
   if (l === undefined) return r;
   if (r === undefined) return l;
   if (key === 'log' && Array.isArray(l) && Array.isArray(r)) return mergeLog(b, l, r);
   if (ADD.has(key) && typeof l === 'number' && typeof r === 'number') {
-    return typeof b === 'number' ? Math.max(0, r + (l - b)) : Math.max(l, r);
+    return Math.max(l, r);
   }
   if (isObj(l) && isObj(r)) {
     const out = {};

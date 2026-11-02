@@ -109,10 +109,38 @@ if (typeof window !== 'undefined') {
 }
 
 // ほかの端末の進みを入れる（sync.js から）。manabi-saved は出さない（送りかえさないため）
+// ひらいている画面（クイズ・シートなど）が持っている人やテストの入れ物は そのまま使いつづけるので、
+// 入れかえずに 中身だけ書きかえる（入れかえると、そのあとの ポイントが 古い入れ物に入って消える）
+const plain = (v) => v !== null && typeof v === 'object' && !Array.isArray(v);
+const keyOf = (x) => (plain(x) ? (x.id ?? x.key ?? null) : null);
+function patchInPlace(t, s) {
+  if (Array.isArray(t)) {
+    const pool = new Map();
+    t.forEach((x) => { const k = keyOf(x); if (k != null && !pool.has(k)) pool.set(k, x); });
+    const next = s.map((x) => {
+      const k = keyOf(x); const old = k != null ? pool.get(k) : null;
+      if (old && plain(x)) { pool.delete(k); patchInPlace(old, x); return old; }
+      return x;
+    });
+    t.length = 0; t.push(...next);
+    return t;
+  }
+  Object.keys(t).forEach((k) => { if (!(k in s)) delete t[k]; });
+  Object.keys(s).forEach((k) => {
+    const a = t[k]; const b = s[k];
+    if ((plain(a) && plain(b)) || (Array.isArray(a) && Array.isArray(b))) patchInPlace(a, b);
+    else t[k] = b;
+  });
+  return t;
+}
+
 export function replaceProfiles(profiles, currentId) {
-  const next = normalize({ version: VERSION, profiles, currentId: currentId ?? state.currentId });
+  // 送る途中のデータと 入れ物を わけあわないように、写しをつくる
+  const next = normalize({ version: VERSION, profiles: JSON.parse(JSON.stringify(profiles)), currentId: currentId ?? state.currentId });
   if (!next) return false;
-  state = next;
+  const old = new Map(state.profiles.map((p) => [p.id, p]));
+  state.profiles = next.profiles.map((p) => (old.has(p.id) ? patchInPlace(old.get(p.id), p) : p));
+  state.currentId = next.currentId;
   try { const raw = JSON.stringify(state); localStorage.setItem(KEY, raw); lastWritten = raw; } catch (e) { /* 次の保存で もういちど */ }
   listeners.forEach((fn) => fn());
   window.dispatchEvent(new CustomEvent('manabi-synced'));
