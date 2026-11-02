@@ -24,6 +24,9 @@ python3 -m http.server 8000
 
 GitHub Pages で `main` のルートを公開すればそのまま動く。three.js は `vendor/three/`（0.170.0）に同梱している。
 
+公開先: https://usapon-jp.github.io/manabi-town/ 。スマホで開いて「ホーム画面に追加」するとアプリとして使える（`manifest.webmanifest`、アイコンは `assets/icons/`）。
+`sw.js` が部品を端末にしまうので、ネットがなくても開ける。部品を増やしたら `sw.js` の `FILES` に足して `VERSION` を上げる。
+
 ## ファイル
 
 | 場所 | 役割 |

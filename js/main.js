@@ -20,13 +20,28 @@ let world = null;
 const fill = (el, ...kids) => el.replaceChildren(...kids.flat().filter((k) => k != null && k !== false));
 let tab = 'home';
 
+// 起動画面は草原ができたら消す。おそくても4秒で消す
+const splash = document.getElementById('splash');
+function hideSplash() {
+  if (!splash || splash.classList.contains('gone')) return;
+  splash.classList.add('gone');
+  setTimeout(() => splash.remove(), 500);
+}
+setTimeout(hideSplash, 4000);
+
 // 3D は読み込みに失敗してもアプリ自体は使えるようにする
 import('./world.js')
   .then((m) => {
     world = m.createWorld(document.getElementById('world'));
     world.setActive(tab === 'home');
+    requestAnimationFrame(() => setTimeout(hideSplash, 300));
   })
-  .catch(() => { document.getElementById('world').classList.add('no-3d'); });
+  .catch(() => { document.getElementById('world').classList.add('no-3d'); hideSplash(); });
+
+// オフラインでも開けるようにする（https か localhost のときだけ動く）
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(() => {}));
+}
 
 tabs.forEach((b) => b.addEventListener('click', () => show(b.dataset.tab)));
 
