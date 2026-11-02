@@ -1,0 +1,23 @@
+// 道具の登録表。ピヨが手に持って、押しながら歩くと足もとが変わる。
+// 道具をふやすときは、ここに1つ足す（unlockLv は、あとでレベル解放に使う）。
+const svg = (inner) => `<svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${inner}</svg>`;
+
+export const TOOLS = [
+  {
+    id: 'mower', label: '草かり', unlockLv: 1, op: 'path', width: 'brush',
+    svg: svg('<circle cx="6" cy="6" r="3"/><path d="M8.12 8.12 12 12"/><path d="M20 4 8.12 15.88"/><circle cx="6" cy="18" r="3"/><path d="M14.8 14.8 20 20"/>'),
+  },
+  {
+    id: 'seed', label: '草のタネ', unlockLv: 1, op: 'seed', width: 'brush',
+    svg: svg('<path d="M7 20h10"/><path d="M12 20V10"/><path d="M12 14c-3.5 0-5-2-5-5 3.5 0 5 2 5 5z"/><path d="M12 11c0-3.5 2-5 5-5 0 3.5-2 5-5 5z"/>'),
+  },
+  {
+    id: 'flower', label: '花のタネ', unlockLv: 1, op: 'plant', width: 'stamp',
+    svg: svg('<circle cx="12" cy="12" r="2.6"/><path d="M12 9.4V5.2a2.6 2.6 0 0 1 5.2 0c0 1.9-2.3 4.2-5.2 4.2z" transform="translate(-2.6 0)"/><path d="M14.6 12h4.2a2.6 2.6 0 0 1 0 5.2c-1.9 0-4.2-2.3-4.2-5.2z" transform="translate(0 -2.6)"/><path d="M12 14.6v4.2a2.6 2.6 0 0 1-5.2 0c0-1.9 2.3-4.2 5.2-4.2z" transform="translate(2.6 0)"/><path d="M9.4 12H5.2a2.6 2.6 0 0 1 0-5.2c1.9 0 4.2 2.3 4.2 5.2z" transform="translate(0 2.6)"/>'),
+  },
+  {
+    id: 'shovel', label: 'スコップ', unlockLv: 1, op: 'dig', width: 'river',
+    svg: svg('<path d="M20 4l-8.5 8.5"/><path d="M17 3l4 4"/><path d="M11.5 12.5L6.8 17.2a2.1 2.1 0 0 1-3-3L8.5 9.5"/>'),
+  },
+];
+export const toolById = (id) => TOOLS.find((t) => t.id === id) || TOOLS[0];

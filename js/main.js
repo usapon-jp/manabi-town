@@ -24,7 +24,7 @@ const hud = document.getElementById('hud');
 const bubble = document.getElementById('bubble');
 const pad = document.getElementById('pad');
 bindControls(pad);
-let folded = false;
+let cardOpen = false;   // ホームの「きょうのカード」。ふだんは小さなクエストマークだけ
 let listOpen = false;
 let lastDone = '';
 const tabs = document.querySelectorAll('.tabs button');
@@ -273,13 +273,17 @@ function renderHome(p) {
       h('span', { class: 'chip soft' }, t.tag), ` ${t.label}`,
       t.item ? h('small', {}, ` ${daysLabel(daysUntil(t.item.date))}`) : null))));
 
-  bubble.classList.toggle('folded', folded);
+  bubble.classList.toggle('mini', !cardOpen);
+  const left = tasks.length - doneCount;   // まだ終わっていない、きょうのクエストの数
   fill(bubble,
-    h('div', { class: 'coach' },
+    h('button', { class: 'quest-mark', 'aria-label': left ? `きょうのクエスト あと${left}こ` : 'きょうのクエスト ぜんぶおわり', onclick: () => { cardOpen = true; render(); } },
+      icon('book-open'),
+      left ? h('span', { class: 'quest-badge' }, String(left)) : null),
+    h('div', { class: 'card-body' }, h('div', { class: 'coach' },
       h('button', { class: 'coach-face', 'aria-label': 'きょうのおすすめ', onclick: () => bonusDeps.openRecommend() },
         h('img', { src: 'assets/icons/icon-192.png', alt: '', width: 40, height: 40 })),
       h('p', {}, words),
-      h('button', { class: 'fold', 'aria-label': folded ? 'ひらく' : 'たたむ', onclick: () => { folded = !folded; render(); } }, icon(folded ? 'chevron-down' : 'chevron-up'))),
+      h('button', { class: 'fold', 'aria-label': 'とじる', onclick: () => { cardOpen = false; render(); } }, icon('x'))),
     h('div', { class: 'today-body' },
       bar,
       goBtn,
@@ -288,7 +292,7 @@ function renderHome(p) {
         h('summary', {}, 'きょうのリスト'),
         list,
         h('button', { class: 'btn small', 'data-tour': 'add', onclick: () => show('todo') }, '＋ テスト・宿題・目標')),
-    ),
+    )),
   );
 }
 

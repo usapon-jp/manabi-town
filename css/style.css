@@ -555,6 +555,7 @@ button.go:active { transform: scale(0.97); animation: none; }
 .mk-k { stroke: #6f5a43; stroke-width: 2.4; stroke-linecap: round; stroke-linejoin: round; fill: none; }
 .mk-fa { fill: #fffaf0; }
 .mk-fb { fill: rgba(255, 255, 255, 0.4); }
+.mk-fc { fill: #f2c36a; }
 
 /* ---- テンポよく出てくる動き ---- */
 .q-box { position: relative; animation: pop-in 0.32s cubic-bezier(0.3, 1.5, 0.5, 1) both; }
@@ -935,3 +936,27 @@ body { line-height: 1.6; letter-spacing: 0.02em; }
 /* 漢字のれいぶん（同じ読みのことばと まちがえないように） */
 .q-box .context { margin: 12px 0 0; font-size: 16px; line-height: 1.8; color: var(--ink); font-weight: 500; letter-spacing: 0.04em; overflow-wrap: anywhere; }
 .context-word { display: inline-block; margin: 0 3px; padding: 0 8px; border-radius: 8px; background: var(--leaf-soft); color: var(--accent-dark); font-weight: 700; }
+
+/* ---- きょうのカードは、ふだん小さなクエストマーク（のこり数のバッジつき）にたたむ ---- */
+.quest-mark {
+  position: relative; display: grid; place-items: center; width: 56px; height: 56px; padding: 0; cursor: pointer; color: #fff;
+  border-radius: 50%; background: rgba(70, 58, 48, 0.22);   /* 明るい空でも白いマークが見えるよう、ほんのり暗く */
+  border: 1.5px solid rgba(255, 255, 255, 0.7);
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.14);
+  -webkit-backdrop-filter: blur(2px); backdrop-filter: blur(2px);
+  -webkit-tap-highlight-color: transparent; transition: transform 0.12s;
+}
+.quest-mark:active { transform: scale(0.92); background: rgba(255, 226, 168, 0.36); border-color: #ffe2a8; }
+.quest-mark .ic { width: 30px; height: 30px; stroke-width: 1.8; filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.5)); }
+.quest-badge {
+  position: absolute; top: -5px; right: -5px; min-width: 24px; height: 24px; padding: 0 6px; box-sizing: border-box;
+  display: grid; place-items: center; border-radius: 12px; background: #e5604d; color: #fff; border: 2px solid #fff;
+  font-size: 14px; font-weight: 800; line-height: 1; box-shadow: 0 1px 4px rgba(80, 40, 20, 0.3);
+}
+.bubble:not(.mini) .quest-mark { display: none; }
+.bubble.mini {
+  left: calc(16px + env(safe-area-inset-left, 0px)); right: auto; width: auto; margin: 0; padding: 0;
+  background: none; border: 0; box-shadow: none; max-height: none; overflow: visible;
+  top: calc(env(safe-area-inset-top) + 64px);
+}
+.bubble.mini .card-body { display: none; }
