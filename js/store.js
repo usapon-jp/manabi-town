@@ -94,7 +94,7 @@ export function addPoints(p, n, reason) {
 }
 
 export function addItem(p, item) {
-  p.items.push({ id: uid(), done: false, ...item });
+  p.items.push({ id: uid(), done: false, createdOn: today(), ...item });
   save();
 }
 
