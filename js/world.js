@@ -6,6 +6,7 @@ import { readMove, takeJump } from './controls.js';
 import { createTown } from './town.js';
 import { createMeadow } from './meadow.js';
 import { heightAt } from './terrain.js';
+import { createEditor } from './editor.js';
 import { currentProfile, onChange } from './store.js';
 import { levelInfo, totalXp } from './progress.js';
 
@@ -59,17 +60,32 @@ export function createWorld(container) {
   let drag = null;
   const canvas = renderer.domElement;
   canvas.style.touchAction = 'none';
+  // 「つくる」: 草をかって道をつくるなど、子どもが草原を作りかえる（editor.js）
+  const editor = createEditor({
+    container, scene, cut: meadow.cut,
+    rotate: (d) => { view.angle += d; },
+    pick: (e) => {
+      const rect = canvas.getBoundingClientRect();
+      pointer.set(((e.clientX - rect.left) / rect.width) * 2 - 1, -((e.clientY - rect.top) / rect.height) * 2 + 1);
+      raycaster.setFromCamera(pointer, camera);
+      const hit = raycaster.intersectObject(ground)[0];
+      return hit ? { x: hit.point.x, z: hit.point.z } : null;
+    },
+  });
   canvas.addEventListener('pointerdown', (e) => {
+    if (editor.active) { canvas.setPointerCapture(e.pointerId); editor.pointer('down', e); return; }
     drag = { x: e.clientX, y: e.clientY, angle: view.angle, moved: false };
     canvas.setPointerCapture(e.pointerId);
   });
   canvas.addEventListener('pointermove', (e) => {
+    if (editor.active) { editor.pointer('move', e); return; }
     if (!drag) return;
     const dx = e.clientX - drag.x;
     if (Math.abs(dx) > 8 || Math.abs(e.clientY - drag.y) > 8) drag.moved = true;
     if (drag.moved) view.angle = drag.angle - dx * 0.008;
   });
   canvas.addEventListener('pointerup', (e) => {
+    if (editor.active) { editor.pointer('up', e); return; }
     if (drag && !drag.moved) {
       const rect = canvas.getBoundingClientRect();
       pointer.set(((e.clientX - rect.left) / rect.width) * 2 - 1, -((e.clientY - rect.top) / rect.height) * 2 + 1);
@@ -86,7 +102,7 @@ export function createWorld(container) {
     }
     drag = null;
   });
-  canvas.addEventListener('pointercancel', () => { drag = null; });
+  canvas.addEventListener('pointercancel', () => { drag = null; if (editor.active) editor.pointer('cancel'); });
 
   function resize() {
     const w = container.clientWidth || 1;
@@ -134,6 +150,7 @@ export function createWorld(container) {
     setActive(on) {
       if (on === running) return;
       running = on;
+      editor.setVisible(on);
       if (on) { clock.getDelta(); resize(); requestAnimationFrame(frame); }
     },
     celebrate() { actor.jump(); },

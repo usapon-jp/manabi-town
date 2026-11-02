@@ -6,6 +6,7 @@ import { heightAt } from './terrain.js';
 import { isTownSpot } from './town.js';
 import { makeWind, addWind } from './wind.js';
 import { makePlants } from './plants.js';
+import { createCutMask } from './cutmask.js';
 
 export const SUN_DIR = new THREE.Vector3(0.5, 0.42, -0.75).normalize();
 export const HORIZON = new THREE.Color(0xf6e9cf);
@@ -125,7 +126,7 @@ function makeClouds() {
 
 // ---- 地面 ----------------------------------------------------------------
 
-function makeGround() {
+function makeGround(cut) {
   const geo = new THREE.RingGeometry(0.01, 46, 96, 42);
   geo.rotateX(-Math.PI / 2);
   const pos = geo.attributes.position;
@@ -141,7 +142,22 @@ function makeGround() {
   }
   geo.setAttribute('color', new THREE.BufferAttribute(col, 3));
   geo.computeVertexNormals();
-  return new THREE.Mesh(geo, new THREE.MeshLambertMaterial({ vertexColors: true }));
+  const mat = new THREE.MeshLambertMaterial({ vertexColors: true });
+  // かった場所（みち）は、土の色に。ふちは踏みかためたようにすこし暗く
+  mat.onBeforeCompile = (shader) => {
+    shader.uniforms.uCut = cut.uniforms.uCut;
+    shader.uniforms.uCutR = cut.uniforms.uCutR;
+    shader.vertexShader = 'varying vec2 vXZ;\n' + shader.vertexShader.replace('#include <begin_vertex>', '#include <begin_vertex>\n vXZ = position.xz;');
+    shader.fragmentShader = 'varying vec2 vXZ;\nuniform sampler2D uCut;\nuniform float uCutR;\n' + shader.fragmentShader.replace('#include <color_fragment>', `#include <color_fragment>
+      float pm = texture2D(uCut, (vXZ + uCutR) / (2.0 * uCutR)).r;
+      float inner = smoothstep(0.42, 0.62, pm);
+      float rim = smoothstep(0.28, 0.42, pm) * (1.0 - inner);
+      float sp = 0.5 + 0.5 * sin(vXZ.x * 9.0) * sin(vXZ.y * 11.0);
+      vec3 soil = vec3(0.79, 0.60, 0.31) * (0.93 + 0.07 * sp);
+      diffuseColor.rgb = mix(diffuseColor.rgb, diffuseColor.rgb * 0.8, rim);
+      diffuseColor.rgb = mix(diffuseColor.rgb, soil, inner);`);
+  };
+  return new THREE.Mesh(geo, mat);
 }
 
 // ---- 草 ------------------------------------------------------------------
@@ -163,7 +179,7 @@ function makeGrass(wind) {
   geo.setAttribute('color', new THREE.BufferAttribute(cols, 3));
   geo.setAttribute('normal', new THREE.BufferAttribute(new Float32Array(pos.count * 3).map((_, i) => (i % 3 === 1 ? 1 : 0)), 3));
   const mat = new THREE.MeshLambertMaterial({ vertexColors: true, side: THREE.DoubleSide });
-  addWind(mat, wind, H, 0.2);
+  addWind(mat, wind, H, 0.2, 0.12);
 
   const mesh = new THREE.InstancedMesh(geo, mat, GRASS_COUNT);
   mesh.frustumCulled = false;
@@ -374,7 +390,8 @@ function makeButterflies() {
 // ---- まとめ --------------------------------------------------------------
 
 export function createMeadow(scene) {
-  const wind = makeWind();
+  const cut = createCutMask();
+  const wind = makeWind(cut.uniforms);
   const sky = makeSky();
   scene.add(sky);
   scene.fog = new THREE.Fog(HORIZON, 34, 150);
@@ -384,7 +401,7 @@ export function createMeadow(scene) {
   sun.position.copy(SUN_DIR).multiplyScalar(30);
   scene.add(sun);
 
-  const ground = makeGround();
+  const ground = makeGround(cut);
   const clouds = makeClouds();
   const grass = makeGrass(wind);
   const flowers = makeFlowers(wind);
@@ -396,6 +413,7 @@ export function createMeadow(scene) {
 
   return {
     ground,
+    cut,
     update(dt, t, actorPos, camPos) {
       wind.uTime.value = t;
       wind.uActor.value.copy(actorPos);

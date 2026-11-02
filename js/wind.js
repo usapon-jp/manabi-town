@@ -5,15 +5,19 @@ import * as THREE from 'three';
 export const NORMAL_NO_FLIP = THREE.ShaderChunk.normal_fragment_begin.replace('gl_FrontFacing ? 1.0 : - 1.0', '1.0');
 
 // 風の共通パラメータ（草・花がいっしょにゆれる）
-export function makeWind() {
-  return { uTime: { value: 0 }, uActor: { value: new THREE.Vector3(999, 0, 999) } };
+// cut: cutmask.js の uniforms（かった場所の地図）。つけると、かった所の草や花が短く・なくなる
+export function makeWind(cut) {
+  return { uTime: { value: 0 }, uActor: { value: new THREE.Vector3(999, 0, 999) }, ...(cut || {}) };
 }
 
-export function addWind(material, wind, h, gain) {
+// stub: かった場所での高さの残り（草は0.12=かりあと、花などは0=なくなる）
+export function addWind(material, wind, h, gain, stub = 0) {
   material.onBeforeCompile = (shader) => {
     shader.uniforms.uTime = wind.uTime;
     shader.uniforms.uActor = wind.uActor;
-    shader.vertexShader = 'uniform float uTime;\nuniform vec3 uActor;\n' + shader.vertexShader
+    shader.uniforms.uCut = wind.uCut;
+    shader.uniforms.uCutR = wind.uCutR;
+    shader.vertexShader = 'uniform float uTime;\nuniform vec3 uActor;\nuniform sampler2D uCut;\nuniform float uCutR;\n' + shader.vertexShader
       .replace('#include <begin_vertex>', `#include <begin_vertex>
         float wk = clamp(position.y / ${h.toFixed(3)}, 0.0, 1.0);
         wk = wk * wk;`)
@@ -31,6 +35,12 @@ export function addWind(material, wind, h, gain) {
         float ad = length(away);
         sway += normalize(away + vec2(0.0001)) * smoothstep(1.7, 0.0, ad) * ${(gain * 3.2).toFixed(3)};
         mvPosition.xz += sway * wk;
+        // かった場所では、根もとにむけてちぢめる
+        float cutv = smoothstep(0.35, 0.65, texture2D(uCut, (wroot.xz + uCutR) / (2.0 * uCutR)).r);
+        vec3 cd = mvPosition.xyz - wroot.xyz;
+        cd.y *= mix(1.0, ${stub.toFixed(3)}, cutv);
+        cd.xz *= mix(1.0, ${stub > 0 ? '1.0' : '0.0'}, cutv);
+        mvPosition.xyz = wroot.xyz + cd;
         mvPosition = modelViewMatrix * mvPosition;
         gl_Position = projectionMatrix * mvPosition;`);
     shader.fragmentShader = shader.fragmentShader.replace('#include <normal_fragment_begin>', NORMAL_NO_FLIP);
