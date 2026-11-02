@@ -18,6 +18,7 @@ import { icon } from './icons.js';
 import { askAI, aiLeft, DAY_LIMIT } from './ai.js';
 import { recordResults, dueReview, startReview, reviewStats, REVIEW_PER_CORRECT } from './review.js';
 import { openTestEntry, openWeak, startWeak, testHistory } from './tests.js';
+import { openPlanChat, startCheck, summary as planSummary, PLAN_BONUS } from './coach.js';
 
 const POINTS_HOMEWORK = 20;
 const POINTS_TEST = 50;
@@ -333,6 +334,8 @@ function renderHome(p) {
       h('p', {}, words),
       h('button', { class: 'fold', 'aria-label': 'とじる', onclick: () => { cardOpen = false; render(); } }, icon('x'))),
     h('div', { class: 'today-body' },
+      p.coach ? null : h('button', { class: 'plan-cta', onclick: () => openPlanChat(p, bonusDeps) },
+        icon('sparkles'), h('span', {}, h('b', {}, 'はじめに ピヨ先生と 作戦会議'), h('small', {}, `進め方を いっしょに決めよう・+${PLAN_BONUS}`))),
       goBtn,
       stamps,
       h('details', { class: 'all-tasks', open: listOpen || null, ontoggle: (e) => { listOpen = e.target.open; } },
@@ -580,6 +583,15 @@ function dataCard() {
 }
 
 // AI（ピヨ先生のヒント）が使えるか、おうちの人が確認するところ
+// 作戦会議のまとめと、やりなおし
+function planCard(p) {
+  return h('div', { class: 'card form' },
+    h('h3', {}, 'ピヨ先生と 作戦会議'),
+    p.coach ? planSummary(p.coach) : h('p', { class: 'ai-status' }, '進め方・とくい にがて・理解度チェックを、ピヨ先生と いっしょに決めます'),
+    h('button', { class: 'btn', onclick: () => openPlanChat(p, bonusDeps) }, p.coach ? 'もういちど 作戦会議' : '作戦会議を はじめる'),
+    p.coach?.check?.length ? h('button', { class: 'btn', onclick: () => startCheck(p, bonusDeps) }, '理解度チェック') : null);
+}
+
 function aiCard() {
   const status = h('p', { class: 'ai-status' }, `ヒントは 1日 ${DAY_LIMIT}回まで（のこり ${aiLeft()}回）`);
   return h('div', { class: 'card form' },
@@ -634,6 +646,7 @@ function renderSettings(p) {
       } }, 'とりこむ'),
     ),
 
+    planCard(p),
     aiCard(),
     dataCard(),
 

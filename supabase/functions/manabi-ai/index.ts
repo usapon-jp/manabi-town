@@ -5,7 +5,9 @@
 //   hint  … 問題のヒント（答えは言わない。level 1→3 で少しずつ近づく）
 //   judge … 手書きの字の画像が、お手本の漢字と同じか判定
 //   quiz  … にがてな単元から、にた問題（3択）を作る
+//   plan  … ピヨ先生と作戦会議（進め方・得意苦手・理解度チェックする単元を決める）。ここだけ Sonnet
 const MODEL = 'claude-haiku-5-5';
+const MODEL_SMART = 'claude-sonnet-5-5';
 const ALLOWED = ['https://usapon-jp.github.io', 'http://localhost:8766'];
 
 function cors(origin: string | null) {
@@ -17,11 +19,11 @@ function cors(origin: string | null) {
   };
 }
 
-async function claude(key: string, content: unknown[], system: string, maxTokens = 200) {
+async function claude(key: string, content: unknown[], system: string, maxTokens = 200, model = MODEL, history?: unknown[]) {
   const r = await fetch('https://api.anthropic.com/v1/messages', {
     method: 'POST',
     headers: { 'x-api-key': key, 'anthropic-version': '2023-06-01', 'content-type': 'application/json' },
-    body: JSON.stringify({ model: MODEL, max_tokens: maxTokens, system, messages: [{ role: 'user', content }] }),
+    body: JSON.stringify({ model, max_tokens: maxTokens, system, messages: history || [{ role: 'user', content }] }),
   });
   const j = await r.json();
   if (!r.ok) throw new Error(j?.error?.message || `claude ${r.status}`);
@@ -75,6 +77,41 @@ Deno.serve(async (req) => {
       const m = text.match(/\{[\s\S]*\}/);
       const r = m ? JSON.parse(m[0]) : { questions: [] };
       return ok({ questions: Array.isArray(r.questions) ? r.questions.slice(0, count) : [] });
+    }
+    if (body.action === 'plan') {
+      const system = [
+        'あなたは「ピヨ先生」。小学生・中学生の家庭教師で、いま子どもと はじめての「作戦会議」をしている。',
+        'やさしい話し言葉、ひらがな多め（学年で習う漢字はOK）。1回の発言は2文・80文字くらいまで。質問は1回に1つだけ。',
+        '子どもが選びやすいよう、答えの候補を2〜4こ出す（自由に書いてもいい）。責めない。できていることを具体的にほめる。',
+        '聞く順番: (1)勉強の進め方（毎日少しずつ／まとめて、いつやる、何分くらい集中できる）(2)とくいな教科・にがてな教科と、そのわけ',
+        '(3)いまの宿題やテストの進め方（にがては少しずつ、覚える教科は何周するか など。予定がわかっていれば具体的に）',
+        '(4)さいごに「理解度チェック」する教科と単元を2〜3こ、子どもといっしょに決める。',
+        '8〜12往復くらいで終える。子どもが「おわり」と言ったら すぐまとめる。',
+        '返事は JSON だけ。会話中: {"say":"…","choices":["…"],"done":false}',
+        'まとめ: {"say":"まとめのひとこと","done":true,"profile":{"style":"進め方を1文","when":"やる時間","focusMin":集中できる分(数),"strong":["教科"],"weak":["教科"],"plans":[{"subject":"教科","how":"進め方を1文"}],"check":[{"subject":"教科","topic":"単元"}],"memo":"先生が覚えておくこと1〜2文"}}',
+      ].join('\n');
+      const ctx = `名前: ${clip(body.name, 20)}\n学年: ${clip(body.grade, 20)}\nいまの予定:\n${clip(body.items, 1500) || '（まだない）'}\n` +
+        (body.profile ? `前の作戦会議のメモ: ${clip(body.profile, 1200)}\n` : '');
+      const log = (Array.isArray(body.messages) ? body.messages : []).slice(-30)
+        .map((m: { role?: string; text?: string }) => ({ role: m?.role === 'assistant' ? 'assistant' : 'user', content: clip(m?.text, 500) }))
+        .filter((m: { content: string }) => m.content);
+      // 最初は user から。同じ役が続かないように まとめる
+      const history: { role: string; content: string }[] = [{ role: 'user', content: `${ctx}\n（作戦会議をはじめてください）` }];
+      for (const m of log) {
+        const last = history[history.length - 1];
+        if (last.role === m.role) last.content += `\n${m.content}`; else history.push(m);
+      }
+      if (history[history.length - 1].role !== 'user') history.push({ role: 'user', content: '（つづけて）' });
+      const text = await claude(key, [], system, 700, MODEL_SMART, history);
+      const m = text.match(/\{[\s\S]*\}/);
+      let r: Record<string, unknown> = {};
+      try { r = m ? JSON.parse(m[0]) : {}; } catch { r = {}; }
+      return ok({
+        say: clip(r.say || text.replace(/\{[\s\S]*\}/, ''), 300),
+        choices: Array.isArray(r.choices) ? r.choices.slice(0, 4).map((c) => clip(c, 40)) : [],
+        done: !!r.done,
+        profile: r.done && r.profile && typeof r.profile === 'object' ? r.profile : null,
+      });
     }
     if (body.action === 'judge') {
       const img = clip(body.image, 400_000).replace(/^data:image\/\w+;base64,/, '');
