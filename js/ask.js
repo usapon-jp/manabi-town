@@ -6,6 +6,7 @@ import { askAI, aiErrorText, aiLeft } from './ai.js';
 import { openPhotos } from './photos.js';
 import { shrink } from './scan.js';
 import { icon } from './icons.js';
+import { createVoice, canListen, canSpeak, isStandalone } from './voice.js';
 
 const SUBJECTS = ['国語', '算数・数学', '理科', '社会', '英語'];
 
@@ -15,6 +16,8 @@ export function openAsk(p, { subject } = {}) {
   let sticky = null;     // さいごに送った写真。つづきの しつもんにも つける
   let photo = null;      // つぎのしつもんに つける写真（data URL）
   let busy = false;
+  const voice = createVoice();
+  let voiceOn = false;   // 音声モード: 返事を読み上げて、おわったら また聞きとる
   let subj = subject || '';
 
   const log = h('div', { class: 'chat-log' });
@@ -32,15 +35,43 @@ export function openAsk(p, { subject } = {}) {
   }
   const subjRow = h('div', { class: 'chat-choices' }, SUBJECTS.map((s) => h('button', { type: 'button', class: `pick ${s === subj ? 'on' : ''}`,
     onclick: (e) => { subj = subj === s ? '' : s; subjRow.querySelectorAll('.pick').forEach((b) => b.classList.toggle('on', b === e.currentTarget && !!subj)); } }, s)));
+  const mic = h('button', { type: 'button', class: 'chat-cam chat-mic', 'aria-label': '声で はなす', hidden: !canListen, onclick: () => { voice.unlock(); if (voice.listening()) voice.stopListen(); else listen(); } }, icon('mic'));
+  const speaker = h('button', { type: 'button', class: 'chat-close chat-voice', 'aria-label': '音声モード', hidden: !(canListen || canSpeak), onclick: () => {
+    voiceOn = !voiceOn;
+    voice.unlock();
+    speaker.classList.toggle('on', voiceOn);
+    speaker.replaceChildren(icon(voiceOn ? 'volume-2' : 'volume-x'));
+    if (voiceOn) {
+      if (!canListen) toast('この端末では 声の入力は つかえないけど、読み上げは するよ');
+      else if (isStandalone() && /iPad|iPhone|Macintosh/.test(navigator.userAgent)) toast('ホーム画面のアプリだと 声が つかえないことが あるよ。Safariで ひらいてみてね', 5000);
+      else listen();
+    } else { voice.destroy(); setMic(false); }
+  } }, icon('volume-x'));
+  function setMic(on) { mic.classList.toggle('on', on); }
+  function listen() {
+    if (busy) return;
+    setMic(true);
+    input.placeholder = 'きいてるよ…はなしてね';
+    voice.listen({
+      onInterim: (t) => { input.value = t; },
+      onResult: (t) => { input.value = t; ask(); },
+      onEnd: (why) => {
+        setMic(false); input.placeholder = 'わからない ことを 書いてね';
+        if (why === 'denied') { voiceOn = false; speaker.classList.remove('on'); speaker.replaceChildren(icon('volume-x')); toast('マイクが つかえないよ。ブラウザの せっていで ゆるしてね', 5000); }
+        else if (why === 'error') toast('うまく きこえなかった…もういちど');
+      },
+    });
+  }
   const form = h('form', { class: 'chat-input', onsubmit: (e) => { e.preventDefault(); ask(); } },
     h('button', { type: 'button', class: 'chat-cam', 'aria-label': 'しゃしんを とる', onclick: () => file.click() }, icon('camera')),
     h('button', { type: 'button', class: 'chat-cam', 'aria-label': 'しりょうから えらぶ', onclick: () => openPhotos(p, { pick: 1, onPick: (urls) => { if (urls[0]) { photo = urls[0]; showThumb(); } } }) }, icon('folder')),
-    input, h('button', { class: 'chat-send', type: 'submit', 'aria-label': 'おくる' }, icon('send')));
-  const close = () => { layer.remove(); document.body.classList.remove('running'); };
+    input, mic, h('button', { class: 'chat-send', type: 'submit', 'aria-label': 'おくる' }, icon('send')));
+  const close = () => { voice.destroy(); layer.remove(); document.body.classList.remove('running'); };
   const layer = h('div', { class: 'chat ask' },
     h('div', { class: 'chat-top' },
       h('img', { src: 'assets/icons/icon-192.png', alt: '', width: 36, height: 36 }),
       h('b', {}, 'ピヨ先生に しつもん'),
+      speaker,
       h('button', { class: 'chat-close', 'aria-label': 'とじる', onclick: close }, icon('x'))),
     log, h('div', { class: 'chat-foot' }, subjRow, thumb, form), file);
   document.body.append(layer);
@@ -55,6 +86,7 @@ export function openAsk(p, { subject } = {}) {
   async function ask() {
     const t = input.value.trim();
     if (busy || (!t && !photo)) return;
+    voice.stopSpeak();
     if (aiLeft() <= 0) { toast('きょうの しつもんは ここまで。また あしたね'); return; }
     busy = true;
     const img = photo;
@@ -68,6 +100,7 @@ export function openAsk(p, { subject } = {}) {
       wait.remove();
       messages.push({ role: 'assistant', text: r.say || '' });
       bubble('assistant', r.say || '', r.svg ? diagram(r.svg) : null);
+      if (voiceOn && r.say) voice.speak(r.say, () => { if (voiceOn && canListen) listen(); });
     } catch (e) {
       wait.remove();
       messages.pop();   // 送れなかった質問は もどす
