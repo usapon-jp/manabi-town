@@ -94,7 +94,7 @@ export function urgentHomework(items) {
       const doneToday = (item.doneLog || {})[today()] || 0;
       return { item, pages, total: steps.length, done, doneToday, days: daysUntil(item.date) };
     })
-    .filter((u) => u.done < u.total || u.doneToday > 0)
+    // ぜんぶできても「だした！」を押すまでは出しておく（出しわすれ防止）
     .sort((a, b) => a.item.date.localeCompare(b.item.date));
 }
 

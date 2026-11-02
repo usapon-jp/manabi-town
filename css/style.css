@@ -1023,3 +1023,5 @@ body:not([data-tab="home"]) .world.loading::after { display: none; }
 @keyframes stamp-pop { 0% { transform: scale(1.6) rotate(-14deg); opacity: 0.2; } 100% { transform: none; opacity: 1; } }
 .cell:active { transform: scale(0.92); }
 .due .btn { margin-top: 10px; width: 100%; }
+.cell:disabled { cursor: default; opacity: 1; }
+.cell:disabled:active { transform: none; }

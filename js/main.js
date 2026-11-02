@@ -362,10 +362,13 @@ function dueCard(p, list) {
     const cells = (pages.length ? pages : [null]).map((n, idx) => {
       const on = idx < done;
       const canUndo = on && idx === done - 1 && doneToday > 0;
+      // スタンプは前から順に。おせるのは「つぎのマス」と「さっき押したマス（もどす）」だけ
+      const tappable = idx === done || canUndo;
       return h('button', {
+        disabled: !tappable,
         class: `cell ${on ? 'on' : ''} ${idx === done ? 'next' : ''} ${lastStamp === `${item.id}:${idx}` ? 'pop' : ''}`,
         'aria-label': on ? (canUndo ? `${n ?? ''} もどす` : `${n ?? ''} できた`) : `${n ?? ''} できたら タップ`,
-        onclick: () => (on ? (canUndo ? undo() : null) : stamp()),
+        onclick: () => (canUndo ? undo() : idx === done ? stamp() : null),
       }, on ? icon('check') : h('span', {}, n ?? 'できた'));
     });
     return h('div', { class: `due ${days <= 0 && left ? 'hot' : ''} ${left ? '' : 'clear'}` },
