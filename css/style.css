@@ -849,3 +849,29 @@ button.go:active { transform: scale(0.97); animation: none; }
 .tabs { padding-left: 6px; padding-right: 6px; }
 .tabs button { margin: 6px 2px; border-radius: 18px; transition: background 0.15s, color 0.15s; }
 .tabs button.active { background: var(--accent); color: #fff; }
+
+/* ---- タイマー: スマホ縦の1画面に入るように ---- */
+.setup, .setup > * { min-width: 0; }
+.bgm-name { min-width: 0; }
+.picks.kinds { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; }
+.picks.kinds .pick { display: grid; justify-items: center; gap: 2px; padding: 7px 2px; font-size: 12px; border-radius: 14px; white-space: nowrap; }
+.picks.kinds .pick .ic { width: 20px; height: 20px; vertical-align: 0; }
+.picks.subjects { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
+.picks.subjects .pick, .picks.times .pick { padding: 7px 4px; font-size: 14px; text-align: center; white-space: nowrap; }
+.picks.times { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; }
+.setup { gap: 8px; padding: 14px; }
+.setup .label { margin: 2px 0 -2px; }
+.seg button { padding: 7px; }
+.bgm-row { padding: 6px 8px; }
+.bgm-toggle { width: 34px; height: 34px; }
+.btn.start { padding: 12px; font-size: 19px; }
+.card.stat3 { padding: 10px 12px; margin-bottom: 10px; }
+.stat3 b { font-size: 24px; }
+/* 下にスクロールした中身が、上のバーの後ろにすけないように */
+body:not([data-tab="home"])::before {
+  content: ""; position: fixed; left: 0; right: 0; top: 0; z-index: 3; pointer-events: none;
+  height: calc(env(safe-area-inset-top) + 60px);
+  background: linear-gradient(var(--bg) 82%, rgba(251, 244, 230, 0));
+}
+.tabs button { white-space: nowrap; min-width: 0; }
+@media (max-width: 360px) { .tabs button { font-size: 10px; margin: 6px 1px; } .tabs button .ic { width: 22px; height: 22px; } }

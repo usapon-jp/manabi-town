@@ -53,7 +53,6 @@ export function renderTimerTab(panel, p, deps) {
   bgm.listTracks().then((ts) => { bgmName.textContent = (ts.find((t) => t.id === bgm.selectedId()) || ts[0]).name; });
 
   deps.fill(panel,
-    h('h2', {}, 'タイマー'),
     h('div', { class: 'card stat3' },
       h('div', {}, h('small', {}, 'きょう'), h('b', {}, todayMin), h('small', {}, '分')),
       h('div', {}, h('small', {}, '今週'), h('b', {}, weekMin), h('small', {}, '分')),
@@ -61,9 +60,9 @@ export function renderTimerTab(panel, p, deps) {
 
     h('div', { class: 'card setup' },
       h('p', { class: 'label' }, 'なにをする？'),
-      h('div', { class: 'picks' }, KINDS.map((k) => chip(pf.kind === k.id, [icon(k.ic), ` ${k.label}`], () => set('kind', k.id)))),
+      h('div', { class: 'picks kinds' }, KINDS.map((k) => chip(pf.kind === k.id, [icon(k.ic), ` ${k.label}`], () => set('kind', k.id)))),
       h('p', { class: 'label' }, 'きょうか'),
-      h('div', { class: 'picks' }, SUBJECTS.map((s) => chip(pf.subject === s, s, () => set('subject', s), SUBJECT_COLORS[s]))),
+      h('div', { class: 'picks subjects' }, SUBJECTS.map((s) => chip(pf.subject === s, s, () => set('subject', s), SUBJECT_COLORS[s]))),
       h('div', { class: 'seg' },
         h('button', { class: pf.mode === 'focus' ? 'on' : '', onclick: () => set('mode', 'focus') }, '集中'),
         h('button', { class: pf.mode === 'free' ? 'on' : '', onclick: () => set('mode', 'free') }, '計るだけ')),
