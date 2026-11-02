@@ -1148,3 +1148,15 @@ body:not([data-tab="home"]) .world.loading::after { display: none; }
 .chat.ask .chat-choices .pick { flex-shrink: 0; white-space: nowrap; font-size: 14px; padding: 6px 12px; }
 .chat-input input:focus { outline: 2px solid var(--accent); outline-offset: 0; }
 .scan-row input.need { border-color: #e5604d; background: #fff1ee; }
+
+/* だれが つかう？・あいことば・ログイン（account.js） */
+.who-list { width: 100%; align-self: stretch; display: grid; gap: 10px; max-height: 60vh; overflow-y: auto; }
+.who-btn { display: flex; align-items: center; gap: 12px; width: 100%; padding: 12px 14px; border: 1.5px solid var(--line); border-radius: 18px; background: #fff; box-shadow: var(--soft); font: inherit; color: var(--navy); text-align: left; }
+.who-btn.on { border-color: #7f985e; }
+.who-face { flex: none; width: 44px; height: 44px; border-radius: 50%; display: grid; place-items: center; background: #eef3e4; color: #5d7344; font-size: 22px; font-weight: 800; }
+.who-name { flex: 1; min-width: 0; font-size: 19px; font-weight: 700; display: flex; flex-direction: column; }
+.who-name small { font-size: 13px; opacity: 0.7; font-weight: 400; }
+.who-btn .ic { width: 18px; height: 18px; opacity: 0.6; }
+input.pin { font-size: 26px; letter-spacing: 0.5em; text-align: center; }
+.login-sheet .sheet-card input { width: 100%; font-size: 17px; }
+.sheet-title .ic { width: 22px; height: 22px; vertical-align: -3px; }

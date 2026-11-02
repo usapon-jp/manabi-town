@@ -106,6 +106,17 @@ if (typeof window !== 'undefined') {
   document.addEventListener('visibilitychange', () => { if (!document.hidden) syncFromOtherTab(); });
 }
 
+// ほかの端末の進みを入れる（sync.js から）。manabi-saved は出さない（送りかえさないため）
+export function replaceProfiles(profiles, currentId) {
+  const next = normalize({ version: VERSION, profiles, currentId: currentId ?? state.currentId });
+  if (!next) return false;
+  state = next;
+  try { const raw = JSON.stringify(state); localStorage.setItem(KEY, raw); lastWritten = raw; } catch (e) { /* 次の保存で もういちど */ }
+  listeners.forEach((fn) => fn());
+  window.dispatchEvent(new CustomEvent('manabi-synced'));
+  return true;
+}
+
 // 書き出し（保存できないときに、データをコピーしてとっておく）
 export function exportData() { return JSON.stringify(state); }
 
