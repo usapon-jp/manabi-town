@@ -1094,3 +1094,23 @@ body:not([data-tab="home"]) .world.loading::after { display: none; }
 .rescue-plan { display: flex; align-items: baseline; justify-content: center; gap: 8px; padding: 8px; }
 .rescue-plan b { font-size: 44px; font-weight: 700; color: var(--accent-dark); }
 .rescue-plan span { font-size: 17px; color: var(--navy); }
+
+/* 写真から入れる */
+.scan { margin-bottom: 12px; }
+.scan-btn { width: 100%; display: flex; align-items: center; gap: 12px; text-align: left; padding: 12px 16px; background: #fff7e2; border: 2px solid #f0d59a; border-radius: 16px; color: var(--navy); cursor: pointer; font: inherit; }
+.scan-btn .ic { width: 28px; height: 28px; color: #d39b2a; flex-shrink: 0; }
+.scan-btn span { display: grid; gap: 2px; }
+.scan-btn b { font-size: 16px; font-weight: 700; }
+.scan-btn small { font-size: 13px; color: var(--ink-soft); font-weight: 500; }
+.scan-card { max-height: 86vh; overflow-y: auto; }
+.scan-note { margin: 0; font-size: 14px; color: #b4503d; }
+.scan-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
+.scan-row { display: grid; gap: 6px; background: #fff; border: 1.5px solid var(--line); border-radius: 14px; padding: 10px 12px; }
+.scan-row.off { opacity: 0.45; }
+.scan-on { display: flex; align-items: center; gap: 8px; }
+.scan-row input[type=text], .scan-row input[type=date], .scan-row select { font: inherit; font-size: 15px; padding: 6px 10px; border: 1.5px solid var(--line); border-radius: 10px; min-width: 0; max-width: 100%; box-sizing: border-box; background: #fffdf7; color: var(--ink); }
+.scan-on { flex-wrap: nowrap; }
+.scan-on .chip { white-space: nowrap; flex-shrink: 0; writing-mode: horizontal-tb; }
+.scan-on select { flex: 1; }
+.scan-on input[type=checkbox] { width: 24px; height: 24px; flex-shrink: 0; accent-color: var(--accent); }
+.scan-row input.need { border-color: #e5604d; background: #fff1ee; }

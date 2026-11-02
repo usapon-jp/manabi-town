@@ -5,6 +5,7 @@
 //   hint  … 問題のヒント（答えは言わない。level 1→3 で少しずつ近づく）
 //   judge … 手書きの字の画像が、お手本の漢字と同じか判定
 //   quiz  … にがてな単元から、にた問題（3択）を作る
+//   scan  … プリントや範囲の写真から、テスト・宿題の予定（教科・名前・はんい・日にち）を読み取る（Haiku）
 //   plan  … ピヨ先生と作戦会議（進め方・得意苦手・理解度チェックする単元を決める）。ここだけ Sonnet
 const MODEL = 'claude-haiku-5-5';
 const MODEL_SMART = 'claude-sonnet-5-5';
@@ -112,6 +113,27 @@ Deno.serve(async (req) => {
         done: !!r.done,
         profile: r.done && r.profile && typeof r.profile === 'object' ? r.profile : null,
       });
+    }
+    if (body.action === 'scan') {
+      const img = clip(body.image, 1_800_000).replace(/^data:image\/\w+;base64,/, '');
+      if (!img) return new Response(JSON.stringify({ error: 'no-image' }), { status: 400, headers });
+      const system = [
+        '学校のプリント・時間割・テスト範囲表・ワークの計画表などの写真から、子どもがやることを読み取る。',
+        '返事は JSON だけ: {"items":[{"type":"test"|"homework","subject":"国語|算数|数学|理科|社会|英語|音楽|美術|体育|技術家庭|その他","title":"短い名前","range":"p.40〜52 など（なければ空）","date":"YYYY-MM-DD"}],"note":"読めなかった所や、あいまいな所を短く"}',
+        'テストの日・提出日が書いてあるものだけを items にする。日にちに年がなければ、今日の日付に近い未来の年にする。',
+        '読めない・自信がない所は作らずに note に書く。たくさんあっても20件まで。',
+      ].join('\n');
+      const text = await claude(key, [
+        { type: 'image', source: { type: 'base64', media_type: 'image/jpeg', data: img } },
+        { type: 'text', text: `今日は ${clip(body.today, 10)}。学年: ${clip(body.grade, 20)}。このプリントから予定を読み取って。` },
+      ], system, 1500);
+      const m = text.match(/\{[\s\S]*\}/);
+      let r: Record<string, unknown> = {};
+      try { r = m ? JSON.parse(m[0]) : {}; } catch { r = {}; }
+      const items = (Array.isArray(r.items) ? r.items : []).slice(0, 20)
+        .filter((i: Record<string, unknown>) => i && i.title && /^\d{4}-\d{2}-\d{2}$/.test(String(i.date)))
+        .map((i: Record<string, unknown>) => ({ type: i.type === 'test' ? 'test' : 'homework', subject: ['国語', '理科', '社会', '英語'].includes(clip(i.subject, 10)) ? clip(i.subject, 10) : /算数|数学/.test(clip(i.subject, 10)) ? '算数・数学' : 'その他', title: clip(i.title, 40), range: clip(i.range, 40), date: String(i.date) }));
+      return ok({ items, note: clip(r.note, 120) });
     }
     if (body.action === 'judge') {
       const img = clip(body.image, 400_000).replace(/^data:image\/\w+;base64,/, '');
