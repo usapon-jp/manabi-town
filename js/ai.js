@@ -13,11 +13,11 @@ function readCount() {
 function bump() { try { localStorage.setItem(COUNT_KEY, JSON.stringify({ day: todayKey(), n: readCount() + 1 })); } catch { /* 保存できなくても続ける */ } }
 export function aiLeft() { return Math.max(0, DAY_LIMIT - readCount()); }
 
-export async function askAI(body, { count = true } = {}) {
+export async function askAI(body, { count = true, timeout = 20000 } = {}) {
   if (count && aiLeft() <= 0) throw new Error('limit');
   if (!navigator.onLine) throw new Error('offline');
   const ctrl = new AbortController();
-  const timer = setTimeout(() => ctrl.abort(), 20000);
+  const timer = setTimeout(() => ctrl.abort(), timeout);
   try {
     const r = await fetch(ENDPOINT, {
       method: 'POST', signal: ctrl.signal,
