@@ -30,7 +30,7 @@ const hud = document.getElementById('hud');
 const bubble = document.getElementById('bubble');
 const pad = document.getElementById('pad');
 bindControls(pad);
-let cardOpen = null;    // ホームの「きょうのカード」。null=開いておく（とじたら小さなクエストマーク）
+let cardOpen = false;   // ホームの「きょうのカード」。ふだんは たたんで、バッジつきのマークだけ
 let lastStamp = '';     // さっきスタンプをおしたマス（ポンと出す）
 let listOpen = false;
 let lastDone = '';
@@ -315,12 +315,13 @@ function renderHome(p) {
       h('span', { class: 'chip soft' }, t.tag), ` ${t.label}`,
       t.item ? h('small', {}, ` ${daysLabel(daysUntil(t.item.date))}`) : null))));
 
-  const open = cardOpen ?? true;   // ふだんは開いておく（きょうやることを いちばん上に）
-  bubble.classList.toggle('mini', !open);
-  const left = tasks.length - doneCount;   // まだ終わっていない、きょうのクエストの数
+  bubble.classList.toggle('mini', !cardOpen);
+  const left = tasks.length - doneCount;   // まだ終わっていない、きょうやることの数
+  const hot = urgent.some((u) => u.days <= 0);   // きょう提出（すぎたもの）がある
   fill(bubble,
-    h('button', { class: 'quest-mark', 'aria-label': left ? `きょうのクエスト あと${left}こ` : 'きょうのクエスト ぜんぶおわり', onclick: () => { cardOpen = true; render(); } },
+    h('button', { class: `quest-mark ${hot ? 'hot' : ''} ${left ? '' : 'clear'}`, 'aria-label': left ? `きょうやること あと${left}こ` : 'きょうやること ぜんぶおわり', onclick: () => { cardOpen = true; render(); } },
       icon('book-open'),
+      h('span', { class: 'quest-label' }, hot ? 'きょう ていしゅつ！' : left ? 'きょうやること' : 'ぜんぶ できた！'),
       left ? h('span', { class: 'quest-badge' }, String(left)) : null),
     h('div', { class: 'card-body' },
       bar,
