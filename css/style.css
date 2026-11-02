@@ -807,7 +807,7 @@ button.go:active { transform: scale(0.97); animation: none; }
   border-radius: 50%; background: var(--card); border: 2px solid var(--line); box-shadow: var(--soft); -webkit-tap-highlight-color: transparent;
 }
 .quest-mark:active { transform: scale(0.95); }
-.quest-ic { width: 28px; height: 28px; fill: #e0a52f; stroke: #e0a52f; stroke-width: 3.6; stroke-linecap: round; }
+.quest-ic { width: 30px; height: 30px; fill: none; stroke: #c98a2b; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
 .quest-badge {
   position: absolute; top: -5px; right: -5px; min-width: 24px; height: 24px; padding: 0 6px; box-sizing: border-box;
   display: grid; place-items: center; border-radius: 12px; background: #e5604d; color: #fff; border: 2px solid #fff;

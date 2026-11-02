@@ -274,7 +274,7 @@ function renderHome(p) {
   const left = tasks.length - doneCount;   // まだ終わっていない、きょうのクエストの数
   fill(bubble,
     h('button', { class: 'quest-mark', 'aria-label': left ? `きょうのクエスト あと${left}こ` : 'きょうのクエスト ぜんぶおわり', onclick: () => { cardOpen = true; render(); } },
-      h('span', { class: 'quest-ic-wrap', html: '<svg class="quest-ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4.5v9"/><circle cx="12" cy="19" r="1.4"/></svg>' }),
+      h('span', { class: 'quest-ic-wrap', html: '<svg class="quest-ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 3.5h7a2 2 0 0 1 2 2V19a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V5.5a2 2 0 0 1 2-2z"/><path d="M8.2 8.5h5M8.2 12h3.2M8.2 15.5h2"/><path d="M18.4 6.6l2.4 2.4-6.6 6.6-3.1.7.7-3.1z"/></svg>' }),
       left ? h('span', { class: 'quest-badge' }, String(left)) : null),
     h('div', { class: 'card-body' }, h('div', { class: 'coach' },
       h('button', { class: 'coach-face', 'aria-label': 'きょうのおすすめ', onclick: () => bonusDeps.openRecommend() },
