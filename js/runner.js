@@ -90,7 +90,6 @@ export function runQuestions(title, questions, onFinish) {
       h('div', { class: 'q-box' },
         h('p', { class: 'prompt' }, q.prompt),
         q.big ? h('p', { class: `big ${kind === 'write' ? 'reading' : ''}` }, q.big) : null,
-        q.hint ? h('p', { class: 'q-hint' }, `「${q.hint}」`) : null,
       ),
       answerArea,
       h('div', { class: 'runner-foot' }, feedback, next),
