@@ -28,7 +28,6 @@ function rest(path: string, init: RequestInit = {}) {
   });
 }
 
-// 失敗してもアプリの返事は止めない
 const WHO = ['小3', '小4', '小5', '小6', '中1', '中2', '中3', 'おとな'];
 // 子どもは学年だけ。おとなは「おとな:ハンドルネーム」まで残す
 function cleanWho(who: string) {
@@ -36,6 +35,7 @@ function cleanWho(who: string) {
   const m = /^おとな:(.{1,12})$/u.exec(who.replace(/[\u0000-\u001f<>]/g, '').trim());
   return m ? `おとな:${m[1].trim()}` : '';
 }
+// 失敗してもアプリの返事は止めない
 export async function recordUsage(action: string, who: string, model: string, usage: { input_tokens?: number; output_tokens?: number } | undefined) {
   try {
     const input_tokens = Number(usage?.input_tokens) || 0;
@@ -81,7 +81,7 @@ export async function summary(now = new Date()) {
   const last7 = Array.from({ length: 7 }, (_, i) => jst(new Date(now.getTime() - (6 - i) * 86400_000)))
     .map((day) => ({ day, usd: byDay[day] || 0 }));
   // 月末の見込み: 直近7日の平均ペース × 残りの日数（月はじめは今月の平均）
-  const pace = last7.reduce((a, b) => a + b.usd, 0) / 7;
+  const pace = d < 7 ? month / d : last7.reduce((a, b) => a + b.usd, 0) / 7;
   const forecast = month + pace * (daysInMonth - d);
   const ratio = month / LIMIT_USD;
   return {
