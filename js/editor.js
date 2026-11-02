@@ -24,7 +24,7 @@ const BRUSH_NAME = ['ほそい', 'ふつう', 'ふとい'];
 const DOT = { buttercup: '#ffd62e', lupine: '#a58bf0', tulip: '#ff8fae', clover: '#f4f1ea', dandelion: '#ffe777' };
 
 const CSS = `
-.wedit { position: fixed; right: calc(8px + env(safe-area-inset-right, 0px)); top: 40%; transform: translateY(-50%); z-index: 4;
+.wedit { position: fixed; right: calc(8px + env(safe-area-inset-right, 0px)); top: calc(env(safe-area-inset-top, 0px) + 64px); max-height: calc(100dvh - env(safe-area-inset-top, 0px) - 72px); overflow-y: auto; scrollbar-width: none; z-index: 4;
   display: flex; flex-direction: column; gap: 5px; align-items: stretch; width: 58px; font-family: inherit; -webkit-user-select: none; user-select: none; }
 .wedit[hidden], .wedit-sub[hidden] { display: none; }
 .wedit button, .wedit-sub button { all: unset; box-sizing: border-box; cursor: pointer; text-align: center; font-size: 12px; font-weight: 700; line-height: 1;
@@ -75,6 +75,7 @@ const CSS = `
 .wsp { position: absolute; right: 70px; top: -34px; display: flex; gap: 6px; }
 .wsp button { all: unset; width: 26px; height: 26px; border-radius: 50%; border: 2px solid rgba(255, 255, 255, 0.85); box-shadow: 0 1px 4px rgba(0, 0, 0, 0.3); cursor: pointer; }
 .wsp button.on { box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.95), 0 1px 4px rgba(0, 0, 0, 0.3); }
+body.wedit-on #btnDash, body.wedit-on #btnJump { display: none; }   /* 指でなぞっているあいだは、パネルとかさなるので かくす */
 .wedit-msg { position: fixed; left: 50%; top: calc(env(safe-area-inset-top, 0px) + 74px); transform: translateX(-50%); z-index: 6; padding: 8px 14px;
   border-radius: 14px; background: rgba(255, 252, 240, 0.96); color: #6b4a2b; font-weight: 700; font-size: 14px; border: 2px solid #e2d3ad; pointer-events: none; }
 `;
@@ -233,6 +234,7 @@ export function createEditor({ container, scene, cut, wind, pick, rotate }) {
   function refreshButtons() {
     q('toggle').classList.toggle('on', st.editing);
     toolsEl.hidden = !st.editing;
+    document.body.classList.toggle('wedit-on', st.editing);
     use.hidden = !st.visible || st.editing;   // 指でなぞっているあいだは、足もとの道具をかくす
     root.querySelectorAll('[data-a="tool"]').forEach((b) => b.classList.toggle('on', b.dataset.v === st.tool));
     const dot = 8 + st.size * 5;
