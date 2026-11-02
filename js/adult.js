@@ -88,36 +88,37 @@ export function toggleRoutine(p, r) {
   return on;
 }
 
-// ポイントもふくめて チェックする（ホームとルーティーンのタブで共通）
-// deps: { gain, addPoints }
-export function checkRoutine(p, r, deps) {
-  const n = weekly(r);
-  const before = n ? weekCount(p, r) : 0;
-  const on = toggleRoutine(p, r);
+// 今週の達成と ボーナスを そろえる（チェックしたとき・目標回数をなおしたとき）
+// 達成していて まだなら ボーナスをすぐ入れる。下回ったら もどす。ポイントと しるしは いっしょに保存する
+function reconcileWeek(p, r, deps) {
   const wk = toISO(mondayOf(new Date()));
   if (!p.routineAwards || typeof p.routineAwards !== 'object') p.routineAwards = {};
-  const award = p.routineAwards[wk] || {};
-  if (on) {
-    deps.gain(p, ROUTINE_POINTS, `ルーティーン: ${r.title}`);
-    if (n && before < n && before + 1 >= n && !award[r.id]) {
-      const b = bonusOf(r);
-      p.routineAwards[wk] = { ...award, [r.id]: b };
-      if (b) setTimeout(() => { deps.gain(p, b, `週${n}回 達成: ${r.title}`); deps.render?.(); toast(`「${r.title}」今週の 目標 達成！ +${b}`); }, 700);
-      else toast(`「${r.title}」今週の 目標 達成！`);
-    }
-  } else {
-    deps.addPoints(p, -ROUTINE_POINTS, `とりけし: ${r.title}`);
-    // 目標を下回ったら、今週のボーナスも もどす
-    if (n && award[r.id] != null && weekCount(p, r) < n) {
-      if (award[r.id]) deps.addPoints(p, -award[r.id], `とりけし: 週${n}回 達成`);
-      const rest = { ...award };
-      delete rest[r.id];
-      p.routineAwards[wk] = rest;
-    }
+  const award = { ...(p.routineAwards[wk] || {}) };
+  const n = weekly(r);
+  const met = n > 0 && weekCount(p, r) >= n;
+  if (met && award[r.id] == null) {
+    const b = bonusOf(r);
+    award[r.id] = b;
+    p.routineAwards[wk] = award;
+    if (b) deps.gain(p, b, `週${n}回 達成: ${r.title}`);
+    setTimeout(() => toast(`「${r.title}」今週の 目標 達成！${b ? ` +${b}` : ''}`), 900);
+  } else if (!met && award[r.id] != null) {
+    if (award[r.id]) deps.addPoints(p, -award[r.id], `とりけし: 週の目標 達成（${r.title}）`);
+    delete award[r.id];
+    p.routineAwards[wk] = award;
   }
   // 古い週のボーナス記録は 12週分だけ
   const ks = Object.keys(p.routineAwards).sort();
   ks.slice(0, Math.max(0, ks.length - 12)).forEach((k) => delete p.routineAwards[k]);
+}
+
+// ポイントもふくめて チェックする（ホームとルーティーンのタブで共通）
+// deps: { gain, addPoints }
+export function checkRoutine(p, r, deps) {
+  const on = toggleRoutine(p, r);
+  if (on) deps.gain(p, ROUTINE_POINTS, `ルーティーン: ${r.title}`);
+  else deps.addPoints(p, -ROUTINE_POINTS, `とりけし: ${r.title}`);
+  reconcileWeek(p, r, deps);
   save();
   return on;
 }
@@ -144,10 +145,11 @@ export function addRoutine(p, fields) {
   return r;
 }
 
-export function updateRoutine(p, r, fields) {
+export function updateRoutine(p, r, fields, deps) {
   const c = cleanRoutine(fields);
   if (!c) return false;
   Object.assign(r, c);
+  if (deps) reconcileWeek(p, r, deps);   // 目標回数を変えたら、今週の達成と ボーナスも そろえる
   save();
   return true;
 }
@@ -280,7 +282,7 @@ export function renderRoutineTab(panel, p, deps) {
           if (editing) return;
           editing = r;
           li.replaceWith(h('li', { class: 'item editing' }, routineForm(r, (f) => {
-            if (updateRoutine(p, r, f)) toast('なおしました');
+            if (updateRoutine(p, r, f, deps)) toast('なおしました');
             deps.render();
           }, () => deps.render())));
         } }, 'なおす'),
