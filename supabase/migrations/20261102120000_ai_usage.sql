@@ -12,3 +12,11 @@ create table if not exists public.ai_usage (
 create index if not exists ai_usage_created_at_idx on public.ai_usage (created_at);
 -- アプリ（anon）からは読み書きさせない。Edge Function が service_role で書く・読む。
 alter table public.ai_usage enable row level security;
+
+-- Edge Function だけが読む小さな設定（manabi-usage の合言葉のハッシュなど）
+create table if not exists public.app_secret (
+  name text primary key,
+  value text not null,
+  updated_at timestamptz not null default now()
+);
+alter table public.app_secret enable row level security;

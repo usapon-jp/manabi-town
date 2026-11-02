@@ -92,3 +92,11 @@ export async function summary(now = new Date()) {
     calls: byAction, byWho, last7,
   };
 }
+
+// manabi-usage の合言葉（SHA-256 の16進）。表 app_secret に置く
+export async function tokenHash() {
+  const r = await rest(`app_secret?select=value&name=eq.usage_token`);
+  if (!r || !r.ok) return '';
+  const rows = await r.json();
+  return String(rows?.[0]?.value || '');
+}

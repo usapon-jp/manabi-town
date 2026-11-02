@@ -1,9 +1,9 @@
 // AI 使用額を読むだけの URL（Muse などのエージェントが定期的に開いて数字を確認する用）。
 // GET .../functions/v1/manabi-usage?k=<合言葉>        … 数行の文章
 // GET .../functions/v1/manabi-usage?k=<合言葉>&f=json … JSON
-// 合言葉は Supabase のシークレット USAGE_TOKEN。数字だけを返し、子どもの名前や勉強の中身は出さない。
+// 合言葉は表 app_secret（name='usage_token'）に SHA-256 で置く（シークレット USAGE_TOKEN があればそちらを優先）。数字だけを返し、子どもの名前や勉強の中身は出さない。
 // verify_jwt=false でデプロイする（URL だけで開けるように）。合言葉がちがえば 404。
-import { ALERT, summary, WARN } from '../_shared/usage.ts';
+import { ALERT, summary, tokenHash, WARN } from '../_shared/usage.ts';
 
 const usd = (n: number) => `$${n.toFixed(n < 1 ? 3 : 2)}`;
 const yen = (n: number, rate: number) => `約${Math.round(n * rate).toLocaleString('ja-JP')}円`;
@@ -12,6 +12,11 @@ const LABEL: Record<string, string> = {
   hint: 'ヒント', judge: '手書き判定', quiz: 'にた問題', scan: 'プリント読み取り', ask: '質問',
   plan: '作戦会議', consult: 'おとな相談', ping: 'つながり確認',
 };
+
+async function sha256(s: string) {
+  const b = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(s));
+  return [...new Uint8Array(b)].map((x) => x.toString(16).padStart(2, '0')).join('');
+}
 
 function safeEqual(a: string, b: string) {
   if (a.length !== b.length) return false;
@@ -22,9 +27,12 @@ function safeEqual(a: string, b: string) {
 
 Deno.serve(async (req) => {
   const url = new URL(req.url);
-  const token = Deno.env.get('USAGE_TOKEN') || '';
   const nf = () => new Response('not found', { status: 404 });
-  if (req.method !== 'GET' || token.length < 24 || !safeEqual(url.searchParams.get('k') || '', token)) return nf();
+  const k = url.searchParams.get('k') || '';
+  if (req.method !== 'GET' || k.length < 24) return nf();
+  const env = Deno.env.get('USAGE_TOKEN');
+  const ok = env ? safeEqual(k, env) : safeEqual(await sha256(k), await tokenHash().catch(() => ''));
+  if (!ok) return nf();
   const noStore = { 'cache-control': 'no-store', 'x-robots-tag': 'noindex' };
   try {
     const s = await summary();
