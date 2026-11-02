@@ -56,7 +56,14 @@ if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(() => {}));
 }
 
-tabs.forEach((b) => b.addEventListener('click', () => show(b.dataset.tab)));
+tabs.forEach((b) => b.addEventListener('click', () => { document.body.classList.remove('menu-open'); show(b.dataset.tab); }));
+
+// 横向き（遊ぶ画面）では、タブを左にしまっておき ☰ で出す
+const menuBtn = document.getElementById('menuBtn');
+menuBtn.addEventListener('click', () => {
+  const open = document.body.classList.toggle('menu-open');
+  menuBtn.textContent = open ? '✕' : '☰';
+});
 
 function gain(p, n, reason, opts) {
   const before = levelInfo(totalXp(p)).lv;
@@ -128,6 +135,9 @@ function render() {
   );
   hud.hidden = false;
   document.querySelector('.tabs').hidden = false;
+  menuBtn.hidden = false;
+  document.body.dataset.tab = tab;
+  if (tab !== 'home') { document.body.classList.remove('menu-open'); menuBtn.textContent = '☰'; }
   const home = tab === 'home';
   world?.setActive(home);
   panel.hidden = home;
