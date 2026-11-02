@@ -4,6 +4,7 @@
 //   ping  … キーが置かれているかだけ確認（Claude は呼ばない）
 //   hint  … 問題のヒント（答えは言わない。level 1→3 で少しずつ近づく）
 //   judge … 手書きの字の画像が、お手本の漢字と同じか判定
+//   quiz  … にがてな単元から、にた問題（3択）を作る
 const MODEL = 'claude-haiku-5-5';
 const ALLOWED = ['https://usapon-jp.github.io', 'http://localhost:8766'];
 
@@ -60,6 +61,20 @@ Deno.serve(async (req) => {
         `（先生だけが知っている答え: ${clip(body.answer, 50)}）` }], system, 150);
       const answer = clip(body.answer, 50);
       return ok({ text: answer && text.includes(answer) ? 'もういちど 問題を よく読んでみよう。' : text });
+    }
+    if (body.action === 'quiz') {
+      const count = Math.min(5, Math.max(1, Number(body.count) || 3));
+      const system = [
+        '日本の小学生・中学生向けの問題を作る先生。学年の教科書の範囲で、正確な問題だけを作る。',
+        `3択の問題を ${count}もん作る。正解は1つだけ。答えがあいまいな問題・ひっかけ問題は作らない。`,
+        '問題文はみじかく。学年で習っていない漢字はひらがなに。計算問題は答えを自分でたしかめてから出す。',
+        '返事は JSON だけ: {"questions":[{"q":"問題文","options":["A","B","C"],"answer":正解の番号(0から)}]}',
+      ].join('\n');
+      const text = await claude(key, [{ type: 'text', text:
+        `教科: ${clip(body.subject, 20)}\n学年: ${clip(body.grade, 20)}\nにがてなところ: ${clip(body.topic, 80)}` }], system, 900);
+      const m = text.match(/\{[\s\S]*\}/);
+      const r = m ? JSON.parse(m[0]) : { questions: [] };
+      return ok({ questions: Array.isArray(r.questions) ? r.questions.slice(0, count) : [] });
     }
     if (body.action === 'judge') {
       const img = clip(body.image, 400_000).replace(/^data:image\/\w+;base64,/, '');

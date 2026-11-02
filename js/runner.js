@@ -14,6 +14,7 @@ export function runQuestions(title, questions, onFinish) {
   let index = 0;
   let score = 0;
   let pads = [];
+  const results = []; // [{ q, ok }]（まちがえた問題を、あとで やりなおしに出すため）
 
   function cleanup() { pads.forEach((p) => p.destroy()); pads = []; }
 
@@ -35,6 +36,7 @@ export function runQuestions(title, questions, onFinish) {
 
     function judge(ok, answerText) {
       react(ok);
+      results.push({ q, ok });
       if (ok) score += 1;
       feedback.className = `feedback ${ok ? 'ok' : 'ng'}`;
       feedback.textContent = ok
@@ -57,6 +59,7 @@ export function runQuestions(title, questions, onFinish) {
     } else if (kind === 'write') {
       answerArea = writeArea(q, (ok) => {
         react(ok);
+        results.push({ q, ok });
         if (ok) score += 1;
         feedback.className = `feedback ${ok ? 'ok' : 'ng'}`;
         feedback.textContent = ok ? `ピヨ先生「${PRAISE[index % PRAISE.length]}」` : 'ピヨ先生「お手本を見て、ノートに3回書いてみよう」';
@@ -104,7 +107,7 @@ export function runQuestions(title, questions, onFinish) {
     cleanup();
     setTimeout(() => { const b = layer.querySelector('.q-box'); if (b) burst(b, 14); }, 250);
     const perfect = score === questions.length;
-    const extra = onFinish(score, questions.length);
+    const extra = onFinish(score, questions.length, results);
     layer.replaceChildren(h('div', { class: 'runner-card result' },
       h('div', { class: 'q-box' },
         h('p', { class: 'big' }, perfect ? 'ぜんもんせいかい！' : `${score} / ${questions.length} もん せいかい`),

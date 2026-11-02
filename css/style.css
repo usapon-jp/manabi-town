@@ -968,3 +968,16 @@ body { line-height: 1.6; letter-spacing: 0.02em; }
 .hint-text { margin: 0; max-width: 34em; font-size: 15px; line-height: 1.7; font-weight: 500; color: var(--ink); background: #fff; border: 1.5px solid var(--line); border-radius: 14px; padding: 8px 12px; text-align: left; }
 .hint-text.loading { color: var(--ink-soft); }
 .ai-status { color: var(--ink-soft); font-size: 14px; }
+/* やりなおし・実力テスト */
+.card.quest h3 .ic { color: var(--accent); }
+.sub-h { margin: 14px 0 8px; font-size: 14px; font-weight: 700; color: var(--ink-soft); }
+.test-hist { list-style: none; margin: 12px 0 0; padding: 0; display: grid; gap: 6px; font-size: 14px; }
+.test-hist li { display: flex; justify-content: space-between; border-top: 1.5px dashed var(--line); padding-top: 6px; color: var(--ink-soft); }
+.test-hist b { color: var(--ink); }
+.test-card { justify-items: stretch; text-align: left; max-height: calc(100dvh - 40px); overflow-y: auto; }
+.test-card .sheet-title { text-align: center; }
+.test-form { display: grid; gap: 10px; }
+.test-form label { margin: 0; display: grid; gap: 4px; }
+.test-form input, .test-form textarea { font: inherit; font-size: 16px; padding: 8px 10px; border: 1.5px solid var(--line); border-radius: 12px; background: #fff; color: var(--ink); min-width: 0; }
+.score-row { display: grid; grid-template-columns: 1fr auto 1fr; align-items: end; gap: 8px; }
+.score-row .slash { padding-bottom: 10px; color: var(--ink-soft); }

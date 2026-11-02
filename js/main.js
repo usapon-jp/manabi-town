@@ -15,6 +15,8 @@ import { openBonus, bonusCount, openRecommend, openProgress, startDrill } from '
 import { DRILLS } from './quests.js';
 import { icon } from './icons.js';
 import { askAI, aiLeft, DAY_LIMIT } from './ai.js';
+import { recordResults, dueReview, startReview, reviewStats, REVIEW_PER_CORRECT } from './review.js';
+import { openTestEntry, openWeak, startWeak, testHistory } from './tests.js';
 
 const POINTS_HOMEWORK = 20;
 const POINTS_TEST = 50;
@@ -381,7 +383,8 @@ function renderTodo(p) {
 
 function startDaily(p) {
   const key = today();
-  runQuestions('きょうのクエスト', buildDaily(gradeBucket(p), `${p.id}:${key}`), (score, total) => {
+  runQuestions('きょうのクエスト', buildDaily(gradeBucket(p), `${p.id}:${key}`), (score, total, results) => {
+    recordResults(p, results, 'きょうのクエスト');
     if (p.daily[key]) return 'れんしゅうなので ポイントはないよ';
     p.daily[key] = { score, total };
     const pts = score * POINTS_PER_CORRECT + (score === total ? CLEAR_BONUS : 0);
@@ -404,7 +407,8 @@ function renderQuest(p) {
       h('p', { class: 'item-range' }, `${quiz.questions.length}もん${quiz.cleared ? '・クリアずみ' : ''}`),
     ),
     h('div', { class: 'item-side' },
-      h('button', { class: 'btn small primary', onclick: () => runQuestions(quiz.title, quizQuestions(quiz), (score, total) => {
+      h('button', { class: 'btn small primary', onclick: () => runQuestions(quiz.title, quizQuestions(quiz), (score, total, results) => {
+        recordResults(p, results, quiz.title);
         if (quiz.cleared || score * 5 < total * 4) return quiz.cleared ? 'れんしゅうなので ポイントはないよ' : '8わり せいかいで クリア！もういちどやってみよう';
         quiz.cleared = true;
         gain(p, score * POINTS_PER_CORRECT, `小テスト: ${quiz.title}`);
@@ -425,9 +429,40 @@ function renderQuest(p) {
         : null,
       h('button', { class: 'btn primary', onclick: start }, result ? 'もういちど れんしゅう' : 'はじめる'),
     ),
+    reviewCard(p),
+    testCard(p),
     h('h3', {}, '小テスト'),
     quizzes.length ? h('ul', { class: 'items' }, quizzes) : h('p', { class: 'empty' }, 'テスト範囲のプリントをClaudeに送ると、小テストを作ってもらえるよ。もらったコードは「せってい」の「とりこみ」に貼ってね。'),
   );
+}
+
+// やりなおしクエスト（まちがえた問題を 次の日・3日後・1週間後に）
+function reviewCard(p) {
+  const st = reviewStats(p);
+  return h('div', { class: 'card quest review' },
+    h('h3', {}, icon('notebook-pen'), ' やりなおしクエスト'),
+    st.due
+      ? h('p', {}, `まちがえた問題が ${Math.min(st.due, 5)}もん まってるよ。1もん${REVIEW_PER_CORRECT}ポイント`)
+      : h('p', { class: 'empty' }, st.waiting ? `つぎの やりなおしは また こんど（${st.waiting}もん まち）` : 'まちがえた問題は ここに たまるよ'),
+    st.mastered ? h('p', { class: 'cleared' }, `これまでに ${st.mastered}もん おぼえた！`) : null,
+    st.due ? h('button', { class: 'btn primary', onclick: () => startReview(p, { gain, render }) }, 'やりなおす') : null);
+}
+
+// 実力テスト（点数を入れてボーナス、にがてクエスト）
+function testCard(p) {
+  const weak = openWeak(p);
+  const hist = testHistory(p);
+  return h('div', { class: 'card quest tests' },
+    h('h3', {}, icon('trophy'), ' 実力テスト'),
+    h('p', {}, 'テストがかえってきたら 点数を入れよう。ボーナスがもらえるよ'),
+    h('button', { class: 'btn primary', onclick: () => openTestEntry(p, { gain, render }) }, '点数を入れる'),
+    weak.length ? h('h4', { class: 'sub-h' }, 'にがてクエスト') : null,
+    weak.length ? h('ul', { class: 'quest-list' }, weak.map((w) => h('li', { class: 'quest-row' },
+      h('span', { class: 'q-ic' }, icon('target')),
+      h('span', { class: 'q-main' }, h('b', {}, w.topic), h('small', {}, `${w.subject}・ぜんもん正解 ${w.clears || 0} / 2`)),
+      h('button', { class: 'q-go', onclick: (e) => startWeak(p, w, { gain, render }, e.currentTarget) }, 'やってみる')))) : null,
+    hist.length ? h('ul', { class: 'test-hist' }, hist.map((t) => h('li', {},
+      h('span', {}, `${t.date.slice(5).replace('-', '/')} ${t.subject}`), h('b', {}, `${t.score} / ${t.total}`)))) : null);
 }
 
 // ---- せってい ----------------------------------------------------------------
