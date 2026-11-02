@@ -10,6 +10,8 @@ import { todayTasks, completeStep, undoStep, buildSteps, migrateHomework, urgent
 import { startTutorial } from './tutorial.js';
 import { openRescue } from './rescue.js';
 import { scanButton } from './scan.js';
+import { feedbackCard } from './feedback.js';
+import { openAsk } from './ask.js';
 import { bindControls } from './controls.js';
 import { levelInfo, totalXp, streak, week } from './progress.js';
 import { renderTimerTab, startTimer, resumeIfRunning, kindForItem, minutesOn } from './timer.js';
@@ -528,6 +530,10 @@ function renderQuest(p) {
         : null,
       h('button', { class: 'btn primary', onclick: start }, result ? 'もういちど れんしゅう' : 'はじめる'),
     ),
+    h('div', { class: 'card quest' },
+      h('h3', {}, icon('message-circle'), ' ピヨ先生に しつもん'),
+      h('p', {}, 'わからない問題を 書くか、しゃしんで みせてね。ずで せつめいも してくれるよ'),
+      h('button', { class: 'btn', onclick: () => openAsk(p) }, icon('camera'), ' しつもんする')),
     reviewCard(p),
     testCard(p),
     h('h3', {}, '小テスト'),
@@ -649,6 +655,7 @@ function renderSettings(p) {
     ),
 
     planCard(p),
+    feedbackCard(p, 'settings', 'v44'),
     aiCard(),
     dataCard(),
 

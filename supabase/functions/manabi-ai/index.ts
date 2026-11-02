@@ -6,6 +6,7 @@
 //   judge … 手書きの字の画像が、お手本の漢字と同じか判定
 //   quiz  … にがてな単元から、にた問題（3択）を作る
 //   scan  … プリントや範囲の写真から、テスト・宿題の予定（教科・名前・はんい・日にち）を読み取る（Haiku）
+//   ask   … ピヨ先生への質問（チャット・写真つき・図（SVG）つき）。Haiku
 //   plan  … ピヨ先生と作戦会議（進め方・得意苦手・理解度チェックする単元を決める）。ここだけ Sonnet
 const MODEL = 'claude-haiku-5-5';
 const MODEL_SMART = 'claude-sonnet-5-5';
@@ -134,6 +135,41 @@ Deno.serve(async (req) => {
         .filter((i: Record<string, unknown>) => i && i.title && /^\d{4}-\d{2}-\d{2}$/.test(String(i.date)))
         .map((i: Record<string, unknown>) => ({ type: i.type === 'test' ? 'test' : 'homework', subject: ['国語', '理科', '社会', '英語'].includes(clip(i.subject, 10)) ? clip(i.subject, 10) : /算数|数学/.test(clip(i.subject, 10)) ? '算数・数学' : 'その他', title: clip(i.title, 40), range: clip(i.range, 40), date: String(i.date) }));
       return ok({ items, note: clip(r.note, 120) });
+    }
+    if (body.action === 'ask') {
+      const system = [
+        'あなたは「ピヨ先生」。小学生・中学生の家庭教師で、子どもの質問に答える。やさしい話し言葉、ひらがな多め（学年で習う漢字はOK）。',
+        `子どもは ${clip(body.grade, 20)}。教科: ${clip(body.subject, 20) || 'わからない'}。学年に合った言葉と やり方で。`,
+        'いきなり答えだけを言わない。考え方 → 途中 → 答え の順に、みじかく。「わからない」と言われたら もっとやさしく言いかえる。',
+        '1回の返事は200文字くらいまで。まちがいを おそれない・責めない。最後に「わかったかな？」など、つぎに つながる ひとことを。',
+        '図があると分かりやすい時だけ（わり算の図・線分図・グラフ・さんかく・ものの流れなど）、svg に図を入れる。なければ空文字。',
+        'svg のきまり: <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 200"> で始める。シンプルに。文字は font-family="sans-serif" font-size 14〜18 の日本語OK。線は #5e4a35、ぬりは #8fa871 #f0d59a #dfe9c9 など。背景は透明。script・外部参照・画像は使わない。',
+        '写真がついていたら、その問題を読んで答える。読めない所は、読めないと言う。',
+        '返事は JSON だけ: {"say":"返事","svg":"<svg…>…</svg> か空文字"}',
+      ].join('\n');
+      const raw = (Array.isArray(body.messages) ? body.messages : []).slice(-10)
+        .map((m: { role?: string; text?: string }) => ({ role: m?.role === 'assistant' ? 'assistant' : 'user', content: clip(m?.text, 800) }))
+        .filter((m: { content: string }) => m.content);
+      // deno-lint-ignore no-explicit-any
+      const msgs: { role: string; content: any }[] = [];
+      for (const m of raw) {
+        const last = msgs[msgs.length - 1];
+        if (last && last.role === m.role) last.content += `\n${m.content}`; else msgs.push(m);
+      }
+      while (msgs.length && msgs[0].role !== 'user') msgs.shift();
+      if (!msgs.length || msgs[msgs.length - 1].role !== 'user') return new Response(JSON.stringify({ error: 'no-question' }), { status: 400, headers });
+      const img = clip(body.image, 1_800_000).replace(/^data:image\/\w+;base64,/, '');
+      if (img) {
+        const lastM = msgs[msgs.length - 1];
+        lastM.content = [{ type: 'image', source: { type: 'base64', media_type: 'image/jpeg', data: img } }, { type: 'text', text: String(lastM.content) }];
+      }
+      const text = await claude(key, [], system, 1500, MODEL, msgs);
+      const m = text.match(/\{[\s\S]*\}/);
+      let r: Record<string, unknown> = {};
+      try { r = m ? JSON.parse(m[0]) : {}; } catch { r = {}; }
+      let svg = typeof r.svg === 'string' ? r.svg.trim() : '';
+      if (!/^<svg[\s>]/.test(svg) || svg.length > 12000 || /<script|<foreignObject|\son\w+\s*=|href\s*=\s*["']?(https?:|javascript:|data:)/i.test(svg)) svg = '';
+      return ok({ say: clip(r.say || text.replace(/\{[\s\S]*\}/, ''), 600), svg });
     }
     if (body.action === 'judge') {
       const img = clip(body.image, 400_000).replace(/^data:image\/\w+;base64,/, '');

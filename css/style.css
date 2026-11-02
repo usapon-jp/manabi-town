@@ -1113,4 +1113,38 @@ body:not([data-tab="home"]) .world.loading::after { display: none; }
 .scan-on .chip { white-space: nowrap; flex-shrink: 0; writing-mode: horizontal-tb; }
 .scan-on select { flex: 1; }
 .scan-on input[type=checkbox] { width: 24px; height: 24px; flex-shrink: 0; accent-color: var(--accent); }
+
+/* BGM プレイリスト */
+.bgm-list { display: grid; gap: 8px; background: #fffdf7; border: 1.5px solid var(--line); border-radius: 14px; padding: 10px 12px; }
+.bgm-list .label { margin: 0; display: flex; align-items: center; gap: 6px; }
+.bgm-use { display: flex; align-items: center; gap: 8px; font-size: 15px; color: var(--navy); }
+.bgm-use input { width: 22px; height: 22px; accent-color: var(--accent); }
+.bgm-modes { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+.bgm-mode { display: grid; justify-items: center; gap: 2px; font: inherit; font-size: 12px; font-weight: 500; color: var(--ink-soft); background: #fff; border: 1.5px solid var(--line); border-radius: 12px; padding: 8px 4px; cursor: pointer; }
+.bgm-mode.on { background: var(--leaf-soft); color: var(--accent-dark); border-color: var(--accent); font-weight: 700; }
+.bgm-mode .ic { width: 22px; height: 22px; }
+.bgm-order { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
+.bgm-order li { display: flex; align-items: center; gap: 6px; font-size: 14px; }
+.bgm-n { width: 20px; text-align: center; color: var(--ink-soft); }
+.bgm-t { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.bgm-order button, .bgm-item .add { border: 0; background: none; padding: 6px; color: var(--navy); cursor: pointer; }
+.bgm-order button:disabled { opacity: 0.25; }
+.bgm-item .add { color: var(--ink-soft); }
+.bgm-item .add.on { color: var(--accent-dark); }
+.bgm-card { max-height: 88vh; overflow-y: auto; }
+
+/* ピヨ先生に しつもん */
+.chat.ask .chat-foot { gap: 8px; }
+.chat-choices .pick.on { background: var(--accent); color: #fff; }
+.chat-cam { width: 44px; height: 44px; flex-shrink: 0; border-radius: 50%; border: 1.5px solid var(--line); background: #fff; color: var(--accent-dark); display: grid; place-items: center; cursor: pointer; }
+.ask-thumb { position: relative; width: 72px; }
+.ask-thumb img { width: 72px; height: 72px; object-fit: cover; border-radius: 12px; border: 1.5px solid var(--line); display: block; }
+.ask-thumb button { position: absolute; top: -8px; right: -8px; width: 24px; height: 24px; border-radius: 50%; border: 0; background: #5e4a35; color: #fff; display: grid; place-items: center; padding: 0; }
+.ask-thumb button .ic { width: 14px; height: 14px; }
+.ask-photo { display: block; max-width: 160px; max-height: 160px; border-radius: 10px; margin-bottom: 6px; }
+.ask-diagram { display: block; width: 100%; max-width: 320px; margin-top: 10px; background: #fffdf7; border: 1.5px solid var(--line); border-radius: 12px; }
+.ask-btn { display: inline-flex; align-items: center; gap: 6px; }
+.chat.ask .chat-choices { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; }
+.chat.ask .chat-choices .pick { flex-shrink: 0; white-space: nowrap; font-size: 14px; padding: 6px 12px; }
+.chat-input input:focus { outline: 2px solid var(--accent); outline-offset: 0; }
 .scan-row input.need { border-color: #e5604d; background: #fff1ee; }
