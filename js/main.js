@@ -6,9 +6,12 @@ import { buildDaily, quizQuestions, POINTS_PER_CORRECT, CLEAR_BONUS } from './qu
 import { runQuestions } from './runner.js';
 import { parseImport } from './importer.js';
 import { h, toast, daysLabel } from './ui.js';
+import { todayTasks, completeStep, undoStep, buildSteps } from './planner.js';
+import { startTutorial } from './tutorial.js';
 
 const POINTS_HOMEWORK = 20;
 const POINTS_TEST = 50;
+const POINTS_STEP = 10;
 
 const panel = document.getElementById('panel');
 const hud = document.getElementById('hud');
@@ -109,6 +112,7 @@ function profileForm(message, label) {
     if (!name.value.trim()) return;
     addProfile(name.value.trim(), grade.value);
     show('home');
+    setTimeout(() => runTutorial(currentProfile()), 400);
   } },
   h('p', { class: 'lead' }, message),
   h('label', {}, 'なまえ', name),
@@ -120,19 +124,42 @@ function profileForm(message, label) {
 
 function renderHome(p) {
   const dailyDone = !!p.daily[today()];
-  const open = p.items.filter((i) => !i.done).sort((a, b) => a.date.localeCompare(b.date));
-  const soon = open.find((i) => i.type === 'homework' && daysUntil(i.date) <= 1);
-  const test = open.find((i) => i.type === 'test' && daysUntil(i.date) >= 0);
+  const plans = todayTasks(p.items);
+  const rows = [];
+  rows.push(h('li', { class: `task ${dailyDone ? 'checked' : ''}` },
+    h('button', { class: 'check', 'aria-label': 'クエストへ', onclick: () => show('quest') }, dailyDone ? '✓' : ''),
+    h('button', { class: 'task-label', onclick: () => show('quest') },
+      h('span', { class: 'chip' }, 'まいにち'), ' 漢字・英単語・算数クエスト'),
+  ));
+  plans.forEach(({ item, steps }) => steps.forEach((st) => {
+    rows.push(h('li', { class: `task ${st.done ? 'checked' : ''}` },
+      h('button', { class: 'check', 'aria-label': st.done ? 'もどす' : 'できた', onclick: () => {
+        if (st.done) {
+          if (undoStep(item)) { addPoints(p, -POINTS_STEP, `とりけし: ${item.title}`); }
+        } else {
+          completeStep(item);
+          gain(p, POINTS_STEP, `${item.title}: ${st.label}`);
+        }
+        save();
+        render();
+      } }, st.done ? '✓' : ''),
+      h('div', { class: 'task-label' },
+        h('span', { class: `chip ${item.type === 'test' ? '' : 'soft'}` }, `${item.subject}${item.type === 'test' ? 'テスト' : item.type === 'goal' ? '目標' : '宿題'}`),
+        ` ${st.label}`,
+        h('small', {}, ` ${daysLabel(daysUntil(item.date))}`)),
+    ));
+  }));
+
+  const left = plans.reduce((n, pl) => n + pl.steps.filter((x) => !x.done).length, 0) + (dailyDone ? 0 : 1);
   let words;
-  if (!dailyDone) words = 'きょうのクエスト、いっしょにやろう！';
-  else if (soon) words = `「${soon.title}」の しめきりが ${daysLabel(daysUntil(soon.date))} だよ`;
-  else if (test) words = `${test.subject}のテストまで ${daysLabel(daysUntil(test.date))}。がんばろうね`;
-  else words = 'がんばったね！草原でひとやすみしよう';
-  fill(bubble, 
+  if (!p.items.some((i) => !i.done)) words = 'テストや宿題を入れてね。毎日の分にわけるよ';
+  else if (left === 0) words = 'きょうの分、ぜんぶできた！すごい！';
+  else words = `きょうは あと${left}こ。いっしょにやろう！`;
+  fill(bubble,
     h('p', {}, h('strong', {}, 'ピヨ先生 '), words),
+    h('ul', { class: 'tasks' }, rows),
     h('div', { class: 'bubble-actions' },
-      !dailyDone ? h('button', { class: 'btn primary', onclick: () => show('quest') }, 'クエストへ') : null,
-      h('button', { class: 'btn', onclick: () => show('todo') }, 'やること'),
+      h('button', { class: 'btn small', 'data-tour': 'add', onclick: () => show('todo') }, '＋ テスト・宿題・目標'),
     ),
   );
 }
@@ -146,50 +173,57 @@ function renderTodo(p) {
   const card = (i) => {
     const days = daysUntil(i.date);
     const isTest = i.type === 'test';
-    const canFinish = !isTest || days <= 0;
+    const isGoal = i.type === 'goal';
+    const canFinish = isGoal ? days <= 0 : (!isTest || days <= 0);
+    const total = buildSteps(i).length;
+    const kind = isTest ? 'テスト' : isGoal ? '目標' : '宿題';
     return h('li', { class: `item ${isTest ? 'test' : 'homework'} ${days < 0 && !i.done ? 'late' : ''}` },
       h('div', { class: 'item-main' },
-        h('span', { class: 'chip' }, isTest ? 'テスト' : '宿題'),
+        h('span', { class: 'chip' }, kind),
         h('span', { class: 'chip soft' }, i.subject),
         h('p', { class: 'item-title' }, i.title),
         i.range ? h('p', { class: 'item-range' }, `はんい: ${i.range}`) : null,
+        !i.done ? h('p', { class: 'item-range' }, `すすみ ${Math.min(i.stepsDone || 0, total)} / ${total}`) : null,
       ),
       h('div', { class: 'item-side' },
         h('span', { class: 'days' }, i.done ? 'おわり' : daysLabel(days)),
         !i.done && canFinish ? h('button', { class: 'btn small primary', onclick: () => {
           i.done = true;
           save();
-          gain(p, isTest ? POINTS_TEST : POINTS_HOMEWORK, isTest ? `テスト: ${i.title}` : `宿題: ${i.title}`);
+          gain(p, isTest || isGoal ? POINTS_TEST : POINTS_HOMEWORK, `${kind}: ${i.title}`);
           render();
-        } }, isTest ? 'おわった！' : 'だした！') : null,
+        } }, isTest ? 'おわった！' : isGoal ? 'できた！' : 'だした！') : null,
         deleteButton(() => { removeItem(p, i.id); render(); }),
       ),
     );
   };
 
-  const type = h('select', {}, h('option', { value: 'homework' }, '宿題'), h('option', { value: 'test' }, 'テスト'));
+  const type = h('select', {}, h('option', { value: 'test' }, 'テスト'), h('option', { value: 'homework' }, '宿題'), h('option', { value: 'goal' }, '目標'));
   const subject = h('select', {}, SUBJECTS.map((s) => h('option', { value: s }, s)));
-  const title = h('input', { type: 'text', placeholder: 'れい: 漢字ドリル p.12〜15', required: true });
-  const range = h('input', { type: 'text', placeholder: 'テストのはんい（なくてもOK）' });
+  const title = h('input', { type: 'text', placeholder: 'れい: 2学期期末テスト', required: true });
+  const range = h('input', { type: 'text', placeholder: 'れい: p.40〜52（なくてもOK）' });
   const date = h('input', { type: 'date', value: today(), required: true });
   const form = h('form', { class: 'card form', onsubmit: (e) => {
     e.preventDefault();
     if (!title.value.trim() || !date.value) return;
     addItem(p, { type: type.value, subject: subject.value, title: title.value.trim(), range: range.value.trim(), date: date.value });
-    toast('ついかしたよ');
+    const n = buildSteps(p.items[p.items.length - 1]).length;
+    toast(`${n}こに わけたよ。ホームを見てね`);
     render();
   } },
   h('h3', {}, 'ついかする'),
+  h('p', { class: 'hint' }, 'ざっくりでOK。ページを書くと、毎日の分にわけるよ'),
   h('div', { class: 'row' }, h('label', {}, 'しゅるい', type), h('label', {}, 'きょうか', subject)),
   h('label', {}, 'なに？', title),
   h('label', {}, 'はんい', range),
   h('label', {}, 'しめきり・テストの日', date),
-  h('button', { class: 'btn primary', type: 'submit' }, 'ついか'));
+  h('button', { class: 'btn primary', type: 'submit', 'data-tour': 'submit' }, 'ついか'));
 
-  fill(panel, 
+  fill(panel,
     h('h2', {}, 'やること'),
-    open.length ? h('ul', { class: 'items' }, open.map(card)) : h('p', { class: 'empty' }, 'いまは やることが ないよ。下からついかしてね。'),
     form,
+    open.length ? h('h3', {}, 'いれたもの') : null,
+    open.length ? h('ul', { class: 'items' }, open.map(card)) : null,
     done.length ? h('details', { class: 'done' }, h('summary', {}, 'おわったもの'), h('ul', { class: 'items' }, done.map(card))) : null,
   );
 }
@@ -287,8 +321,15 @@ function renderSettings(p) {
       ))),
       h('details', {}, h('summary', {}, 'あたらしく ついか'), profileForm('きょうだいも ここで ついかできます。', 'ついか')),
     ),
+    h('button', { class: 'btn', onclick: () => { show('home'); setTimeout(() => runTutorial(p), 300); } }, 'つかいかたを もういちど見る'),
     h('p', { class: 'note' }, 'お試し版のデータは、この端末のブラウザの中だけに保存されます。'),
   );
 }
 
+function runTutorial(p) {
+  if (!p) return;
+  startTutorial({ show, onDone: () => { updateProfile(p, { tutorialDone: true }); render(); } });
+}
+
 render();
+if (currentProfile() && !currentProfile().tutorialDone) setTimeout(() => runTutorial(currentProfile()), 1200);

@@ -10,7 +10,7 @@ export function parseImport(text) {
   if (!data || data.manabi !== 1) return { error: 'まなびタウンのコードではないみたい' };
 
   const items = (Array.isArray(data.items) ? data.items : [])
-    .filter((i) => i && (i.type === 'test' || i.type === 'homework') && i.title && DATE.test(i.date))
+    .filter((i) => i && (i.type === 'test' || i.type === 'homework' || i.type === 'goal') && i.title && DATE.test(i.date))
     .map((i) => ({ type: i.type, subject: String(i.subject || 'その他'), title: String(i.title), range: String(i.range || ''), date: i.date }));
 
   const quizzes = (Array.isArray(data.quizzes) ? data.quizzes : []).filter((qz) => qz && typeof qz === 'object')

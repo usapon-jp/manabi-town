@@ -300,3 +300,67 @@ textarea { resize: vertical; }
   white-space: nowrap;
 }
 .toast.show { opacity: 1; transform: translate(-50%, 0); }
+
+/* ---- きょうやること ---- */
+.bubble { max-height: calc(100% - var(--tabs-h) - env(safe-area-inset-bottom) - env(safe-area-inset-top) - 120px); overflow-y: auto; }
+.tasks { list-style: none; margin: 0 0 12px; padding: 0; display: grid; gap: 6px; }
+.task { display: flex; align-items: center; gap: 10px; }
+.task .check {
+  flex-shrink: 0;
+  width: 34px; height: 34px;
+  border-radius: 50%;
+  border: 3px solid var(--leaf);
+  background: #fff;
+  color: #fff;
+  font-size: 18px; font-weight: 800;
+  cursor: pointer;
+}
+.task.checked .check { background: var(--leaf); }
+.task-label { min-width: 0; flex: 1; text-align: left; background: none; border: 0; padding: 0; font: inherit; color: inherit; line-height: 1.45; overflow-wrap: anywhere; }
+.task-label small { color: var(--ink-soft); }
+.task.checked .task-label { color: var(--ink-soft); text-decoration: line-through; }
+.hint { margin: -2px 0 10px; font-size: 13px; color: var(--ink-soft); }
+
+/* ---- チュートリアル ---- */
+.tour { position: fixed; inset: 0; z-index: 50; pointer-events: none; }
+.tour-dim { position: fixed; background: rgba(30, 40, 30, 0.55); pointer-events: auto; transition: all 0.25s ease; }
+.tour-ring {
+  position: fixed;
+  border-radius: 18px;
+  box-shadow: 0 0 0 4px #fff7c2, 0 0 24px 6px rgba(255, 236, 140, 0.9);
+  transition: all 0.25s ease;
+  animation: tour-glow 1.2s ease-in-out infinite;
+}
+.tour-hand {
+  position: fixed;
+  width: 56px; height: 56px;
+  font-size: 48px; line-height: 56px; text-align: center;
+  filter: drop-shadow(0 3px 4px rgba(0, 0, 0, 0.35));
+  animation: tour-tap 1s ease-in-out infinite;
+  transition: left 0.25s ease, top 0.25s ease;
+}
+.tour-hand.from-top { animation-name: tour-tap-down; }
+.tour-hand.nudge { animation: tour-nudge 0.4s ease; }
+.tour-label {
+  position: fixed;
+  padding: 10px 14px;
+  background: var(--card);
+  border-radius: 16px;
+  box-shadow: var(--shadow);
+  font-size: 17px; font-weight: 800;
+  text-align: center;
+}
+.tour-top {
+  position: fixed;
+  top: calc(env(safe-area-inset-top) + 10px);
+  right: 12px;
+  display: flex; align-items: center; gap: 10px;
+  pointer-events: auto;
+}
+.tour-count { color: #fff; font-weight: 700; text-shadow: 0 1px 3px rgba(0, 0, 0, 0.5); }
+.tour-skip { border: 0; border-radius: 999px; padding: 8px 14px; background: rgba(255, 255, 255, 0.9); font: inherit; font-size: 14px; color: var(--ink); }
+@keyframes tour-tap { 50% { transform: translateY(-12px); } }
+@keyframes tour-tap-down { 50% { transform: translateY(12px); } }
+@keyframes tour-glow { 50% { box-shadow: 0 0 0 6px #fff1a0, 0 0 34px 10px rgba(255, 236, 140, 1); } }
+@keyframes tour-nudge { 25% { transform: translateX(-8px); } 75% { transform: translateX(8px); } }
+@media (prefers-reduced-motion: reduce) { .tour-hand, .tour-ring { animation: none; } }
