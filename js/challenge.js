@@ -17,7 +17,9 @@ const CORE = ['国語', '算数・数学', '理科', '社会', '英語'];
 const ALL9 = [...CORE, '音楽', '美術', '保健体育', '技術家庭'];
 const SETS = { 3: ['国語', '算数・数学', '英語'], 5: CORE, 9: ALL9 };
 const PER = { 1: 5, 3: 5, 5: 4, 9: 3 };   // 1教科あたりの問題数
-const canon = (s) => (CORE.includes(s) ? s : 'その他');
+const DRILL_LABEL = { '漢字': '国語', '英単語': '英語', '算数': '算数・数学' };   // アプリ内ドリルの教科名
+const canon = (s) => { const c = DRILL_LABEL[s] || s; return CORE.includes(c) ? c : 'その他'; };
+const LOCAL = ['国語', '英語', '算数・数学'];
 
 const piyo = () => h('img', { src: 'assets/icons/icon-192.png', alt: '', width: 28, height: 28 });
 
@@ -68,9 +70,11 @@ function interleave(lists) {
 let making = false;
 async function build(p, subjects, n) {
   const seed = `${p.id}:${today()}:${Date.now() % 100000}`;
-  const needAI = subjects.filter((s) => !['国語', '英語', '算数・数学'].includes(s)).length;
-  if (needAI && aiLeft() < needAI) toast('きょうの AI の回数が たりないから、あるものだけ');
-  const lists = await Promise.all(subjects.map((s) => makeFor(p, s, n, seed).catch((e) => { toast(`${s}: ${aiErrorText(e)}`); return []; })));
+  // AI は きょうの のこり回数ぶんだけ（ならべて送ると 上限を こえるので、先にけずる）
+  let left = aiLeft();
+  const use = subjects.filter((s) => LOCAL.includes(s) || left-- > 0);
+  if (use.length < subjects.length) toast('きょうの AI の回数が たりないから、ある教科だけ');
+  const lists = await Promise.all(use.map((s) => makeFor(p, s, n, seed).catch((e) => { toast(`${s}: ${aiErrorText(e)}`); return []; })));
   return interleave(lists);
 }
 
@@ -93,7 +97,8 @@ async function practice(p, deps, subject, over) {
 // ---- クイズチャレンジ（20分）---------------------------------------------------
 export function openChallenge(p, deps) {
   let picked = new Set(SETS[5]);
-  const close = () => sheet.remove();
+  let cancelled = false;
+  const close = () => { cancelled = true; sheet.remove(); };
   const chips = h('div', { class: 'picks subjects' });
   const info = h('p', { class: 'sheet-sub' });
   const go = h('button', { class: 'btn primary', type: 'button' }, icon('play'), ` スタート（${CHALLENGE_MIN}分）`);
@@ -104,7 +109,7 @@ export function openChallenge(p, deps) {
     presets.replaceChildren(...[3, 5, 9].map((n) => h('button', { type: 'button', class: `pick ${picked.size === n && SETS[n].every((s) => picked.has(s)) ? 'on' : ''}`,
       onclick: () => { picked = new Set(SETS[n]); draw(); } }, `${n}教科`)));
     const n = picked.size;
-    const ai = [...picked].filter((s) => !['国語', '英語', '算数・数学'].includes(s)).length;
+    const ai = [...picked].filter((s) => !LOCAL.includes(s)).length;
     info.textContent = n ? `${n}教科を ${CHALLENGE_MIN}分で まわるよ。時間が来たら そのもんだいで おしまい。${ai ? `（${ai}教科は AIが 問題を作るよ）` : ''}` : '教科を えらんでね';
     go.disabled = !n;
   };
@@ -113,8 +118,9 @@ export function openChallenge(p, deps) {
     making = true; go.disabled = true; go.textContent = 'ピヨ先生が 問題を作り中…';
     const subjects = ALL9.filter((s) => picked.has(s));
     const qs = await build(p, subjects, PER[picked.size <= 3 ? 3 : picked.size <= 5 ? 5 : 9]).finally(() => { making = false; });
+    if (cancelled) return;   // 問題を作っている間に やめた
     if (!qs.length) { toast('うまく問題が作れなかった…あとで もういちど'); draw(); go.replaceChildren(icon('play'), ` スタート（${CHALLENGE_MIN}分）`); return; }
-    close();
+    cancelled = true; sheet.remove();
     startChallenge(p, deps, subjects, qs);
   });
   const sheet = h('div', { class: 'sheet', onclick: (e) => { if (e.target === sheet) close(); } },
