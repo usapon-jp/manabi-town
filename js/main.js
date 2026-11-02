@@ -10,6 +10,7 @@ import { todayTasks, completeStep, undoStep, buildSteps, migrateHomework, urgent
 import { startTutorial } from './tutorial.js';
 import { openRescue } from './rescue.js';
 import { scanButton } from './scan.js';
+import { feedbackCard } from './feedback.js';
 import { bindControls } from './controls.js';
 import { levelInfo, totalXp, streak, week } from './progress.js';
 import { renderTimerTab, startTimer, resumeIfRunning, kindForItem, minutesOn } from './timer.js';
@@ -649,6 +650,7 @@ function renderSettings(p) {
     ),
 
     planCard(p),
+    feedbackCard(p, 'settings', 'v43'),
     aiCard(),
     dataCard(),
 

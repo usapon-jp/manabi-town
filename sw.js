@@ -18,7 +18,7 @@ const FILES = [
   'js/bonus.js',
   'js/ai.js',
   'js/review.js',
-  'js/tests.js', 'js/rescue.js', 'js/scan.js', 'js/coach.js',
+  'js/tests.js', 'js/rescue.js', 'js/scan.js', 'js/feedback.js', 'js/coach.js',
   'js/icons.js',
   'js/controls.js',
   'js/cutmask.js',
