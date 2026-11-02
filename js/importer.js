@@ -13,7 +13,7 @@ export function parseImport(text) {
     .filter((i) => i && (i.type === 'test' || i.type === 'homework') && i.title && DATE.test(i.date))
     .map((i) => ({ type: i.type, subject: String(i.subject || 'その他'), title: String(i.title), range: String(i.range || ''), date: i.date }));
 
-  const quizzes = (Array.isArray(data.quizzes) ? data.quizzes : [])
+  const quizzes = (Array.isArray(data.quizzes) ? data.quizzes : []).filter((qz) => qz && typeof qz === 'object')
     .map((qz) => ({
       title: String(qz.title || '小テスト'),
       subject: String(qz.subject || ''),
