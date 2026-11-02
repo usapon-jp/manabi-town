@@ -162,11 +162,11 @@ function memoArea(pads) {
   const pad = createInkPad({
     className: 'memo-pad',
     size: 5,
-    color: '#4a5a8a',
+    color: '#5e4a35',
     drawBackground(ctx, w, hgt) {
       ctx.fillStyle = '#fffef9';
       ctx.fillRect(0, 0, w, hgt);
-      ctx.strokeStyle = '#e3ecf5';
+      ctx.strokeStyle = '#efe3cc';
       ctx.lineWidth = 1;
       for (let x = 20; x < w; x += 20) { ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, hgt); ctx.stroke(); }
       for (let y = 20; y < hgt; y += 20) { ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(w, y); ctx.stroke(); }

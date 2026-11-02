@@ -59,6 +59,33 @@ export function buildDaily(bucket, seed, rand = seededRandom(seed)) {
   return [...kanji, ...english, ...math];
 }
 
+// ボーナスのドリル（1教科だけ5もん）。毎日のクエストとは別の問題になるよう、たねを変える
+export const DRILLS = [
+  { id: 'kanji', label: '漢字ドリル', ic: '✍️' },
+  { id: 'english', label: '英単語ドリル', ic: '🔤' },
+  { id: 'math', label: '計算ドリル', ic: '🧮' },
+];
+export const DRILL_COUNT = 5;
+
+export function buildDrill(id, bucket, seed, rand = seededRandom(`drill:${id}:${seed}`)) {
+  if (id === 'kanji') {
+    const picked = shuffle(KANJI[bucket], rand);
+    const writes = picked.slice(0, 3).map(([word, reading]) => ({
+      kind: 'write', subject: '漢字', prompt: 'かんじで 書けるかな？', big: reading, answerText: word,
+    }));
+    const reads = choiceFromPairs(picked.slice(3), rand, DRILL_COUNT - 3, (word, options, answer) => ({
+      kind: 'choice', subject: '漢字', prompt: 'よみかたは？', big: word, options, answer,
+    }));
+    return [...writes, ...reads];
+  }
+  if (id === 'english') {
+    return choiceFromPairs(ENGLISH[bucket], rand, DRILL_COUNT, (word, options, answer) => ({
+      kind: 'choice', subject: '英単語', prompt: 'いみは？', big: word, options, answer,
+    }));
+  }
+  return Array.from({ length: DRILL_COUNT }, () => mathQuestion(bucket, rand));
+}
+
 // とりこんだ小テストを、クエストと同じ形の問題にする
 export function quizQuestions(quiz) {
   return quiz.questions.map((q) => (
