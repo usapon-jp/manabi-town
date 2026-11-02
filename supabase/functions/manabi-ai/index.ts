@@ -8,6 +8,7 @@
 //   scan  … プリントや範囲の写真から、テスト・宿題の予定（教科・名前・はんい・日にち）を読み取る（Haiku）
 //   ask   … ピヨ先生への質問（チャット・写真つき・図（SVG）つき）。Haiku
 //   plan  … ピヨ先生と作戦会議（進め方・得意苦手・理解度チェックする単元を決める）。ここだけ Sonnet
+//   consult … おとなモードの「ピヨと相談」。ルーティーンと目標・試験を会話で決める（Haiku）
 const MODEL = 'claude-haiku-5-5';
 const MODEL_SMART = 'claude-sonnet-5-5';
 const ALLOWED = ['https://usapon-jp.github.io', 'http://localhost:8766'];
@@ -113,6 +114,40 @@ Deno.serve(async (req) => {
         choices: Array.isArray(r.choices) ? r.choices.slice(0, 4).map((c) => clip(c, 40)) : [],
         done: !!r.done,
         profile: r.done && r.profile && typeof r.profile === 'object' ? r.profile : null,
+      });
+    }
+    if (body.action === 'consult') {
+      const system = [
+        'あなたは「ピヨ」。大人（子どもの保護者）が自分のために使う習慣・勉強アプリの相談相手。',
+        'ていねいすぎない、やわらかい話し言葉。1回の発言は2文・90文字くらいまで。質問は1回に1つだけ。',
+        '相手が選びやすいよう、答えの候補を2〜4こ出す（自由に書いてもいい）。責めない。無理のない小さな量からすすめる。',
+        '聞くこと: (1)やりたいこと（毎日の習慣、資格や勉強、健康、くらし、しゅみ など。決まっていなければ一緒に考える）',
+        '(2)1日に使える時間と、やりやすい時間帯（あさ・ひる・よる）(3)目標があれば いつまでに（試験日など）',
+        '5〜8往復くらいで まとめる。相手が「まとめて」と言ったら すぐまとめる。すでにあるルーティーン・目標と重ならないようにする。',
+        '返事は JSON だけ。会話中: {"say":"…","choices":["…"],"done":false}',
+        'まとめ: {"say":"まとめのひとこと","done":true,"plan":{"routines":[{"title":"短い名前(15文字まで)","days":[曜日 0=日〜6=土。毎日なら空],"when":"あさ|ひる|よる|"}],"goals":[{"type":"goal|test","title":"短い名前","subject":"資格・勉強|仕事|健康|くらし|しゅみ|その他","range":"テキストのページなど（なければ空）","minutes":1日の分(数),"date":"YYYY-MM-DD"}],"memo":"次に相談するとき覚えておくこと1文"}}',
+        'routines は 1〜4こ、goals は 0〜2こ。test は試験日が決まっているときだけ。date は今日より後。',
+      ].join('\n');
+      const ctx = `今日: ${clip(body.today, 10)}\n名前: ${clip(body.name, 20)}\nいまのルーティーン・目標:\n${clip(body.current, 1500) || '（まだない）'}\n` +
+        (body.memo ? `前の相談のメモ: ${clip(body.memo, 300)}\n` : '');
+      const log = (Array.isArray(body.messages) ? body.messages : []).slice(-24)
+        .map((m: { role?: string; text?: string }) => ({ role: m?.role === 'assistant' ? 'assistant' : 'user', content: clip(m?.text, 500) }))
+        .filter((m: { content: string }) => m.content);
+      const history: { role: string; content: string }[] = [{ role: 'user', content: `${ctx}\n（相談をはじめてください）` }];
+      for (const m of log) {
+        const last = history[history.length - 1];
+        if (last.role === m.role) last.content += `\n${m.content}`; else history.push(m);
+      }
+      if (history[history.length - 1].role !== 'user') history.push({ role: 'user', content: '（つづけて）' });
+      const text = await claude(key, [], system, 900, MODEL, history);
+      const m = text.match(/\{[\s\S]*\}/);
+      let r: Record<string, unknown> = {};
+      try { r = m ? JSON.parse(m[0]) : {}; } catch { r = {}; }
+      return ok({
+        say: clip(r.say || text.replace(/\{[\s\S]*\}/, ''), 300),
+        choices: Array.isArray(r.choices) ? r.choices.slice(0, 4).map((c) => clip(c, 40)) : [],
+        done: !!r.done,
+        plan: r.done && r.plan && typeof r.plan === 'object' ? r.plan : null,
       });
     }
     if (body.action === 'scan') {

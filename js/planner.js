@@ -36,7 +36,7 @@ export function buildSteps(item) {
     // 入れた日からしめきりまでの日数でステップ数を決める（日がたっても数がかわらないように）
     const from = item.createdOn ? daysUntil(item.createdOn) : 0;
     const days = Math.max(1, Math.min(60, daysUntil(item.date) - from + 1));
-    return Array.from({ length: days }, () => `「${item.title}」を15分`);
+    return Array.from({ length: days }, () => `「${item.title}」を${item.minutes || 15}分`);
   }
   if (item.type === 'test') {
     const pages = parsePages(`${item.range} ${item.title}`);
