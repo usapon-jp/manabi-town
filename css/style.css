@@ -1148,3 +1148,11 @@ body:not([data-tab="home"]) .world.loading::after { display: none; }
 .chat.ask .chat-choices .pick { flex-shrink: 0; white-space: nowrap; font-size: 14px; padding: 6px 12px; }
 .chat-input input:focus { outline: 2px solid var(--accent); outline-offset: 0; }
 .scan-row input.need { border-color: #e5604d; background: #fff1ee; }
+
+/* おとなモード（js/adult.js） */
+.picks.days { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 4px; }
+.picks.days .pick { padding: 8px 0; text-align: center; }
+.plan-sum .picks { margin: 4px 0 10px; }
+.plan-sum .picks .pick { text-align: left; }
+.plan-sum .picks .pick small { font-weight: 500; opacity: 0.8; }
+#panel > .plan-cta { margin-bottom: 14px; }

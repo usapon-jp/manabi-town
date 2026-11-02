@@ -11,6 +11,8 @@ export const GRADES = [
   { id: 'j1', label: '中1', bucket: 'j' },
   { id: 'j2', label: '中2', bucket: 'j' },
   { id: 'j3', label: '中3', bucket: 'j' },
+  // おとな（保護者が自分のために使う）。子ども用クエストは出さない（js/adult.js）
+  { id: 'adult', label: 'おとな', bucket: 'j' },
 ];
 
 export const SUBJECTS = ['国語', '算数・数学', '理科', '社会', '英語', 'その他'];
