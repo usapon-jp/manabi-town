@@ -85,6 +85,7 @@ export function createBuilds({ scene, wind, cut }) {
       cut.clear(); layer.clear(); disposeRings();
       for (const op of ops) if (op.t === 'dig' || op.t === 'pond') apply(op);   // 高さが決まってから、花やかこみを置く
       for (const op of ops) if (op.t !== 'dig' && op.t !== 'pond') apply(op);
+      cut.updateWater();
     },
     apply,
     addStamp(species, x, z, seed, index) { stampItems(species, x, z, seed, index).forEach((it) => { if (cut.digAt(it.x, it.z) < 0.02) layer.add(it); }); },
