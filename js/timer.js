@@ -2,12 +2,15 @@
 // - 種類（宿題・チャレンジ・自主学習・テスト勉強）と教科を選んで、集中（時間をきめる）か計るだけ
 // - 1分 = 1ポイント。集中を最後までやりきると +10
 // - 時計は「始めた時刻」から数えるので、画面を消しても正しく進む
-// - 25分ごとに休けいの声かけ。1回は最大90分
+// - 20分くぎり（20・40・60分）。計るだけのときは20分ごとに休けいの声かけ。1回は最大90分
+// - 計っているあいだ、ピヨのボタンから「しつもん」と「れんしゅう問題」
 // - 記録はあとから種類・教科・時間を直せる（ポイントも合わせて直る）
 import { h, toast } from './ui.js';
 import { SUBJECTS, today, toISO, save, currentProfile } from './store.js';
 import * as bgm from './bgm.js';
 import { openAsk } from './ask.js';
+import { challengeCard, startPractice } from './challenge.js';
+import { isAdult } from './adult.js';
 import { icon } from './icons.js';
 
 export const KINDS = [
@@ -19,9 +22,9 @@ export const KINDS = [
 export const SUBJECT_COLORS = {
   '国語': '#d78b9f', '算数・数学': '#7f985e', '理科': '#d8b85a', '社会': '#c98766', '英語': '#7aa6bd', 'その他': '#9aa897',
 };
-const PRESETS = [15, 25, 45, 60];
+const PRESETS = [20, 40, 60];
 const MAX_MIN = 90;
-const BREAK_EVERY = 25;
+const BREAK_EVERY = 20;
 const BONUS = 10;
 
 const kindOf = (id) => KINDS.find((k) => k.id === id) || KINDS[2];
@@ -29,7 +32,9 @@ const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 
 const mmss = (sec) => `${String(Math.floor(sec / 60)).padStart(2, '0')}:${String(Math.floor(sec % 60)).padStart(2, '0')}`;
 
 function prefs(p) {
-  if (!p.timerPrefs) p.timerPrefs = { kind: 'self', subject: SUBJECTS[0], mode: 'focus', minutes: 25, bgm: true };
+  if (!p.timerPrefs) p.timerPrefs = { kind: 'self', subject: SUBJECTS[0], mode: 'focus', minutes: 20, bgm: true };
+  // 前の区切り（15・25・45分）を えらんでいたら、20分くぎりに そろえる
+  if (!PRESETS.includes(p.timerPrefs.minutes)) p.timerPrefs.minutes = PRESETS.reduce((a, b) => (Math.abs(b - p.timerPrefs.minutes) < Math.abs(a - p.timerPrefs.minutes) ? b : a));
   return p.timerPrefs;
 }
 
@@ -73,6 +78,8 @@ export function renderTimerTab(panel, p, deps) {
         bgmName,
         h('button', { class: 'link', onclick: () => openBgmPicker(rerender) }, 'えらぶ')),
       h('button', { class: 'btn primary start', onclick: () => startTimer(p, {}, deps) }, icon('play'), ' スタート')),
+
+    isAdult(p) ? null : challengeCard(p, { gain: deps.gain, render: rerender }),
 
     weekChart(p, wk),
     todayList(p, deps, rerender),
@@ -251,7 +258,8 @@ function openRunning(p, deps) {
   const pauseBtn = h('button', { class: 'btn' }, icon('pause'), ' 一時停止');
   const doneBtn = h('button', { class: 'btn primary' }, icon('check'), ' 完了');
   const music = h('button', { class: `bgm-toggle ${bgm.isPlaying() ? 'on' : ''}`, 'aria-label': 'BGM' }, icon('music-2'));
-  const askBtn = h('button', { class: 'bgm-toggle ask-toggle', 'aria-label': 'ピヨ先生に しつもん', onclick: () => openAsk(currentProfile(), { subject: t.subject }) }, icon('message-circle'));
+  const askBtn = h('button', { class: 'piyo-btn', 'aria-label': 'ピヨ先生', onclick: () => openPiyoMenu(t) },
+    h('img', { src: 'assets/icons/icon-192.png', alt: '' }));
   const layer = h('div', { class: 'runner timer-run' },
     h('div', { class: 'runner-card' },
       h('div', { class: 'runner-top' },
@@ -345,6 +353,23 @@ function openRunning(p, deps) {
   timerId = setInterval(tick, 500);
   tick();
   document.addEventListener('visibilitychange', tick);
+}
+
+// タイマー中の ピヨのボタン: しつもん / れんしゅう問題（タイマーは そのまま進む）
+function openPiyoMenu(t) {
+  document.querySelector('.sheet.piyo-menu')?.remove();
+  const p = currentProfile();
+  const close = () => sheet.remove();
+  const item = t.itemId ? p.items.find((i) => i.id === t.itemId) : null;
+  const hint = item ? [item.title, item.range, t.stepLabel].filter(Boolean).join(' ') : '';
+  const sheet = h('div', { class: 'sheet piyo-menu', onclick: (e) => { if (e.target === sheet) close(); } },
+    h('div', { class: 'sheet-card' },
+      h('p', { class: 'sheet-title' }, h('img', { class: 'piyo-face', src: 'assets/icons/icon-192.png', alt: '' }), ' ピヨ先生'),
+      h('p', { class: 'sheet-sub' }, 'タイマーは とまらないよ'),
+      h('button', { class: 'btn primary big-btn', onclick: () => { close(); openAsk(p, { subject: t.subject }); } }, icon('message-circle'), ' しつもん'),
+      h('button', { class: 'btn big-btn', onclick: () => { close(); startPractice(p, t.subject, hint); } }, icon('pencil'), ` ${t.subject}の れんしゅう問題`),
+      h('button', { class: 'link', onclick: close }, 'とじる')));
+  document.body.append(sheet);
 }
 
 function showDone(p, s, t, bonus, deps) {

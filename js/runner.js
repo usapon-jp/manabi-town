@@ -9,8 +9,13 @@ import { currentProfile, gradeLabel } from './store.js';
 const PRAISE = ['せいかい！', 'すごい！', 'やったね！', 'ばっちり！'];
 export const KYOKASHO = '"UD Digi Kyokasho N-R", "UD デジタル 教科書体 N-R", YuKyokasho, "Klee One", "Hiragino Mincho ProN", serif';
 
-export function runQuestions(title, questions, onFinish) {
+// opts.deadline: この時刻（ms）になったら おわる（クイズチャレンジ）。問題の数は あとから ふえてもいい
+// opts.onClose: とじたとき
+export function runQuestions(title, questions, onFinish, opts = {}) {
   const layer = document.getElementById('runner');
+  const timed = !!opts.deadline;
+  let clockTimer = 0;
+  let finished = false;
   let index = 0;
   let score = 0;
   let pads = [];
@@ -19,10 +24,13 @@ export function runQuestions(title, questions, onFinish) {
   function cleanup() { pads.forEach((p) => p.destroy()); pads = []; }
 
   function close() {
+    clearInterval(clockTimer);
+    if (timed && !finished) finish();   // とちゅうで とじても、できた分は 記録する
     cleanup();
     layer.hidden = true;
     layer.replaceChildren();
     document.body.classList.remove('running');
+    opts.onClose?.();
   }
 
   function render() {
@@ -31,8 +39,9 @@ export function runQuestions(title, questions, onFinish) {
     const feedback = h('div', { class: 'feedback', role: 'status' });
     const next = h('button', { class: 'btn primary next', hidden: true, onclick: () => {
       index += 1;
+      if (timed && Date.now() >= opts.deadline) { finish(); return; }
       if (index < questions.length) render(); else finish();
-    } }, index + 1 < questions.length ? 'つぎへ' : 'けっかを見る');
+    } }, timed || index + 1 < questions.length ? 'つぎへ' : 'けっかを見る');
 
     function judge(ok, answerText) {
       react(ok);
@@ -72,8 +81,10 @@ export function runQuestions(title, questions, onFinish) {
         numberPad((value) => judge(Math.abs(value - q.answer) < 1e-9, String(q.answer).replace('-', '−')), q.answer));
     }
 
-    const dots = h('div', { class: 'dots', 'aria-hidden': 'true' },
-      questions.map((_, i) => h('i', { class: i < index ? 'done' : i === index ? 'now' : '' })));
+    const dots = timed
+      ? h('b', { class: 'quiz-clock', 'aria-label': 'のこり時間' }, clockText())
+      : h('div', { class: 'dots', 'aria-hidden': 'true' },
+        questions.map((_, i) => h('i', { class: i < index ? 'done' : i === index ? 'now' : '' })));
 
     // 正解ははずんで星が飛ぶ、まちがいはぷるっとゆれる
     function react(ok) {
@@ -89,7 +100,7 @@ export function runQuestions(title, questions, onFinish) {
       h('div', { class: 'runner-top' },
         h('span', { class: 'chip' }, q.subject),
         dots,
-        h('span', { class: 'progress' }, `${index + 1} / ${questions.length}`),
+        h('span', { class: 'progress' }, timed ? `${index + 1}もんめ・${score}せいかい` : `${index + 1} / ${questions.length}`),
         h('button', { class: 'close', 'aria-label': 'とじる', onclick: close }, '×'),
       ),
       h('div', { class: 'q-box' },
@@ -103,14 +114,23 @@ export function runQuestions(title, questions, onFinish) {
     ));
   }
 
+  function clockText() {
+    const left = Math.max(0, Math.ceil((opts.deadline - Date.now()) / 1000));
+    return `${Math.floor(left / 60)}:${String(left % 60).padStart(2, '0')}`;
+  }
+
   function finish() {
+    if (finished) return;
+    finished = true;
+    clearInterval(clockTimer);
     cleanup();
     setTimeout(() => { const b = layer.querySelector('.q-box'); if (b) burst(b, 14); }, 250);
-    const perfect = score === questions.length;
-    const extra = onFinish(score, questions.length, results);
+    const total = timed ? results.length : questions.length;
+    const perfect = total > 0 && score === total;
+    const extra = onFinish(score, total, results);
     layer.replaceChildren(h('div', { class: 'runner-card result' },
       h('div', { class: 'q-box' },
-        h('p', { class: 'big' }, perfect ? 'ぜんもんせいかい！' : `${score} / ${questions.length} もん せいかい`),
+        h('p', { class: 'big' }, perfect ? 'ぜんもんせいかい！' : `${score} / ${total} もん せいかい`),
         h('p', { class: 'prompt' }, perfect ? 'ピヨ先生「かんぺき！あしたもいっしょにがんばろう」' : 'ピヨ先生「まちがえたところは、またやってみようね」'),
         extra ? h('p', { class: 'reward' }, extra) : null,
       ),
@@ -121,6 +141,14 @@ export function runQuestions(title, questions, onFinish) {
   document.body.classList.add('running');
   layer.hidden = false;
   render();
+  if (timed) {
+    clockTimer = setInterval(() => {
+      const c = layer.querySelector('.quiz-clock');
+      if (c) c.textContent = clockText();
+      opts.onTick?.(index);
+      if (Date.now() >= opts.deadline) finish();
+    }, 1000);
+  }
 }
 
 // 星がはじけて飛ぶ
