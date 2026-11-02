@@ -52,6 +52,17 @@ const CSS = `
 .wedit-sub .sw.on { border-color: #6f8c52; box-shadow: 0 0 0 3px #fff, 0 2px 6px rgba(80,60,30,.3); }
 .wedit-sub .sep { width: 2px; height: 26px; background: #e2d3ad; border-radius: 1px; }
 @media (orientation: landscape) { .wedit-sub { bottom: calc(env(safe-area-inset-bottom, 0px) + 12px); } }
+.wuse { position: fixed; right: calc(28px + env(safe-area-inset-right, 0px)); bottom: 104px; z-index: 4; display: flex; flex-direction: column; align-items: center; gap: 6px; }
+.wuse[hidden] { display: none; }
+.wuse button { all: unset; box-sizing: border-box; cursor: pointer; display: grid; place-items: center; width: 62px; height: 62px; border-radius: 50%; color: #fff;
+  background: rgba(70, 58, 48, 0.22); border: 1.5px solid rgba(255, 255, 255, 0.7); box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.14);
+  -webkit-backdrop-filter: blur(2px); backdrop-filter: blur(2px); touch-action: none; -webkit-touch-callout: none; -webkit-user-select: none; user-select: none; -webkit-tap-highlight-color: transparent; transition: transform 0.12s; }
+.wuse button.hold { transform: scale(0.94); background: rgba(255, 226, 168, 0.36); border-color: #ffe2a8; box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.14), 0 0 14px rgba(255, 226, 168, 0.55); }
+.wuse svg { width: 30px; height: 30px; stroke-width: 1.8; filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.5)); }
+.wuse .tname { font-size: 11px; font-weight: 800; color: #fff; text-shadow: 0 1px 3px rgba(0, 0, 0, 0.7); pointer-events: none; }
+.wuse .wundo { position: absolute; right: 70px; top: 11px; width: 40px; height: 40px; }
+.wuse .wundo[hidden] { display: none; }
+.wuse .wundo svg { width: 22px; height: 22px; }
 .wedit-msg { position: fixed; left: 50%; top: calc(env(safe-area-inset-top, 0px) + 74px); transform: translateX(-50%); z-index: 6; padding: 8px 14px;
   border-radius: 14px; background: rgba(255, 252, 240, 0.96); color: #6b4a2b; font-weight: 700; font-size: 14px; border: 2px solid #e2d3ad; pointer-events: none; }
 `;
@@ -116,6 +127,41 @@ export function createEditor({ container, scene, cut, wind, pick, rotate }) {
     <span data-group="plant">${SPECIES_KEYS.map((k) => `<button type="button" class="sw" data-s="species" data-v="${k}" aria-label="${SPECIES[k].label}" style="background:${DOT[k]}"></button>`).join(' ')}</span>
     <span data-group="ring"><button type="button" data-s="border" data-v="log">まるた</button> <button type="button" data-s="border" data-v="stone">いし</button></span>`;
   container.appendChild(sub);
+  // ---- 道具（ピヨの足もとで使う）。いまは「草かり」。押しているあいだ歩くと、通った所がかられる ----
+  const use = document.createElement('div');
+  use.className = 'wuse';
+  use.hidden = true;
+  use.innerHTML = `<button type="button" class="wundo" aria-label="ひとつもどす" hidden></button>
+    <button type="button" class="wgo" aria-label="草かりき"></button><span class="tname">草かり</span>`;
+  container.appendChild(use);
+  const SVGNS = (inner) => `<svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${inner}</svg>`;
+  use.querySelector('.wgo').innerHTML = SVGNS('<circle cx="6" cy="6" r="3"/><path d="M8.12 8.12 12 12"/><path d="M20 4 8.12 15.88"/><circle cx="6" cy="18" r="3"/><path d="M14.8 14.8 20 20"/>');
+  use.querySelector('.wundo').innerHTML = SVGNS('<path d="M9 14 4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 5.5 5.5 5.5 5.5 0 0 1-5.5 5.5H11"/>');
+  const walk = { held: false, id: null, pts: null, last: null };
+  const goBtn = use.querySelector('.wgo');
+  function walkStart(e) {
+    if (walk.held) return;
+    walk.held = true; walk.id = e.pointerId;
+    goBtn.classList.add('hold');
+    try { goBtn.setPointerCapture(e.pointerId); } catch (_) { /* 古い端末 */ }
+    walk.pts = null; walk.last = null;
+  }
+  function walkEnd(e) {
+    if (!walk.held || (e && e.pointerId !== walk.id)) return;
+    walk.held = false;
+    goBtn.classList.remove('hold');
+    walkCommit();
+  }
+  function walkCommit() {
+    const pts = walk.pts;
+    walk.pts = null; walk.last = null;
+    if (pts && pts.length >= 4) commit({ t: 'path', r: BRUSH[st.size], pts });
+  }
+  goBtn.addEventListener('pointerdown', (e) => { e.preventDefault(); walkStart(e); });
+  goBtn.addEventListener('pointerup', walkEnd);
+  goBtn.addEventListener('pointercancel', walkEnd);
+  goBtn.addEventListener('lostpointercapture', walkEnd);
+  use.querySelector('.wundo').addEventListener('click', undo);
   const q = (a) => root.querySelector(`[data-a="${a}"]`);
   const toolsEl = root.querySelector('.tools');
   let msgEl = null; let msgTimer = 0;
@@ -133,6 +179,7 @@ export function createEditor({ container, scene, cut, wind, pick, rotate }) {
     q('size').innerHTML = `<i style="width:${dot}px;height:${dot}px"></i><span>${BRUSH_NAME[st.size]}</span>`;
     q('size').hidden = !(st.tool === 'path' || (st.tool === 'river' && st.riverMode === 'line'));
     q('undo').disabled = !(ops() || []).length;
+    use.querySelector('.wundo').hidden = !(ops() || []).length;
     sub.hidden = !(st.editing && (st.tool === 'bed' || st.tool === 'river'));
     sub.querySelectorAll('[data-s="mode"]').forEach((b) => b.classList.toggle('on', b.dataset.v === st.bedMode));
     sub.querySelectorAll('[data-s="species"]').forEach((b) => b.classList.toggle('on', b.dataset.v === st.species));
@@ -309,17 +356,36 @@ export function createEditor({ container, scene, cut, wind, pick, rotate }) {
     s.last = { x: p.x, z: p.z };
   }
 
+  // 毎フレーム呼ばれる。ボタンをおしたまま歩くと、ピヨの足もとの草がかられる（はやく走っているあいだはかからない）
+  function tick(dt, pos, speedy) {
+    if (!walk.held || st.editing) return;
+    const x = pos.x; const z = pos.z;
+    if (!walk.last) {
+      walk.last = { x, z }; walk.pts = [round(x), round(z)];
+      cut.stroke([x, z], BRUSH[st.size]);
+      return;
+    }
+    if (speedy) { walk.last = { x, z }; return; }
+    if (Math.hypot(x - walk.last.x, z - walk.last.z) < MIN_STEP) return;
+    cut.stroke([walk.last.x, walk.last.z, x, z], BRUSH[st.size]);
+    walk.pts.push(round(x), round(z));
+    walk.last = { x, z };
+    if (walk.pts.length >= MAX_PTS * 2) { walkCommit(); walk.last = { x, z }; walk.pts = [round(x), round(z)]; }
+  }
+
   onChange(sync);
   sync();
 
   return {
+    tick,
     get active() { return st.editing; },
     pointer,
     // ホーム画面が出ているときだけボタンを出す
     setVisible(on) {
       st.visible = on;
       root.hidden = !on;
-      if (!on) setEditing(false);
+      use.hidden = !on;
+      if (!on) { setEditing(false); walkEnd(null); }
     },
   };
 }

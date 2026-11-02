@@ -131,6 +131,7 @@ export function createWorld(container) {
       dash: move.dash,
       jump: takeJump(),
     });
+    editor.tick(dt, actor.position, move.dash);
     marker.material.opacity = Math.max(0, marker.material.opacity - dt * 1.2);
     town.update(dt, time.value, camera.position);
 
