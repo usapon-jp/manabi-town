@@ -9,6 +9,7 @@ import { h, toast, daysLabel } from './ui.js';
 import { todayTasks, completeStep, undoStep, buildSteps, migrateHomework, urgentHomework } from './planner.js';
 import { startTutorial } from './tutorial.js';
 import { openRescue } from './rescue.js';
+import { scanButton } from './scan.js';
 import { bindControls } from './controls.js';
 import { levelInfo, totalXp, streak, week } from './progress.js';
 import { renderTimerTab, startTimer, resumeIfRunning, kindForItem, minutesOn } from './timer.js';
@@ -469,6 +470,7 @@ function renderTodo(p) {
 
   fill(panel,
     h('h2', {}, 'やること'),
+    scanButton(p, bonusDeps),
     form,
     open.length ? h('h3', {}, 'いれたもの') : null,
     open.length ? h('ul', { class: 'items' }, open.map(card)) : null,
