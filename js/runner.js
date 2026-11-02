@@ -3,6 +3,8 @@
 import { h } from './ui.js';
 import { createInkPad } from './ink/pad.js';
 import { icon } from './icons.js';
+import { askAI, aiErrorText, aiLeft } from './ai.js';
+import { currentProfile, gradeLabel } from './store.js';
 
 const PRAISE = ['せいかい！', 'すごい！', 'やったね！', 'ばっちり！'];
 export const KYOKASHO = '"UD Digi Kyokasho N-R", "UD デジタル 教科書体 N-R", YuKyokasho, "Klee One", "Hiragino Mincho ProN", serif';
@@ -91,6 +93,7 @@ export function runQuestions(title, questions, onFinish) {
         h('p', { class: 'prompt' }, q.prompt),
         q.big ? h('p', { class: `big ${kind === 'write' ? 'reading' : ''}` }, q.big) : null,
         q.context ? contextLine(q.context, q.big) : null,
+        hintArea(q, () => !next.hidden),
       ),
       answerArea,
       h('div', { class: 'runner-foot' }, feedback, next),
@@ -217,4 +220,32 @@ function numberPad(onSubmit) {
 function contextLine(sentence, word) {
   const [before, after = ''] = sentence.split('＿');
   return h('p', { class: 'context' }, before, h('span', { class: 'context-word' }, word), after);
+}
+
+// ピヨ先生のヒント（AI）。押すたびに 1→2→3 と少しずつ答えに近づく。答えは言わない
+function hintArea(q, answered) {
+  let level = 0;
+  const text = h('p', { class: 'hint-text', hidden: true, role: 'status' });
+  const btn = h('button', { class: 'hint-btn', type: 'button' }, icon('lightbulb'), h('span', {}, 'ヒント'));
+  btn.onclick = async () => {
+    if (answered() || level >= 3 || btn.disabled) return;
+    btn.disabled = true;
+    text.hidden = false;
+    text.classList.add('loading');
+    text.textContent = 'ピヨ先生が かんがえ中…';
+    const p = currentProfile();
+    const answer = q.kind === 'choice' ? q.options[q.answer] : q.kind === 'write' ? q.answerText : String(q.answer);
+    try {
+      const r = await askAI({ action: 'hint', level: level + 1, subject: q.subject, grade: p ? gradeLabel(p) : '',
+        question: [q.prompt, q.big].filter(Boolean).join(' '), context: q.context || '', answer });
+      level += 1;
+      text.textContent = r.text;
+    } catch (e) {
+      text.textContent = aiErrorText(e);
+    }
+    text.classList.remove('loading');
+    btn.disabled = level >= 3 || aiLeft() <= 0;
+    btn.querySelector('span').textContent = level === 0 ? 'ヒント' : level < 3 ? 'もうすこし ヒント' : 'ヒントは ここまで';
+  };
+  return h('div', { class: 'hint' }, btn, text);
 }

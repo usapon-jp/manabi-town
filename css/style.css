@@ -960,3 +960,11 @@ body { line-height: 1.6; letter-spacing: 0.02em; }
   top: calc(env(safe-area-inset-top) + 64px);
 }
 .bubble.mini .card-body { display: none; }
+/* ピヨ先生のヒント（AI） */
+.hint { display: grid; justify-items: center; gap: 8px; margin-top: 12px; }
+.hint-btn { display: inline-flex; align-items: center; gap: 6px; font: inherit; font-size: 14px; font-weight: 500; color: var(--accent-dark); background: var(--leaf-soft); border: 0; border-radius: 999px; padding: 6px 14px; cursor: pointer; }
+.hint-btn .ic { width: 18px; height: 18px; vertical-align: 0; }
+.hint-btn:disabled { opacity: 0.5; cursor: default; }
+.hint-text { margin: 0; max-width: 34em; font-size: 15px; line-height: 1.7; font-weight: 500; color: var(--ink); background: #fff; border: 1.5px solid var(--line); border-radius: 14px; padding: 8px 12px; text-align: left; }
+.hint-text.loading { color: var(--ink-soft); }
+.ai-status { color: var(--ink-soft); font-size: 14px; }

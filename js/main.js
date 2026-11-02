@@ -14,6 +14,7 @@ import { renderTimerTab, startTimer, resumeIfRunning, kindForItem, minutesOn } f
 import { openBonus, bonusCount, openRecommend, openProgress, startDrill } from './bonus.js';
 import { DRILLS } from './quests.js';
 import { icon } from './icons.js';
+import { askAI, aiLeft, DAY_LIMIT } from './ai.js';
 
 const POINTS_HOMEWORK = 20;
 const POINTS_TEST = 50;
@@ -430,6 +431,25 @@ function renderQuest(p) {
 }
 
 // ---- せってい ----------------------------------------------------------------
+// AI（ピヨ先生のヒント）が使えるか、おうちの人が確認するところ
+function aiCard() {
+  const status = h('p', { class: 'ai-status' }, `ヒントは 1日 ${DAY_LIMIT}回まで（のこり ${aiLeft()}回）`);
+  return h('div', { class: 'card form' },
+    h('h3', {}, 'ピヨ先生のヒント（AI）'),
+    status,
+    h('button', { class: 'btn', onclick: async (e) => {
+      e.target.disabled = true;
+      status.textContent = 'たしかめ中…';
+      try {
+        const r = await askAI({ action: 'ping' }, { count: false });
+        status.textContent = r.ready ? 'つながりました。ヒントが使えます' : 'まだ APIキーが 置かれていません';
+      } catch (err) {
+        status.textContent = `つながりませんでした（${String(err.message || err).slice(0, 60)}）`;
+      }
+      e.target.disabled = false;
+    } }, 'つながりを たしかめる'));
+}
+
 
 function renderSettings(p) {
   const s = getState();
@@ -465,6 +485,8 @@ function renderSettings(p) {
         toast(`テスト・宿題 ${result.items.length}こ、小テスト ${result.quizzes.length}こ を入れたよ`);
       } }, 'とりこむ'),
     ),
+
+    aiCard(),
 
     h('div', { class: 'card form' },
       h('h3', {}, 'つかう人をかえる'),
