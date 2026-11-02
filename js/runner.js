@@ -3,6 +3,8 @@
 import { h } from './ui.js';
 import { createInkPad } from './ink/pad.js';
 import { icon } from './icons.js';
+import { askAI, aiErrorText, aiLeft } from './ai.js';
+import { currentProfile, gradeLabel } from './store.js';
 
 const PRAISE = ['せいかい！', 'すごい！', 'やったね！', 'ばっちり！'];
 export const KYOKASHO = '"UD Digi Kyokasho N-R", "UD デジタル 教科書体 N-R", YuKyokasho, "Klee One", "Hiragino Mincho ProN", serif';
@@ -12,6 +14,7 @@ export function runQuestions(title, questions, onFinish) {
   let index = 0;
   let score = 0;
   let pads = [];
+  const results = []; // [{ q, ok }]（まちがえた問題を、あとで やりなおしに出すため）
 
   function cleanup() { pads.forEach((p) => p.destroy()); pads = []; }
 
@@ -33,6 +36,7 @@ export function runQuestions(title, questions, onFinish) {
 
     function judge(ok, answerText) {
       react(ok);
+      results.push({ q, ok });
       if (ok) score += 1;
       feedback.className = `feedback ${ok ? 'ok' : 'ng'}`;
       feedback.textContent = ok
@@ -55,6 +59,7 @@ export function runQuestions(title, questions, onFinish) {
     } else if (kind === 'write') {
       answerArea = writeArea(q, (ok) => {
         react(ok);
+        results.push({ q, ok });
         if (ok) score += 1;
         feedback.className = `feedback ${ok ? 'ok' : 'ng'}`;
         feedback.textContent = ok ? `ピヨ先生「${PRAISE[index % PRAISE.length]}」` : 'ピヨ先生「お手本を見て、ノートに3回書いてみよう」';
@@ -64,7 +69,7 @@ export function runQuestions(title, questions, onFinish) {
       kind = 'number';
       answerArea = h('div', { class: 'math-area' },
         memoArea(pads),
-        numberPad((value) => judge(value === q.answer, String(q.answer).replace('-', '−'))));
+        numberPad((value) => judge(Math.abs(value - q.answer) < 1e-9, String(q.answer).replace('-', '−')), q.answer));
     }
 
     const dots = h('div', { class: 'dots', 'aria-hidden': 'true' },
@@ -91,6 +96,7 @@ export function runQuestions(title, questions, onFinish) {
         h('p', { class: 'prompt' }, q.prompt),
         q.big ? h('p', { class: `big ${kind === 'write' ? 'reading' : ''}` }, q.big) : null,
         q.context ? contextLine(q.context, q.big) : null,
+        hintArea(q, () => !next.hidden),
       ),
       answerArea,
       h('div', { class: 'runner-foot' }, feedback, next),
@@ -101,7 +107,7 @@ export function runQuestions(title, questions, onFinish) {
     cleanup();
     setTimeout(() => { const b = layer.querySelector('.q-box'); if (b) burst(b, 14); }, 250);
     const perfect = score === questions.length;
-    const extra = onFinish(score, questions.length);
+    const extra = onFinish(score, questions.length, results);
     layer.replaceChildren(h('div', { class: 'runner-card result' },
       h('div', { class: 'q-box' },
         h('p', { class: 'big' }, perfect ? 'ぜんもんせいかい！' : `${score} / ${questions.length} もん せいかい`),
@@ -183,11 +189,13 @@ function memoArea(pads) {
     pad.el);
 }
 
-function numberPad(onSubmit) {
+function numberPad(onSubmit, answer = 0) {
   let text = '';
   const display = h('div', { class: 'pad-display' }, '　');
   const ok = h('button', { class: 'btn primary pad-ok', disabled: true }, 'こたえる');
-  const keys = ['7', '8', '9', '⌫', '4', '5', '6', '−', '1', '2', '3', '0'];
+  // 答えが小数の問題（とりこんだ小テストなど）は、−のかわりに 小数点 を出す
+  const decimal = !Number.isInteger(Number(answer)) && Number(answer) >= 0;
+  const keys = ['7', '8', '9', '⌫', '4', '5', '6', decimal ? '.' : '−', '1', '2', '3', '0'];
   let locked = false;
 
   function update() {
@@ -199,6 +207,7 @@ function numberPad(onSubmit) {
     if (locked) return;
     if (k === '⌫') text = text.slice(0, -1);
     else if (k === '−') text = text.startsWith('−') ? text.slice(1) : `−${text}`;
+    else if (k === '.') { if (!text.includes('.')) text = `${text || '0'}.`; }
     else if (text.replace('−', '').length < 7) text += k;
     update();
   } }, k)));
@@ -217,4 +226,32 @@ function numberPad(onSubmit) {
 function contextLine(sentence, word) {
   const [before, after = ''] = sentence.split('＿');
   return h('p', { class: 'context' }, before, h('span', { class: 'context-word' }, word), after);
+}
+
+// ピヨ先生のヒント（AI）。押すたびに 1→2→3 と少しずつ答えに近づく。答えは言わない
+function hintArea(q, answered) {
+  let level = 0;
+  const text = h('p', { class: 'hint-text', hidden: true, role: 'status' });
+  const btn = h('button', { class: 'hint-btn', type: 'button' }, icon('lightbulb'), h('span', {}, 'ヒント'));
+  btn.onclick = async () => {
+    if (answered() || level >= 3 || btn.disabled) return;
+    btn.disabled = true;
+    text.hidden = false;
+    text.classList.add('loading');
+    text.textContent = 'ピヨ先生が かんがえ中…';
+    const p = currentProfile();
+    const answer = q.kind === 'choice' ? q.options[q.answer] : q.kind === 'write' ? q.answerText : String(q.answer);
+    try {
+      const r = await askAI({ action: 'hint', level: level + 1, subject: q.subject, grade: p ? gradeLabel(p) : '',
+        question: [q.prompt, q.big].filter(Boolean).join(' '), context: q.context || '', answer });
+      level += 1;
+      text.textContent = r.text;
+    } catch (e) {
+      text.textContent = aiErrorText(e);
+    }
+    text.classList.remove('loading');
+    btn.disabled = level >= 3 || aiLeft() <= 0;
+    btn.querySelector('span').textContent = level === 0 ? 'ヒント' : level < 3 ? 'もうすこし ヒント' : 'ヒントは ここまで';
+  };
+  return h('div', { class: 'hint' }, btn, text);
 }

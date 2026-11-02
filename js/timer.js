@@ -308,7 +308,9 @@ function openRunning(p, deps) {
     if (ended) return;
     ended = true;
     const sec = elapsedSec();
-    const minutes = Math.min(MAX_MIN, Math.floor(sec / 60));
+    // 集中モードは 決めた時間まで（アプリを閉じて あとで開いても、それ以上は記録しない）
+    const cap = t.mode === 'focus' && t.planned ? Math.min(MAX_MIN, t.planned) : MAX_MIN;
+    const minutes = Math.min(cap, Math.floor(sec / 60));
     stopAll();
     p.timer = null;
     if (minutes < 1) { save(); toast('1分より短いので 記録しなかったよ'); deps.render(); return; }
