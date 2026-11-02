@@ -36,6 +36,19 @@ function gain(p, n, reason) {
   world?.celebrate();
 }
 
+// 1回目で「ほんとうに？」にかわり、もう1回おすとけす
+function deleteButton(onDelete) {
+  let armed = false;
+  const b = h('button', { class: 'link', onclick: () => {
+    if (armed) { onDelete(); return; }
+    armed = true;
+    b.textContent = 'ほんとうにけす？';
+    b.classList.add('armed');
+    setTimeout(() => { armed = false; b.textContent = 'けす'; b.classList.remove('armed'); }, 3000);
+  } }, 'けす');
+  return b;
+}
+
 function show(next) {
   tab = next;
   tabs.forEach((b) => b.classList.toggle('active', b.dataset.tab === tab));
@@ -134,9 +147,7 @@ function renderTodo(p) {
           gain(p, isTest ? POINTS_TEST : POINTS_HOMEWORK, isTest ? `テスト: ${i.title}` : `宿題: ${i.title}`);
           render();
         } }, isTest ? 'おわった！' : 'だした！') : null,
-        h('button', { class: 'link', onclick: () => {
-          if (confirm(`「${i.title}」をけしますか？`)) { removeItem(p, i.id); render(); }
-        } }, 'けす'),
+        deleteButton(() => { removeItem(p, i.id); render(); }),
       ),
     );
   };
@@ -197,9 +208,7 @@ function renderQuest(p) {
         render();
         return `クリア！ +${score * POINTS_PER_CORRECT} ポイント`;
       }) }, quiz.cleared ? 'もういちど' : 'やってみる'),
-      h('button', { class: 'link', onclick: () => {
-        if (confirm(`「${quiz.title}」をけしますか？`)) { removeQuiz(p, quiz.id); render(); }
-      } }, 'けす'),
+      deleteButton(() => { removeQuiz(p, quiz.id); render(); }),
     ),
   ));
 
