@@ -3,7 +3,8 @@
 import { h } from './ui.js';
 
 const STEPS = [
-  { text: 'タップすると ピヨが歩くよ', target: () => worldSpot(), tap: 'target' },
+  { text: 'スティックで ピヨを動かそう', target: () => document.getElementById('joy'), tap: 'any', pad: 8 },
+  { text: 'ジャンプと ダッシュ', target: () => padButtons(), tap: 'any', pad: 8 },
   { text: 'テストや宿題を 入れよう', target: () => tab('todo'), tap: 'target', open: 'todo' },
   { text: 'ざっくりでOK。毎日の分に わけるよ', target: () => document.querySelector('form.card'), tap: 'any', pad: 6 },
   { text: 'ホームに もどろう', target: () => tab('home'), tap: 'target', open: 'home' },
@@ -13,11 +14,16 @@ const STEPS = [
 
 const tab = (name) => document.querySelector(`.tabs button[data-tab="${name}"]`);
 
-// 草原の、吹き出しより上のまんなかあたり
-function worldSpot() {
-  const w = window.innerWidth;
-  const hgt = window.innerHeight;
-  return { getBoundingClientRect: () => ({ left: w / 2 - 70, top: hgt * 0.3, width: 140, height: 140 }) };
+// ジャンプとダッシュのボタンをまとめて光らせる
+function padButtons() {
+  const a = document.getElementById('btnJump');
+  const b = document.getElementById('btnDash');
+  if (!a || !b) return null;
+  return { getBoundingClientRect: () => {
+    const r1 = a.getBoundingClientRect(); const r2 = b.getBoundingClientRect();
+    const left = Math.min(r1.left, r2.left); const top = Math.min(r1.top, r2.top);
+    return { left, top, width: Math.max(r1.right, r2.right) - left, height: Math.max(r1.bottom, r2.bottom) - top };
+  } };
 }
 
 export function startTutorial({ show, onDone }) {
@@ -105,8 +111,8 @@ export function startTutorial({ show, onDone }) {
     }
   }
   document.addEventListener('click', onTap, true);
-  // 草原は click ではなく pointer でうごくので、こちらも見る
-  const onPointer = (e) => { if (i === 0 && rect) onTap(e); };
+  // スティックやボタンは click ではなく pointer でうごくので、こちらも見る
+  const onPointer = (e) => { if (STEPS[i]?.tap === 'any' && rect) onTap(e); };
   document.addEventListener('pointerup', onPointer, true);
 
   function finish() {

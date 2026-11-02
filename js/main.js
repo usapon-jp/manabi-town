@@ -8,6 +8,7 @@ import { parseImport } from './importer.js';
 import { h, toast, daysLabel } from './ui.js';
 import { todayTasks, completeStep, undoStep, buildSteps } from './planner.js';
 import { startTutorial } from './tutorial.js';
+import { bindControls } from './controls.js';
 
 const POINTS_HOMEWORK = 20;
 const POINTS_TEST = 50;
@@ -16,6 +17,9 @@ const POINTS_STEP = 10;
 const panel = document.getElementById('panel');
 const hud = document.getElementById('hud');
 const bubble = document.getElementById('bubble');
+const pad = document.getElementById('pad');
+bindControls(pad);
+let folded = false;
 const tabs = document.querySelectorAll('.tabs button');
 let world = null;
 
@@ -86,6 +90,7 @@ function render() {
   world?.setActive(home);
   panel.hidden = home;
   bubble.hidden = !home;
+  pad.hidden = !home;
   if (home) renderHome(p);
   else if (tab === 'todo') renderTodo(p);
   else if (tab === 'quest') renderQuest(p);
@@ -96,6 +101,7 @@ function render() {
 
 function renderWelcome() {
   world?.setActive(true);
+  pad.hidden = true;
   hud.hidden = true;
   bubble.hidden = true;
   document.querySelector('.tabs').hidden = true;
@@ -155,8 +161,11 @@ function renderHome(p) {
   if (!p.items.some((i) => !i.done)) words = 'テストや宿題を入れてね。毎日の分にわけるよ';
   else if (left === 0) words = 'きょうの分、ぜんぶできた！すごい！';
   else words = `きょうは あと${left}こ。いっしょにやろう！`;
+  bubble.classList.toggle('folded', folded);
   fill(bubble,
-    h('p', {}, h('strong', {}, 'ピヨ先生 '), words),
+    h('p', {},
+      h('button', { class: 'fold', onclick: () => { folded = !folded; render(); } }, folded ? 'ひらく ▼' : 'たたむ ▲'),
+      h('strong', {}, 'ピヨ先生 '), words),
     h('ul', { class: 'tasks' }, rows),
     h('div', { class: 'bubble-actions' },
       h('button', { class: 'btn small', 'data-tour': 'add', onclick: () => show('todo') }, '＋ テスト・宿題・目標'),

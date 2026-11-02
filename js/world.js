@@ -2,9 +2,11 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { CHARACTERS } from './characters.js';
+import { readMove, takeJump } from './controls.js';
 
 const GROUND_RADIUS = 34;
-const WALK_RADIUS = 12;
+const WALK_RADIUS = 12;   // ひとりで散歩するときのはんい
+const ROAM_RADIUS = 28;   // 自分で動かすときに行けるはんい
 const GRASS_COUNT = 7000;
 const FLOWER_COUNT = 450;
 
@@ -80,7 +82,7 @@ export function createWorld(container) {
       if (hit) {
         const p = hit.point.clone();
         p.y = 0;
-        if (p.length() > WALK_RADIUS) p.setLength(WALK_RADIUS);
+        if (p.length() > ROAM_RADIUS) p.setLength(ROAM_RADIUS);
         actor.walkTo(p);
         marker.position.set(p.x, 0.03, p.z);
         marker.material.opacity = 0.9;
@@ -106,7 +108,17 @@ export function createWorld(container) {
     if (!running) return;
     const dt = Math.min(clock.getDelta(), 0.05);
     time.value += dt;
-    actor.update(dt);
+    const move = readMove();
+    // カメラから見た向き: スティックの上 = 画面の奥
+    const fx = -Math.sin(view.angle); const fz = -Math.cos(view.angle);
+    const rx = Math.cos(view.angle); const rz = -Math.sin(view.angle);
+    actor.update(dt, {
+      x: rx * move.x + fx * move.y,
+      z: rz * move.x + fz * move.y,
+      mag: move.mag,
+      dash: move.dash,
+      jump: takeJump(),
+    });
     marker.material.opacity = Math.max(0, marker.material.opacity - dt * 1.2);
     motes.userData.update(time.value);
 
@@ -172,7 +184,9 @@ function createActor(scene, config) {
     () => body.add(fallbackChick(config)),
   );
 
-  const state = { target: null, phase: 0, idle: 0, nextWander: 3, jumpT: -1 };
+  const state = { target: null, phase: 0, idle: 0, nextWander: 3, jumpT: -1, y: 0, vy: 0, airJumps: 0, manual: 0 };
+  const GRAVITY = 22;
+  const JUMP_V = 7.2;
 
   function rot(key, axis, value) {
     const b = bones[key];
@@ -183,10 +197,28 @@ function createActor(scene, config) {
     position: root.position,
     walkTo(p) { state.target = p.clone(); },
     jump() { state.jumpT = 0; },
-    update(dt) {
+    update(dt, ctl = { x: 0, z: 0, mag: 0, dash: false, jump: false }) {
       const w = config.walk;
       let walking = false;
-      if (state.target) {
+      let speedK = 1;
+
+      if (ctl.mag > 0.05) {
+        // 自分で動かしている
+        state.target = null;
+        state.manual = 8; // 手をはなしてから8秒は、ひとりで散歩しない
+        state.idle = 0;
+        walking = true;
+        speedK = (ctl.dash ? 2.4 : 1.25) * Math.max(0.35, ctl.mag);
+        const len = Math.hypot(ctl.x, ctl.z) || 1;
+        root.position.x += (ctl.x / len) * config.speed * speedK * dt;
+        root.position.z += (ctl.z / len) * config.speed * speedK * dt;
+        const r = Math.hypot(root.position.x, root.position.z);
+        if (r > ROAM_RADIUS) root.position.multiplyScalar(ROAM_RADIUS / r);
+        const want = Math.atan2(ctl.x, ctl.z);
+        let diff = want - root.rotation.y;
+        diff = Math.atan2(Math.sin(diff), Math.cos(diff));
+        root.rotation.y += diff * Math.min(1, dt * 12);
+      } else if (state.target) {
         const d = state.target.clone().sub(root.position);
         d.y = 0;
         const dist = d.length();
@@ -202,10 +234,24 @@ function createActor(scene, config) {
           root.rotation.y += diff * Math.min(1, dt * 8);
         }
       }
+      state.manual = Math.max(0, state.manual - dt);
+
+      // ジャンプ（空中でもう1回とべる）
+      const onGround = state.y <= 0.0001;
+      if (ctl.jump && (onGround || state.airJumps < 1)) {
+        if (!onGround) state.airJumps += 1;
+        state.vy = JUMP_V;
+      }
+      if (!onGround || state.vy > 0) {
+        state.vy -= GRAVITY * dt;
+        state.y = Math.max(0, state.y + state.vy * dt);
+        if (state.y === 0) { state.vy = 0; state.airJumps = 0; }
+      }
+      const inAir = state.y > 0.0001;
 
       if (walking) {
         state.idle = 0;
-        state.phase += dt * 9;
+        state.phase += dt * 9 * Math.min(1.8, Math.max(0.7, speedK));
         const s = Math.sin(state.phase);
         rot('leftLeg', 'x', s * w.legSwing);
         rot('rightLeg', 'x', -s * w.legSwing);
@@ -223,7 +269,7 @@ function createActor(scene, config) {
         rot('head', 'z', Math.sin(t * 0.8) * 0.12);
         rot('spine', 'x', Math.sin(t * 2.2) * 0.03);
         body.position.y = 0;
-        if (t > state.nextWander) {
+        if (t > state.nextWander && state.manual <= 0) {
           const a = Math.random() * Math.PI * 2;
           const r = 2 + Math.random() * (WALK_RADIUS - 4);
           state.target = new THREE.Vector3(Math.cos(a) * r, 0, Math.sin(a) * r);
@@ -244,9 +290,19 @@ function createActor(scene, config) {
         }
       }
 
+      if (inAir) {
+        // 空中: 手をパタパタ、足をそろえる
+        const flap = Math.sin(performance.now() / 60) * 0.5;
+        rot('leftArm', 'z', 0.9 + flap);
+        rot('rightArm', 'z', -0.9 - flap);
+        rot('leftLeg', 'x', -0.3);
+        rot('rightLeg', 'x', -0.3);
+      }
+      body.position.y += state.y;
+
       shadow.position.x = root.position.x;
       shadow.position.z = root.position.z;
-      shadow.scale.setScalar(1 - Math.min(body.position.y, 0.5) * 0.6);
+      shadow.scale.setScalar(Math.max(0.35, 1 - Math.min(body.position.y, 1.5) * 0.4));
     },
   };
 }
