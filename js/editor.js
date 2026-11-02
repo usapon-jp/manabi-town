@@ -53,9 +53,9 @@ const CSS = `
 .wedit-sub .sw.on { border-color: #6f8c52; box-shadow: 0 0 0 3px #fff, 0 2px 6px rgba(80,60,30,.3); }
 .wedit-sub .sep { width: 2px; height: 26px; background: #e2d3ad; border-radius: 1px; }
 @media (orientation: landscape) { .wedit-sub { bottom: calc(env(safe-area-inset-bottom, 0px) + 12px); } }
-.wuse { position: fixed; right: calc(28px + env(safe-area-inset-right, 0px)); bottom: calc(var(--tabs-h, 0px) + env(safe-area-inset-bottom, 0px) + 104px); z-index: 4; display: flex; flex-direction: column; align-items: center; gap: 6px; }
+.wuse { position: fixed; right: calc(28px + env(safe-area-inset-right, 0px)); bottom: calc(var(--tabs-h, 0px) + env(safe-area-inset-bottom, 0px) + 120px); z-index: 4; display: flex; flex-direction: column; align-items: center; gap: 6px; }
 .wuse[hidden] { display: none; }
-@media (orientation: landscape) and (max-height: 540px) { .wuse { bottom: calc(env(safe-area-inset-bottom, 0px) + 104px); } }
+@media (orientation: landscape) and (max-height: 540px) { .wuse { bottom: calc(env(safe-area-inset-bottom, 0px) + 120px); } }
 .wuse button { all: unset; box-sizing: border-box; cursor: pointer; display: grid; place-items: center; width: 62px; height: 62px; border-radius: 50%; color: #fff;
   background: rgba(70, 58, 48, 0.22); border: 1.5px solid rgba(255, 255, 255, 0.7); box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.14);
   -webkit-backdrop-filter: blur(2px); backdrop-filter: blur(2px); touch-action: none; -webkit-touch-callout: none; -webkit-user-select: none; user-select: none; -webkit-tap-highlight-color: transparent; transition: transform 0.12s; }
