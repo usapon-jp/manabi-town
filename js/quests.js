@@ -34,23 +34,27 @@ export function shuffle(list, rand) {
 
 function choiceFromPairs(pairs, rand, count, make) {
   const picked = shuffle(pairs, rand).slice(0, count);
-  return picked.map(([word, answer]) => {
+  return picked.map(([word, answer, sentence]) => {
     const wrong = shuffle(pairs.filter((p) => p[1] !== answer), rand).slice(0, 2).map((p) => p[1]);
     const options = shuffle([answer, ...wrong], rand);
-    return make(word, options, options.indexOf(answer));
+    return make(word, options, options.indexOf(answer), sentence);
   });
 }
+
+// 漢字の問題。れいぶんの中で どのことばかを見せて、同じ読みの別のことばと まちがえないようにする
+const kanjiWrite = ([word, reading, sentence]) => ({
+  kind: 'write', subject: '漢字', prompt: 'かんじで 書けるかな？', big: reading, answerText: word, context: sentence,
+});
+const kanjiRead = (word, options, answer, sentence) => ({
+  kind: 'choice', subject: '漢字', prompt: 'よみかたは？', big: word, options, answer, context: sentence,
+});
 
 export function buildDaily(bucket, seed, rand = seededRandom(seed)) {
   // 漢字は 書き2もん＋読み1もん。書きはノートに書いて、お手本を見て自分で答え合わせ
   const picked = shuffle(KANJI[bucket], rand);
-  const writes = picked.slice(0, PER_SUBJECT - 1).map(([word, reading]) => ({
-    kind: 'write', subject: '漢字', prompt: 'かんじで 書けるかな？', big: reading, answerText: word,
-  }));
+  const writes = picked.slice(0, PER_SUBJECT - 1).map(kanjiWrite);
   const rest = picked.slice(PER_SUBJECT - 1);
-  const reads = choiceFromPairs(rest, rand, 1, (word, options, answer) => ({
-    kind: 'choice', subject: '漢字', prompt: 'よみかたは？', big: word, options, answer,
-  }));
+  const reads = choiceFromPairs(rest, rand, 1, kanjiRead);
   const kanji = [...writes, ...reads];
   const english = choiceFromPairs(ENGLISH[bucket], rand, PER_SUBJECT, (word, options, answer) => ({
     kind: 'choice', subject: '英単語', prompt: 'いみは？', big: word, options, answer,
@@ -70,12 +74,8 @@ export const DRILL_COUNT = 5;
 export function buildDrill(id, bucket, seed, rand = seededRandom(`drill:${id}:${seed}`)) {
   if (id === 'kanji') {
     const picked = shuffle(KANJI[bucket], rand);
-    const writes = picked.slice(0, 3).map(([word, reading]) => ({
-      kind: 'write', subject: '漢字', prompt: 'かんじで 書けるかな？', big: reading, answerText: word,
-    }));
-    const reads = choiceFromPairs(picked.slice(3), rand, DRILL_COUNT - 3, (word, options, answer) => ({
-      kind: 'choice', subject: '漢字', prompt: 'よみかたは？', big: word, options, answer,
-    }));
+    const writes = picked.slice(0, 3).map(kanjiWrite);
+    const reads = choiceFromPairs(picked.slice(3), rand, DRILL_COUNT - 3, kanjiRead);
     return [...writes, ...reads];
   }
   if (id === 'english') {

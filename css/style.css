@@ -877,6 +877,66 @@ body:not([data-tab="home"])::before {
 .tabs button { white-space: nowrap; min-width: 0; }
 @media (max-width: 360px) { .tabs button { font-size: 10px; margin: 6px 1px; } .tabs button .ic { width: 22px; height: 22px; } }
 
+/* ---- 文字をかるく、余白をひろく（ぎゅうぎゅう感をへらす） ----
+   丸ゴシック(ヒラギノ丸ゴ)は太さが1つだけなので、太字にすると全部が「にじんだ太字」になって圧が出る。
+   太字は「数字・いま選んでいるもの・大きいボタン・見出し」だけにして、ほかはふつうの太さにする。 */
+body { line-height: 1.6; letter-spacing: 0.02em; }
+.label, .pick, .seg button, .bgm-name, .bgm-row .link, .stat3 small, .day small, .all-tasks summary,
+.coach p, .sheet-sub, .legend, .rec .what, .min-in, .vol, .bgm-item .name, .face small, .cheer,
+.chart .col small, .go-label, .today-bar .count, .task-label, .memo-head, .runner-top .progress,
+.hud .name, .step-label, .pts { font-weight: 500; }
+.pick.on, .seg button.on, .bgm-item.on .name { font-weight: 700; }
+.label { color: var(--ink-soft); font-size: 12.5px; letter-spacing: 0.08em; }
+
+/* タイマーのじゅんび画面 */
+.card.stat3 { padding: 10px 8px; margin-bottom: 14px; box-shadow: none; background: transparent; border: 0; }
+.stat3 > div { gap: 0; }
+.stat3 > div + div { border-left: 1.5px solid var(--line); }
+.stat3 small { font-size: 11.5px; letter-spacing: 0.08em; }
+.stat3 .n { margin: 0; display: flex; align-items: baseline; justify-content: center; gap: 3px; line-height: 1.2; }
+.stat3 .n b { font-size: 24px; font-weight: 700; }
+.stat3 .n span { font-size: 12px; color: var(--ink-soft); }
+.setup { gap: 10px; padding: 18px 16px 18px; }
+.setup .label { margin: 6px 0 0; }
+.setup .label:first-child { margin-top: 0; }
+.picks.kinds, .picks.subjects, .picks.times { gap: 8px; }
+.pick { box-shadow: none; color: var(--ink); }
+.pick.on { box-shadow: var(--soft); border-color: transparent; }
+.picks.kinds .pick { font-size: 11.5px; padding: 8px 2px 7px; gap: 4px; }
+.picks.kinds .pick .ic { width: 19px; height: 19px; stroke-width: 1.7; }
+.picks.subjects .pick, .picks.times .pick { font-size: 14px; padding: 6px 4px; }
+.seg { margin-top: 6px; }
+.seg button { padding: 7px; font-size: 14px; color: var(--ink); }
+.bgm-row { margin-top: 2px; }
+.bgm-name { font-size: 14px; color: var(--ink); }
+.bgm-row .link { font-size: 14px; }
+.btn.start { margin-top: 6px; font-weight: 700; font-size: 18px; letter-spacing: 0.1em; box-shadow: var(--soft); border-color: transparent; }
+
+/* ホームのきょうのカード・シート・クエスト */
+.coach p { font-size: 15px; line-height: 1.6; }
+.today-body { gap: 14px; margin-top: 14px; }
+.go-task { font-weight: 700; font-size: 17px; }
+.go { padding: 14px 18px; }
+.sheet-card { gap: 14px; padding: 24px 22px; }
+.sheet-title { font-weight: 700; font-size: 20px; line-height: 1.5; }
+.sheet-card .btn { font-weight: 700; font-size: 17px; }
+.tasks { gap: 10px; }
+.q-group { gap: 10px; }
+.quest-list, .rec-list, .prog-items { gap: 10px; }
+.quest-row, .rec-item { border-width: 1.5px; padding: 12px 12px; gap: 12px; }
+.q-main { gap: 4px; }
+.q-main b { font-weight: 700; }
+.q-main small, .stat4 small, .q-group h4 small { font-weight: 500; }
+.q-go { font-weight: 700; box-shadow: none; }
+.panel h2, .panel h3, .q-group h4 { font-weight: 700; }
+.card { padding: 18px; }
+.setup .pick, .setup .seg button, .btn.start, .setup .label, .bgm-row { line-height: 1.35; }
+.card.stat3 { padding: 2px 8px 4px; margin-bottom: 12px; }
+.tabs button { font-weight: 500; } .tabs button.active { font-weight: 700; }
+/* 漢字のれいぶん（同じ読みのことばと まちがえないように） */
+.q-box .context { margin: 12px 0 0; font-size: 16px; line-height: 1.8; color: var(--ink); font-weight: 500; letter-spacing: 0.04em; overflow-wrap: anywhere; }
+.context-word { display: inline-block; margin: 0 3px; padding: 0 8px; border-radius: 8px; background: var(--leaf-soft); color: var(--accent-dark); font-weight: 700; }
+
 /* ---- きょうのカードは、ふだん小さなクエストマーク（のこり数のバッジつき）にたたむ ---- */
 .quest-mark {
   position: relative; display: grid; place-items: center; width: 56px; height: 56px; padding: 0; cursor: pointer; color: #fff;
