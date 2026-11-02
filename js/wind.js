@@ -17,7 +17,8 @@ export function addWind(material, wind, h, gain, stub = 0) {
     shader.uniforms.uActor = wind.uActor;
     shader.uniforms.uCut = wind.uCut;
     shader.uniforms.uCutR = wind.uCutR;
-    shader.vertexShader = 'uniform float uTime;\nuniform vec3 uActor;\nuniform sampler2D uCut;\nuniform float uCutR;\n' + shader.vertexShader
+    shader.uniforms.uDig = wind.uDig;
+    shader.vertexShader = 'uniform float uTime;\nuniform vec3 uActor;\nuniform sampler2D uCut;\nuniform sampler2D uDig;\nuniform float uCutR;\n' + shader.vertexShader
       .replace('#include <begin_vertex>', `#include <begin_vertex>
         float wk = clamp(position.y / ${h.toFixed(3)}, 0.0, 1.0);
         wk = wk * wk;`)
@@ -37,7 +38,8 @@ export function addWind(material, wind, h, gain, stub = 0) {
         mvPosition.xz += sway * wk;
         // かった場所では、根もとにむけてちぢめる
         vec4 cm = texture2D(uCut, (wroot.xz + uCutR) / (2.0 * uCutR));
-        float cutv = smoothstep(0.35, 0.65, max(max(cm.r, cm.g), cm.b));
+        float dg = texture2D(uDig, (wroot.xz + uCutR) / (2.0 * uCutR)).r;
+        float cutv = max(smoothstep(0.35, 0.65, max(cm.r, cm.g)), smoothstep(0.05, 0.2, dg));
         vec3 cd = mvPosition.xyz - wroot.xyz;
         cd.y *= mix(1.0, ${stub.toFixed(3)}, cutv);
         cd.xz *= mix(1.0, ${stub > 0 ? '1.0' : '0.0'}, cutv);

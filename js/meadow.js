@@ -148,10 +148,11 @@ function makeGround(cut, wind) {
   mat.onBeforeCompile = (shader) => {
     shader.uniforms.uCut = cut.uniforms.uCut;
     shader.uniforms.uCutR = cut.uniforms.uCutR;
+    shader.uniforms.uDig = cut.uniforms.uDig;
     shader.uniforms.uWaterTime = wind.uTime;
     shader.vertexShader = `varying vec2 vXZ;
-      uniform sampler2D uCut; uniform float uCutR;
-      float digD(vec2 p) { return 0.34 * smoothstep(0.15, 0.85, texture2D(uCut, (p + uCutR) / (2.0 * uCutR)).b); }
+      uniform sampler2D uCut; uniform sampler2D uDig; uniform float uCutR;
+      float digD(vec2 p) { return 0.34 * smoothstep(0.1, 0.9, texture2D(uDig, (p + uCutR) / (2.0 * uCutR)).r); }
       ` + shader.vertexShader
       .replace('#include <beginnormal_vertex>', `vec3 objectNormal = normalize(vec3(normal) + vec3(
           (digD(position.xz + vec2(0.4, 0.0)) - digD(position.xz - vec2(0.4, 0.0))) / 0.8, 0.0,
@@ -162,7 +163,7 @@ function makeGround(cut, wind) {
       .replace('#include <begin_vertex>', `#include <begin_vertex>
         vXZ = position.xz;
         transformed.y -= digD(position.xz);`);
-    shader.fragmentShader = 'varying vec2 vXZ;\nuniform sampler2D uCut;\nuniform float uCutR;\nuniform float uWaterTime;\n' + shader.fragmentShader.replace('#include <color_fragment>', `#include <color_fragment>
+    shader.fragmentShader = 'varying vec2 vXZ;\nuniform sampler2D uCut;\nuniform sampler2D uDig;\nuniform float uCutR;\nuniform float uWaterTime;\n' + shader.fragmentShader.replace('#include <color_fragment>', `#include <color_fragment>
       float pm = texture2D(uCut, (vXZ + uCutR) / (2.0 * uCutR)).r;
       float inner = smoothstep(0.42, 0.62, pm);
       float rim = smoothstep(0.28, 0.42, pm) * (1.0 - inner);
@@ -173,13 +174,15 @@ function makeGround(cut, wind) {
       float bm = texture2D(uCut, (vXZ + uCutR) / (2.0 * uCutR)).g;
       vec3 bedSoil = vec3(0.14, 0.075, 0.04) * (0.9 + 0.1 * sp);
       diffuseColor.rgb = mix(diffuseColor.rgb, bedSoil, smoothstep(0.4, 0.62, bm));
-      // 川・池: ふちは湿った土、まんなかは水（かんたんな水面）
-      float bw = texture2D(uCut, (vXZ + uCutR) / (2.0 * uCutR)).b;
-      float wet = smoothstep(0.12, 0.3, bw);
-      float wat = smoothstep(0.3, 0.46, bw);
-      diffuseColor.rgb = mix(diffuseColor.rgb, diffuseColor.rgb * 0.5, wet * (1.0 - wat));
+      // ほった所: 1回め=しめった土、2回め=どろ、3回め=水がわく（かんたんな水面）
+      float bw = texture2D(uDig, (vXZ + uCutR) / (2.0 * uCutR)).r;
+      float wet = smoothstep(0.1, 0.3, bw);
+      float mud = smoothstep(0.5, 0.68, bw);
+      float wat = smoothstep(0.86, 0.97, bw);
+      diffuseColor.rgb = mix(diffuseColor.rgb, diffuseColor.rgb * 0.55, wet * (1.0 - wat));
+      diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.26, 0.17, 0.1) * (0.9 + 0.1 * sp), mud * (1.0 - wat));
       float rp = sin(vXZ.x * 2.7 + uWaterTime * 1.1) * sin(vXZ.y * 2.3 - uWaterTime * 0.8) + 0.5 * sin((vXZ.x + vXZ.y) * 5.1 + uWaterTime * 2.0);
-      vec3 wcol = mix(vec3(0.22, 0.62, 0.8), vec3(0.05, 0.28, 0.5), smoothstep(0.5, 0.95, bw));
+      vec3 wcol = mix(vec3(0.22, 0.62, 0.8), vec3(0.05, 0.28, 0.5), smoothstep(0.9, 1.0, bw));
       wcol += vec3(0.5, 0.6, 0.6) * pow(max(0.0, 0.5 + 0.5 * rp), 5.0) * 0.35;
       diffuseColor.rgb = mix(diffuseColor.rgb, wcol, wat);`);
   };

@@ -338,6 +338,11 @@ export function createEditor({ container, scene, cut, wind, pick, rotate }) {
     ring.scale.setScalar(brushR());
   }
   const round = (v) => Math.round(v * 10) / 10;
+  let notCutAt = 0;
+  function notCut() {
+    const now = performance.now();
+    if (now - notCutAt > 2500) { notCutAt = now; say('草を かった 土の上に まいてね'); }
+  }
 
   // world.js の pointer から呼ばれる（editing のあいだだけ）
   function pointer(type, e) {
@@ -410,6 +415,7 @@ export function createEditor({ container, scene, cut, wind, pick, rotate }) {
   }
   // 花を1スタンプうえる（見た目はすぐ出す。いっぱいなら出さない）
   function stamp(s, p) {
+    if (!cut.isCut(p.x, p.z)) { notCut(); return; }
     if (!builds.room(s.s)) { say('この花は もう いっぱい！'); return; }
     builds.addStamp(s.s, p.x, p.z, s.seed, s.pts.length / 2);
     s.pts.push(round(p.x), round(p.z));
@@ -424,22 +430,31 @@ export function createEditor({ container, scene, cut, wind, pick, rotate }) {
     const r = handRadius(t);
     const ch = t.op === 'dig' ? 'b' : t.op === 'seed' ? 'e' : 'r';
     const step = t.op === 'plant' ? STAMP_STEP : MIN_STEP;
+    if (t.op === 'plant') {
+      // 花のタネ: 草をかった土の上にだけまける
+      if (speedy) return;
+      if (!walk.pts) { walk.pts = []; walk.last = null; walk.seed = 1 + Math.floor(Math.random() * 1e6); }
+      if (walk.last && Math.hypot(x - walk.last.x, z - walk.last.z) < step) return;
+      if (!cut.isCut(x, z)) { notCut(); return; }
+      if (!builds.room(st.species)) { say('この花は もう いっぱい！'); return; }
+      builds.addStamp(st.species, x, z, walk.seed, walk.pts.length / 2);
+      walk.pts.push(round(x), round(z));
+      walk.last = { x, z };
+      if (walk.pts.length >= MAX_PTS * 2) walkCommit();
+      return;
+    }
     if (!walk.last) {
       if (speedy) return;
-      walk.last = { x, z }; walk.pts = [round(x), round(z)]; walk.seed = 1 + Math.floor(Math.random() * 1e6);
-      if (t.op === 'plant') { if (builds.room(st.species)) builds.addStamp(st.species, x, z, walk.seed, 0); else say('この花は もう いっぱい！'); }
-      else cut.stroke([x, z], r, ch);
+      walk.last = { x, z }; walk.pts = [round(x), round(z)];
+      cut.stroke([x, z], r, ch);
       return;
     }
     if (speedy) { walk.last = { x, z }; return; }
     if (Math.hypot(x - walk.last.x, z - walk.last.z) < step) return;
-    if (t.op === 'plant') {
-      if (!builds.room(st.species)) { say('この花は もう いっぱい！'); return; }
-      builds.addStamp(st.species, x, z, walk.seed, walk.pts.length / 2);
-    } else cut.stroke([walk.last.x, walk.last.z, x, z], r, ch);
+    cut.stroke([walk.last.x, walk.last.z, x, z], r, ch);
     walk.pts.push(round(x), round(z));
     walk.last = { x, z };
-    if (walk.pts.length >= MAX_PTS * 2) { walkCommit(); walk.last = { x, z }; walk.pts = [round(x), round(z)]; walk.seed = 1 + Math.floor(Math.random() * 1e6); }
+    if (walk.pts.length >= MAX_PTS * 2) { walkCommit(); walk.last = { x, z }; walk.pts = [round(x), round(z)]; }
   }
 
   onChange(sync);
