@@ -274,7 +274,7 @@ function renderHome(p) {
   const left = tasks.length - doneCount;   // まだ終わっていない、きょうのクエストの数
   fill(bubble,
     h('button', { class: 'quest-mark', 'aria-label': left ? `きょうのクエスト あと${left}こ` : 'きょうのクエスト ぜんぶおわり', onclick: () => { cardOpen = true; render(); } },
-      h('span', { class: 'quest-ic-wrap', html: '<svg class="mk-ic" viewBox="0 0 48 48" aria-hidden="true"><path class="mk-k mk-fa" d="M15 7h16a4 4 0 0 1 4 4v22a4 4 0 0 1-4 4H15a4 4 0 0 1-4-4V11a4 4 0 0 1 4-4z"/><path class="mk-k" d="M17 16h11M17 22h7M17 28h4"/><path class="mk-k mk-fc" d="M38.5 14.5l3.5 3.5-13.5 13.5-5.2 1.7 1.7-5.2z"/></svg>' }),
+      h('span', { class: 'quest-ic-wrap', html: '<svg class="mk-ic" viewBox="0 0 48 48" aria-hidden="true"><path class="mk-k mk-fa" d="M24 13c-4.5-3.2-10.5-4.2-17-3.2v26.2c6.5-1 12.5 0 17 3.2 4.5-3.2 10.5-4.2 17-3.2V9.8c-6.5-1-12.5 0-17 3.2z"/><path class="mk-k" d="M24 13v26M12.5 17.5c3-.4 6 .1 8.5 1.4M12.5 24c3-.4 6 .1 8.5 1.4M35.5 17.5c-3-.4-6 .1-8.5 1.4M35.5 24c-3-.4-6 .1-8.5 1.4"/></svg>' }),
       left ? h('span', { class: 'quest-badge' }, String(left)) : null),
     h('div', { class: 'card-body' }, h('div', { class: 'coach' },
       h('button', { class: 'coach-face', 'aria-label': 'きょうのおすすめ', onclick: () => bonusDeps.openRecommend() },
