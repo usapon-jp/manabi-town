@@ -54,7 +54,7 @@ export function createWorld(container) {
 
   const actor = createActor(scene, CHARACTERS.piyo, town);
 
-  // 操作: タップで移動、ドラッグでまわす
+  // 操作: ドラッグでまわす（移動はスティック）
   const raycaster = new THREE.Raycaster();
   const pointer = new THREE.Vector2();
   let drag = null;
@@ -86,20 +86,7 @@ export function createWorld(container) {
   });
   canvas.addEventListener('pointerup', (e) => {
     if (editor.active) { editor.pointer('up', e); return; }
-    if (drag && !drag.moved) {
-      const rect = canvas.getBoundingClientRect();
-      pointer.set(((e.clientX - rect.left) / rect.width) * 2 - 1, -((e.clientY - rect.top) / rect.height) * 2 + 1);
-      raycaster.setFromCamera(pointer, camera);
-      const hit = raycaster.intersectObject(ground)[0];
-      if (hit) {
-        const p = hit.point.clone();
-        p.y = 0;
-        if (p.length() > ROAM_RADIUS) p.setLength(ROAM_RADIUS);
-        actor.walkTo(p);
-        marker.position.set(p.x, heightAt(p.x, p.z) + 0.05, p.z);
-        marker.material.opacity = 0.9;
-      }
-    }
+    // タップした場所へ歩く機能は なし（2026-11-02 フミオさん）。ドラッグでまわすだけ
     drag = null;
   });
   canvas.addEventListener('pointercancel', () => { drag = null; if (editor.active) editor.pointer('cancel'); });
@@ -295,12 +282,7 @@ function createActor(scene, config, town) {
         rot('head', 'z', Math.sin(t * 0.8) * 0.12);
         rot('spine', 'x', Math.sin(t * 2.2) * 0.03);
         body.position.y = 0;
-        if (t > state.nextWander && state.manual <= 0) {
-          const a = Math.random() * Math.PI * 2;
-          const r = 2 + Math.random() * (WALK_RADIUS - 4);
-          state.target = new THREE.Vector3(Math.cos(a) * r, 0, Math.sin(a) * r);
-          state.nextWander = 5 + Math.random() * 6;
-        }
+        // 勝手に歩き出す動きは なし（2026-11-02 フミオさん）。スティックで動かしたときだけ歩く
       }
 
       // よろこびジャンプ（2回）
