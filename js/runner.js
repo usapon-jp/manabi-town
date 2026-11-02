@@ -4,7 +4,7 @@ import { h } from './ui.js';
 import { createInkPad } from './ink/pad.js';
 
 const PRAISE = ['せいかい！', 'すごい！', 'やったね！', 'ばっちり！'];
-const KYOKASHO = '"UD Digi Kyokasho N-R", "UD デジタル 教科書体 N-R", YuKyokasho, "Klee One", "Hiragino Mincho ProN", serif';
+export const KYOKASHO = '"UD Digi Kyokasho N-R", "UD デジタル 教科書体 N-R", YuKyokasho, "Klee One", "Hiragino Mincho ProN", serif';
 
 export function runQuestions(title, questions, onFinish) {
   const layer = document.getElementById('runner');
@@ -56,9 +56,9 @@ export function runQuestions(title, questions, onFinish) {
         react(ok);
         if (ok) score += 1;
         feedback.className = `feedback ${ok ? 'ok' : 'ng'}`;
-        feedback.textContent = ok ? `ピヨ先生「${PRAISE[index % PRAISE.length]}」` : 'ピヨ先生「お手本を見て、もういちど書いてみよう」';
+        feedback.textContent = ok ? `ピヨ先生「${PRAISE[index % PRAISE.length]}」` : 'ピヨ先生「お手本を見て、ノートに3回書いてみよう」';
         next.hidden = false;
-      }, pads);
+      });
     } else {
       kind = 'number';
       answerArea = h('div', { class: 'math-area' },
@@ -127,66 +127,25 @@ function burst(box, count = 8) {
 }
 
 // ---- 漢字を書く ----------------------------------------------------------------
-// 書いたら「こたえあわせ」。マスにお手本が赤くうすく重なるので、自分で ○ か × をつける。
+// いまはノートに書いて自分で答え合わせ。「こたえを見る」でお手本が出て、書けた／書けなかったを押す。
+// （Claude で自動判定できるようになったら、ここを指で書く形にもどす）
 
-function writeArea(q, onJudge, pads) {
+function writeArea(q, onJudge) {
   const chars = [...q.answerText];
-  let showAnswer = false;
-  const pad = createInkPad({
-    className: 'write-pad',
-    size: 9,
-    drawBackground(ctx, w, hgt) {
-      const n = chars.length;
-      const cell = Math.min(hgt, w / n);
-      const x0 = (w - cell * n) / 2;
-      const y0 = (hgt - cell) / 2;
-      ctx.save();
-      ctx.fillStyle = '#ffffff';
-      ctx.fillRect(x0, y0, cell * n, cell);
-      ctx.strokeStyle = '#d9cdb4';
-      ctx.lineWidth = 2;
-      ctx.strokeRect(x0 + 1, y0 + 1, cell * n - 2, cell - 2);
-      for (let i = 0; i < n; i += 1) {
-        const x = x0 + cell * i;
-        if (i > 0) { ctx.beginPath(); ctx.moveTo(x, y0); ctx.lineTo(x, y0 + cell); ctx.stroke(); }
-        // 十字の点線
-        ctx.save();
-        ctx.setLineDash([5, 6]);
-        ctx.strokeStyle = '#eadfca';
-        ctx.lineWidth = 1.5;
-        ctx.beginPath();
-        ctx.moveTo(x + cell / 2, y0 + 6); ctx.lineTo(x + cell / 2, y0 + cell - 6);
-        ctx.moveTo(x + 6, y0 + cell / 2); ctx.lineTo(x + cell - 6, y0 + cell / 2);
-        ctx.stroke();
-        ctx.restore();
-        if (showAnswer) {
-          ctx.fillStyle = 'rgba(226, 92, 72, 0.28)';
-          ctx.font = `${Math.round(cell * 0.82)}px ${KYOKASHO}`;
-          ctx.textAlign = 'center';
-          ctx.textBaseline = 'middle';
-          ctx.fillText(chars[i], x + cell / 2, y0 + cell / 2 + cell * 0.03);
-        }
-      }
-      ctx.restore();
-    },
-  });
-  pads.push(pad);
-
-  const undo = h('button', { class: 'btn small', onclick: () => pad.undo() }, '1つもどす');
-  const clear = h('button', { class: 'btn small', onclick: () => pad.clear() }, 'ぜんぶけす');
-  const check = h('button', { class: 'btn primary', disabled: true }, 'こたえあわせ');
-  pad.onChange(() => { check.disabled = pad.isEmpty(); });
-  const tools = h('div', { class: 'write-tools' }, undo, clear);
+  const boxes = h('div', { class: 'model', 'aria-hidden': 'true' },
+    chars.map((c) => h('span', { class: 'cell' }, h('b', {}, c))));
+  const reveal = h('button', { class: 'btn primary' }, 'こたえを見る');
   const judgeRow = h('div', { class: 'self-judge', hidden: true },
-    h('button', { class: 'judge ok', onclick: () => done(true) }, h('b', {}, '○'), 'あってた'),
-    h('button', { class: 'judge ng', onclick: () => done(false) }, h('b', {}, '×'), 'ちがった'));
-  const answerText = h('p', { class: 'answer-text', hidden: true }, `こたえ：${q.answerText}`);
+    h('button', { class: 'judge ok', onclick: () => done(true) }, h('b', {}, '○'), '書けた！'),
+    h('button', { class: 'judge ng', onclick: () => done(false) }, h('b', {}, '×'), '書けなかった'));
+  const note = h('div', { class: 'notebook' },
+    h('span', { class: 'note-ic', 'aria-hidden': 'true' }, '📓'),
+    h('p', {}, 'ノートに 書いてみよう'));
 
-  check.addEventListener('click', () => {
-    showAnswer = true;
-    pad.redraw();
-    check.hidden = true;
-    answerText.hidden = false;
+  reveal.addEventListener('click', () => {
+    reveal.hidden = true;
+    note.hidden = true;
+    boxes.classList.add('show');
     judgeRow.hidden = false;
   });
   function done(ok) {
@@ -194,10 +153,7 @@ function writeArea(q, onJudge, pads) {
     judgeRow.classList.add(ok ? 'picked-ok' : 'picked-ng');
     onJudge(ok);
   }
-
-  return h('div', { class: 'write-area' },
-    h('div', { class: 'write-frame', style: `--n:${chars.length}` }, pad.el),
-    tools, answerText, check, judgeRow);
+  return h('div', { class: 'write-area' }, note, boxes, reveal, judgeRow);
 }
 
 // ---- 算数のメモ ----------------------------------------------------------------
