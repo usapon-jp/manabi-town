@@ -1,6 +1,6 @@
 // オフラインでも開けるように、アプリの部品を端末にしまっておく。
 // 部品を変えたら VERSION を上げる（古いしまい場所は消える）。
-const VERSION = 'manabi-v11';
+const VERSION = 'manabi-v12';
 const FILES = [
   './',
   'index.html',
@@ -30,8 +30,10 @@ const FILES = [
   'js/runner.js',
   'js/store.js',
   'js/meadow.js',
+  'js/plants.js',
   'js/terrain.js',
   'js/timer.js',
+  'js/wind.js',
   'js/town.js',
   'js/tutorial.js',
   'js/ui.js',

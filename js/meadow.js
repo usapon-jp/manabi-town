@@ -4,6 +4,8 @@ import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { heightAt } from './terrain.js';
 import { isTownSpot } from './town.js';
+import { makeWind, addWind } from './wind.js';
+import { makePlants } from './plants.js';
 
 export const SUN_DIR = new THREE.Vector3(0.5, 0.42, -0.75).normalize();
 export const HORIZON = new THREE.Color(0xf6e9cf);
@@ -32,42 +34,6 @@ function freeSpot(radius, pad = 0) {
 }
 // ゆるいノイズ（0〜1）。草のむらや地面の色のゆらぎに使う
 const noise = (x, z) => 0.5 + 0.25 * Math.sin(x * 0.21 + Math.sin(z * 0.17) * 2) + 0.25 * Math.sin(z * 0.13 - x * 0.09 + 1.3);
-
-// 両面の草や花びらが、うらがわでも暗くならないよう、向きによる反転をやめる
-const NORMAL_NO_FLIP = THREE.ShaderChunk.normal_fragment_begin.replace('gl_FrontFacing ? 1.0 : - 1.0', '1.0');
-
-// 風の共通パラメータ（草・花がいっしょにゆれる）
-function makeWind() {
-  return { uTime: { value: 0 }, uActor: { value: new THREE.Vector3(999, 0, 999) } };
-}
-
-function addWind(material, wind, h, gain) {
-  material.onBeforeCompile = (shader) => {
-    shader.uniforms.uTime = wind.uTime;
-    shader.uniforms.uActor = wind.uActor;
-    shader.vertexShader = 'uniform float uTime;\nuniform vec3 uActor;\n' + shader.vertexShader
-      .replace('#include <begin_vertex>', `#include <begin_vertex>
-        float wk = clamp(position.y / ${h.toFixed(3)}, 0.0, 1.0);
-        wk = wk * wk;`)
-      .replace('#include <project_vertex>', `
-        vec4 mvPosition = vec4(transformed, 1.0);
-        mvPosition = instanceMatrix * mvPosition;
-        vec4 wroot = instanceMatrix * vec4(0.0, 0.0, 0.0, 1.0);
-        // 大きな風のなみが草原をわたっていく + こまかいそよぎ
-        float gust = sin(wroot.x * 0.11 + wroot.z * 0.06 - uTime * 1.15) * 0.6
-                   + sin(wroot.x * 0.29 - wroot.z * 0.21 - uTime * 2.4) * 0.25 + 0.25;
-        float flutter = sin(uTime * 3.3 + wroot.x * 2.3 + wroot.z * 1.9) * 0.07;
-        vec2 sway = vec2(gust + flutter, gust * 0.4 - flutter) * ${gain.toFixed(3)};
-        // ピヨが近づくと、草がふわっとよける
-        vec2 away = wroot.xz - uActor.xz;
-        float ad = length(away);
-        sway += normalize(away + vec2(0.0001)) * smoothstep(1.7, 0.0, ad) * ${(gain * 3.2).toFixed(3)};
-        mvPosition.xz += sway * wk;
-        mvPosition = modelViewMatrix * mvPosition;
-        gl_Position = projectionMatrix * mvPosition;`);
-    shader.fragmentShader = shader.fragmentShader.replace('#include <normal_fragment_begin>', NORMAL_NO_FLIP);
-  };
-}
 
 // やわらかい円のテクスチャ（光のつぶや雲に使う）
 function softDot() {
@@ -422,9 +388,10 @@ export function createMeadow(scene) {
   const clouds = makeClouds();
   const grass = makeGrass(wind);
   const flowers = makeFlowers(wind);
+  const plants = makePlants(wind);
   const motes = makeMotes();
   const butterflies = makeButterflies();
-  scene.add(ground, clouds, grass, flowers, motes, butterflies);
+  scene.add(ground, clouds, grass, flowers, plants, motes, butterflies);
   makeTrees().forEach((t) => scene.add(t));
 
   return {
