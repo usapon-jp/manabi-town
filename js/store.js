@@ -88,6 +88,14 @@ export function updateProfile(p, fields) {
 
 export function addPoints(p, n, reason) {
   p.points += n;
+  // けいけんち（へらない）と、勉強した日のしるし
+  if (typeof p.xp !== 'number') p.xp = (p.log || []).reduce((sum, e) => sum + Math.max(0, e.n), 0);
+  if (n > 0) {
+    p.xp += n;
+    p.activeDays = { ...(p.activeDays || {}), [today()]: true };
+  } else {
+    p.xp = Math.max(0, p.xp + n);
+  }
   p.log.unshift({ at: Date.now(), n, reason });
   if (p.log.length > 200) p.log.length = 200;
   save();

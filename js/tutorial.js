@@ -8,7 +8,8 @@ const STEPS = [
   { text: 'テストや宿題を 入れよう', target: () => tab('todo'), tap: 'target', open: 'todo' },
   { text: 'ざっくりでOK。毎日の分に わけるよ', target: () => document.querySelector('form.card'), tap: 'any', pad: 6 },
   { text: 'ホームに もどろう', target: () => tab('home'), tap: 'target', open: 'home' },
-  { text: 'おわったら ◯ をタップ。⭐+10', target: () => document.querySelector('.tasks'), tap: 'any', pad: 6 },
+  { text: 'つぎにやることは ここ', target: () => document.querySelector('.go'), tap: 'any', pad: 6 },
+  { text: '毎日つづけて 🔥をのばそう', target: () => document.querySelector('.hud .stats'), tap: 'any', pad: 6 },
   { text: '毎日のクエストは ここ', target: () => tab('quest'), tap: 'target', open: 'quest' },
 ];
 
