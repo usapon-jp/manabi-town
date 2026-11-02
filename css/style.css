@@ -282,6 +282,7 @@ textarea { resize: vertical; }
 .prompt { font-size: 17px; font-weight: 800; line-height: 1.6; margin: 0; letter-spacing: 0.04em; }
 .big { font-size: 40px; font-weight: 800; margin: 10px 0 0; line-height: 1.25; overflow-wrap: anywhere; color: var(--navy); }
 .big.reading { letter-spacing: 0.12em; }
+.q-hint { margin: 8px 0 0; font-size: 17px; font-weight: 700; line-height: 1.5; color: var(--navy); opacity: 0.8; }
 .options { display: grid; gap: 14px; }
 .option, .key, .runner .btn, .judge {
   font: inherit;

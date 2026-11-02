@@ -44,8 +44,8 @@ function choiceFromPairs(pairs, rand, count, make) {
 export function buildDaily(bucket, seed, rand = seededRandom(seed)) {
   // 漢字は 書き2もん＋読み1もん。書きはノートに書いて、お手本を見て自分で答え合わせ
   const picked = shuffle(KANJI[bucket], rand);
-  const writes = picked.slice(0, PER_SUBJECT - 1).map(([word, reading]) => ({
-    kind: 'write', subject: '漢字', prompt: 'かんじで 書けるかな？', big: reading, answerText: word,
+  const writes = picked.slice(0, PER_SUBJECT - 1).map(([word, reading, hint]) => ({
+    kind: 'write', subject: '漢字', prompt: 'かんじで 書けるかな？', big: reading, hint, answerText: word,
   }));
   const rest = picked.slice(PER_SUBJECT - 1);
   const reads = choiceFromPairs(rest, rand, 1, (word, options, answer) => ({
@@ -70,8 +70,8 @@ export const DRILL_COUNT = 5;
 export function buildDrill(id, bucket, seed, rand = seededRandom(`drill:${id}:${seed}`)) {
   if (id === 'kanji') {
     const picked = shuffle(KANJI[bucket], rand);
-    const writes = picked.slice(0, 3).map(([word, reading]) => ({
-      kind: 'write', subject: '漢字', prompt: 'かんじで 書けるかな？', big: reading, answerText: word,
+    const writes = picked.slice(0, 3).map(([word, reading, hint]) => ({
+      kind: 'write', subject: '漢字', prompt: 'かんじで 書けるかな？', big: reading, hint, answerText: word,
     }));
     const reads = choiceFromPairs(picked.slice(3), rand, DRILL_COUNT - 3, (word, options, answer) => ({
       kind: 'choice', subject: '漢字', prompt: 'よみかたは？', big: word, options, answer,
