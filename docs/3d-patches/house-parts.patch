@@ -1,5 +1,5 @@
 diff --git a/js/pieces.js b/js/pieces.js
-index 68f16d2..d7794ab 100644
+index 68f16d2..313cff6 100644
 --- a/js/pieces.js
 +++ b/js/pieces.js
 @@ -1,4 +1,4 @@
@@ -8,7 +8,7 @@ index 68f16d2..d7794ab 100644
  // どれも「ここに置く」1回で1つ。形は小さなパーツを Bag でまとめて、1つのメッシュにする。
  import * as THREE from 'three';
  import { Bag, GEO, rboxGeo, seeded, blob, tulip, daisy, hyacinth, smallYellow, leafBlade } from './townkit.js';
-@@ -8,38 +8,123 @@ const { CYL, SPH, BOX, HALF } = GEO;
+@@ -8,38 +8,163 @@ const { CYL, SPH, BOX, HALF } = GEO;
  const WOOD = [0xb98a55, 0xc59a63, 0xa9794a];
  const SLATE = [0x6f7684, 0x7b8291, 0x626977, 0x858c9b];
  
@@ -19,11 +19,6 @@ index 68f16d2..d7794ab 100644
 -  const b = new Bag();
 -  const W = 2.4; const D = 1.3; const H = 1.7; const tilt = 0.32;
 -  // 柱
--  for (const sx of [-1, 1]) {
--    b.add(CYL, WOOD[1], { x: sx * (W / 2 - 0.12), y: H / 2, z: -D / 2 + 0.1, sx: 0.07, sy: H, sz: 0.07 });
--    b.add(CYL, WOOD[0], { x: sx * (W / 2 - 0.12), y: H / 2 - 0.15, z: D / 2 - 0.1, sx: 0.07, sy: H - 0.3, sz: 0.07 });
--    // ななめの腕木
--    b.add(CYL, 0x5a4636, { x: sx * (W / 2 - 0.12), y: H - 0.42, z: 0, sx: 0.035, sy: 0.7, sz: 0.035, rx: 0.9 });
 +// ---- 家のパーツ（扉・窓・ひさし）-----------------------------------------------
 +// 家には「付ける場所（ソケット）」があって、そこに手持ちのパーツを付けたり付けかえたりできる。
 +// パーツは自分の足もと（扉）／まん中（窓）／かべの上のへり（ひさし）を原点に、+z（外）向きで作る。
@@ -53,32 +48,44 @@ index 68f16d2..d7794ab 100644
 +  b.add(SPH, GOLD, { x: w / 2 - 0.13, y: 0.72, z: 0.1, s: 0.05 });
 +  void gl;
 +}
-+// アーチの扉（上がまるい木の扉。小さなまる窓と、黒い鉄の金具）
++// アーチの扉（上がまるい、ミント色にぬった扉。まる窓・リース・まるい金具）
 +function archDoor(b, gl) {
 +  const w = 0.92; const r = w / 2; const hr = 1.45 - r;     // 四角の部分の高さ
-+  b.add(HALF, 0x5d6b70, { y: hr, z: -0.03, sx: r + 0.12, sy: r + 0.12, sz: 0.1 });
-+  b.add(BOX, 0x5d6b70, { y: hr / 2, z: -0.03, sx: w + 0.24, sy: hr, sz: 0.1 });
++  const PAINT = [0x86c2b2, 0x7ab8a8, 0x90c9ba];
++  // クリーム色のわく
++  b.add(HALF, 0xf3e6c8, { y: hr, z: -0.03, sx: r + 0.11, sy: r + 0.11, sz: 0.1 });
++  b.add(BOX, 0xf3e6c8, { y: hr / 2, z: -0.03, sx: w + 0.22, sy: hr, sz: 0.1 });
 +  const n = 5;
 +  for (let k = 0; k < n; k++) {
 +    const x = -r + (k + 0.5) * (w / n); const top = hr + Math.sqrt(Math.max(0, r * r - x * x)) - 0.02;
-+    b.add(rboxGeo(w / n - 0.012, top, 0.06, 0.01), DOOR_WOOD[k % 3], { x, y: top / 2, z: 0.03 });
-   }
--  // 屋根の板（ふちがぎざぎざに重なる）
--  const rows = 7;
--  for (let r = 0; r < rows; r++) {
--    const t = r / (rows - 1);
--    const z = -D / 2 + 0.05 + t * D;
--    const y = H - Math.sin(tilt) * t * D * 1.1 + 0.04;
--    for (let c = 0; c < 12; c++) {
--      const x = -W / 2 + 0.1 + (c + 0.5) * ((W - 0.2) / 12);
--      b.add(rboxGeo(0.2, 0.035, 0.26, 0.012), SLATE[Math.floor(rnd() * SLATE.length)], { x, y, z, rx: 0.2 + tilt * 0.4 });
--    }
-+  for (const y of [0.32, hr - 0.05]) b.add(rboxGeo(w - 0.1, 0.06, 0.02, 0.01), IRON_DARK, { y, z: 0.07 });
-+  for (const y of [0.32, hr - 0.05]) b.add(SPH, IRON_DARK, { x: -w / 2 + 0.12, y, z: 0.08, s: 0.035 });
-+  // まる窓（あかりがもれる）
-+  b.add(new THREE.TorusGeometry(0.13, 0.025, 6, 18), IRON_DARK, { y: hr + 0.12, z: 0.07 });
-+  gl.add(new THREE.CircleGeometry(0.12, 16), WARM, { y: hr + 0.12, z: 0.065 });
-+  b.add(SPH, GOLD, { x: r - 0.14, y: 0.72, z: 0.1, s: 0.055 });
++    b.add(rboxGeo(w / n - 0.014, top, 0.06, 0.012), PAINT[k % 3], { x, y: top / 2, z: 0.03 });
++  }
++  // まるい金具（はしがくるんとまく）
++  for (const y of [0.3, hr - 0.1]) {
++    b.add(rboxGeo(0.34, 0.05, 0.02, 0.02), 0x6b5a4a, { x: -r + 0.2, y, z: 0.07 });
++    b.add(new THREE.TorusGeometry(0.04, 0.014, 6, 12), 0x6b5a4a, { x: -r + 0.4, y, z: 0.07 });
++  }
++  // まる窓（十字の桟、あかりがもれる）
++  const wy = hr + 0.1;
++  b.add(new THREE.TorusGeometry(0.15, 0.03, 8, 20), 0xe8c25a, { y: wy, z: 0.07 });
++  gl.add(new THREE.CircleGeometry(0.14, 18), WARM, { y: wy, z: 0.065 });
++  b.add(BOX, 0xe8c25a, { y: wy, z: 0.075, sx: 0.02, sy: 0.27, sz: 0.015 });
++  b.add(BOX, 0xe8c25a, { y: wy, z: 0.075, sx: 0.27, sy: 0.02, sz: 0.015 });
++  // リース（葉っぱの輪に赤い実と、小さなリボン）
++  const ry = 0.82; const RR = 0.15;
++  for (let i = 0; i < 14; i++) {
++    const a = (i / 14) * Math.PI * 2;
++    b.add(SPH, i % 2 ? 0x5e9e4e : 0x6fb05a, { x: Math.cos(a) * RR, y: ry + Math.sin(a) * RR, z: 0.09, sx: 0.06, sy: 0.045, sz: 0.035, rz: a + Math.PI / 2 });
++  }
++  for (let i = 0; i < 5; i++) { const a = i * 1.3 + 0.4; b.add(SPH, 0xe0566a, { x: Math.cos(a) * RR, y: ry + Math.sin(a) * RR, z: 0.12, s: 0.022 }); }
++  b.add(SPH, 0xf08aa0, { x: -0.045, y: ry - RR, z: 0.12, sx: 0.045, sy: 0.03, sz: 0.02, rz: 0.4 });
++  b.add(SPH, 0xf08aa0, { x: 0.045, y: ry - RR, z: 0.12, sx: 0.045, sy: 0.03, sz: 0.02, rz: -0.4 });
++  b.add(SPH, 0xe0566a, { y: ry - RR, z: 0.125, s: 0.022 });
++  // まるい取っ手と、足もとの小さな花のはち
++  b.add(SPH, 0xe8c25a, { x: r - 0.15, y: 0.62, z: 0.1, s: 0.06 });
++  b.add(CYL, 0xc97b55, { x: r + 0.25, y: 0.1, z: 0.18, sx: 0.12, sy: 0.2, sz: 0.12 });
++  for (let i = 0; i < 4; i++) b.add(SPH, [0xff9fbd, 0xffffff, 0xffd84a, 0xc7a6ff][i], { x: r + 0.25 + Math.cos(i * 1.6) * 0.06, y: 0.25, z: 0.18 + Math.sin(i * 1.6) * 0.06, s: 0.05 });
++  b.add(SPH, 0x62b35a, { x: r + 0.25, y: 0.21, z: 0.18, sx: 0.11, sy: 0.05, sz: 0.11 });
 +}
 +// ふつうの窓（四角い木わく・十字の桟）
 +function plainWindow(b, gl) {
@@ -89,7 +96,7 @@ index 68f16d2..d7794ab 100644
 +  b.add(BOX, 0x7a5232, { z: 0.06, sx: s, sy: 0.045, sz: 0.025 });
 +  b.add(rboxGeo(s + 0.24, 0.07, 0.18, 0.02), 0x8d5f36, { y: -s / 2 - 0.08, z: 0.06 });   // 窓台
 +}
-+// 丸窓（まるい木わくに十字の桟、下に小さな花箱）
++// 丸窓（まるい木わくに十字の桟）
 +function roundWindow(b, gl) {
 +  const R = 0.36;
 +  b.add(CYL, 0x5d6b70, { z: -0.02, sx: R + 0.12, sy: 0.08, sz: R + 0.12, rx: Math.PI / 2 });
@@ -97,18 +104,10 @@ index 68f16d2..d7794ab 100644
 +  gl.add(new THREE.CircleGeometry(R - 0.02, 24), WARM, { z: 0.03 });
 +  b.add(BOX, 0x8d5f36, { z: 0.06, sx: 0.04, sy: R * 2 - 0.04, sz: 0.025 });
 +  b.add(BOX, 0x8d5f36, { z: 0.06, sx: R * 2 - 0.04, sy: 0.04, sz: 0.025 });
-+  // 花箱
-+  b.add(rboxGeo(R * 2 + 0.16, 0.16, 0.2, 0.03), 0xa87646, { y: -R - 0.13, z: 0.12 });
-+  const cols = [0xff9fbd, 0xffffff, 0xffd84a, 0xff9fbd, 0xc7a6ff];
-+  for (let i = 0; i < 5; i++) {
-+    const x = -R + 0.02 + i * (R * 2 - 0.04) / 4;
-+    b.add(SPH, 0x62b35a, { x, y: -R - 0.03, z: 0.13, sx: 0.08, sy: 0.06, sz: 0.07 });
-+    b.add(SPH, cols[i], { x: x + 0.02, y: -R + 0.03, z: 0.16, s: 0.045 });
-+  }
 +}
-+// ひさし（カフェの布のひさし。しま模様で、手前のへりは波の形。足はなく、かべの金具でとめる）
++// ひさし（カフェの布のひさし。奥行きはソケットの d で決まる。しま模様で、手前のへりは波の形。足はなく、かべの金具でとめる）
 +function awningPart(b, gl, o = {}) {
-+  const W = o.w || 1.4; const D = 0.75; const drop = 0.32;
++  const W = o.w || 1.4; const D = o.d || 0.38; const drop = D * 0.45;   // 奥行き: 丸い家は短め。大きい建物はソケットで d: 0.75
 +  const ang = Math.atan2(drop, D); const L = Math.hypot(D, drop);
 +  const n = Math.max(5, Math.round(W / 0.2)); const sw = W / n;
 +  const C = [0xf6efe0, o.color || 0x3f8f86];
@@ -120,7 +119,22 @@ index 68f16d2..d7794ab 100644
 +    b.add(new THREE.CircleGeometry(sw / 2, 12, Math.PI, Math.PI), C[k % 2], { x, y: -drop - 0.16, z: D + 0.016 });
 +  }
 +  // よこの三角の布
-+  for (const sx of [-1, 1]) {
+   for (const sx of [-1, 1]) {
+-    b.add(CYL, WOOD[1], { x: sx * (W / 2 - 0.12), y: H / 2, z: -D / 2 + 0.1, sx: 0.07, sy: H, sz: 0.07 });
+-    b.add(CYL, WOOD[0], { x: sx * (W / 2 - 0.12), y: H / 2 - 0.15, z: D / 2 - 0.1, sx: 0.07, sy: H - 0.3, sz: 0.07 });
+-    // ななめの腕木
+-    b.add(CYL, 0x5a4636, { x: sx * (W / 2 - 0.12), y: H - 0.42, z: 0, sx: 0.035, sy: 0.7, sz: 0.035, rx: 0.9 });
+-  }
+-  // 屋根の板（ふちがぎざぎざに重なる）
+-  const rows = 7;
+-  for (let r = 0; r < rows; r++) {
+-    const t = r / (rows - 1);
+-    const z = -D / 2 + 0.05 + t * D;
+-    const y = H - Math.sin(tilt) * t * D * 1.1 + 0.04;
+-    for (let c = 0; c < 12; c++) {
+-      const x = -W / 2 + 0.1 + (c + 0.5) * ((W - 0.2) / 12);
+-      b.add(rboxGeo(0.2, 0.035, 0.26, 0.012), SLATE[Math.floor(rnd() * SLATE.length)], { x, y, z, rx: 0.2 + tilt * 0.4 });
+-    }
 +    const tri = new THREE.BufferGeometry();
 +    tri.setAttribute('position', new THREE.Float32BufferAttribute([0, 0, 0, 0, -drop, D, 0, -drop - 0.16, D, 0, 0, 0, 0, -drop - 0.16, D, 0, -drop, D], 3));
 +    tri.computeVertexNormals();
@@ -143,12 +157,38 @@ index 68f16d2..d7794ab 100644
 +  void gl;
 +}
 +
++// 花箱（窓の下に付ける。うえる花は えらべる: op.flowers[ソケット] = 'tulip' など。なしなら いろいろ）
++const BOX_FLOWERS = {
++  tulip: (f, x, z, i) => tulip(f, x, z, [0xff7a8a, 0xff9dbd, 0xfff08a, 0xffffff][i % 4], 0.13, 0.06),
++  lupine: (f, x, z, i) => hyacinth(f, x, z, [0xb497f5, 0x9d7ef0, 0xff9dbd][i % 3], 0.1, 0.02),
++  buttercup: (f, x, z) => smallYellow(f, x, z, 0.1, 0.06),
++  clover: (f, x, z) => daisy(f, x, z, 0.1, 0.06, 0.9),
++  dandelion: (f, x, z) => smallYellow(f, x, z, 0.12, 0.06),
++};
++const MIX = ['tulip', 'clover', 'lupine', 'buttercup', 'tulip'];
++function flowerBox(b, gl, o = {}) {
++  const W = o.w || 0.86;
++  b.add(rboxGeo(W, 0.17, 0.22, 0.03), 0xa87646, { y: 0, z: 0.11 });
++  b.add(rboxGeo(W + 0.04, 0.04, 0.24, 0.015), 0xc59a63, { y: 0.085, z: 0.11 });
++  b.add(BOX, 0x5b3d28, { y: 0.07, z: 0.11, sx: W - 0.08, sy: 0.04, sz: 0.16 });
++  for (const sx of [-1, 1]) b.add(BOX, 0x8d5f36, { x: sx * (W / 2 - 0.1), y: 0, z: 0.225, sx: 0.035, sy: 0.12, sz: 0.01 });
++  const n = Math.max(4, Math.round(W / 0.15));
++  for (let i = 0; i < n; i++) {
++    const x = -W / 2 + 0.08 + i * (W - 0.16) / (n - 1); const z = 0.1 + (i % 2 ? 0.03 : -0.02);
++    b.add(SPH, 0x62b35a, { x, y: 0.1, z, sx: 0.07, sy: 0.045, sz: 0.06 });
++    const sp = BOX_FLOWERS[o.species] ? o.species : MIX[i % MIX.length];
++    BOX_FLOWERS[sp](b, x, z, i);
++  }
++  void gl;
++}
++
 +export const PARTS = {
 +  'part:door': { slot: 'door', build: plainDoor },
 +  'part:archdoor': { slot: 'door', build: archDoor },
 +  'part:window': { slot: 'window', build: plainWindow },
 +  'part:roundwindow': { slot: 'window', build: roundWindow },
 +  'piece:awning': { slot: 'over', build: awningPart },
++  'part:flowerbox': { slot: 'sill', build: flowerBox },
 +};
 +
 +// ひさしだけで置いたとき（むかしの置きかた）。かべがないので、木の板を1まい立てて付ける
@@ -161,7 +201,7 @@ index 68f16d2..d7794ab 100644
  }
  
  // ---- レイズドベッド（木の枠の高い花だん） ------------------------------------
-@@ -75,65 +160,101 @@ function raisedBed(op) {
+@@ -75,65 +200,103 @@ function raisedBed(op) {
    return { mesh: g, walls: [{ dx: -W / 2 + 0.2, dz: 0, r: 0.35 }, { dx: 0, dz: 0, r: 0.4 }, { dx: W / 2 - 0.2, dz: 0, r: 0.35 }] };
  }
  
@@ -182,13 +222,15 @@ index 68f16d2..d7794ab 100644
 +      winL: { slot: 'window', ...WIN(-1) },
 +      winR: { slot: 'window', ...WIN(1) },
 +      overDoor: { slot: 'over', x: 0, y: 2.08, z: PORCH_Z + 0.01, ry: 0, w: 1.3 },
++      sillL: { slot: 'sill', ...WIN(-1), y: 1.35 - 0.56, w: 0.86 },
++      sillR: { slot: 'sill', ...WIN(1), y: 1.35 - 0.56, w: 0.86 },
 +      overL: { slot: 'over', ...WIN(-1), y: 1.35 + 0.64, w: 1.0 },
 +      overR: { slot: 'over', ...WIN(1), y: 1.35 + 0.64, w: 1.0 },
 +    },
 +    base: { door: 'part:door', winL: 'part:window', winR: 'part:window' },
 +  },
 +};
-+// 家に付いているパーツ（op.parts で付けかえ。null = はずす）
++// 家に付いているパーツ（op.parts で付けかえ。null = はずす。花箱の花は op.flowers[ソケット]）
 +export function houseParts(op) { return { ...(HOUSES[op.k]?.base || {}), ...(op.parts || {}) }; }
 +
  function hillHouse(op) {
@@ -269,7 +311,7 @@ index 68f16d2..d7794ab 100644
 +  for (const [id, s] of Object.entries(HOUSES['piece:hill'].sockets)) {
 +    const P = PARTS[parts[id]];
 +    if (!P || P.slot !== s.slot) continue;
-+    P.build(at(b, s.x, s.y, s.z, s.ry), at(glow, s.x, s.y, s.z, s.ry), { w: s.w });
++    P.build(at(b, s.x, s.y, s.z, s.ry), at(glow, s.x, s.y, s.z, s.ry), { w: s.w, d: s.d, species: op.flowers?.[id] });
    }
    // 玄関の石の段と、ぼんやり光る灯り
 -  for (let k = 0; k < 3; k++) b.add(CYL, [0xa4c3c6, 0x9bbcc0, 0x8fb1b6][k], { x: 0, y: 0.1 + k * 0.1, z: R * 0.9 + 0.4 - k * 0.22, sx: 0.8 - k * 0.12, sy: 0.12, sz: 0.5 });
