@@ -1322,3 +1322,6 @@ input.pin { font-size: 26px; letter-spacing: 0.5em; text-align: center; }
 .g-kira { background: #e0a94a; }
 .g-kira .ic { width: 10px; height: 10px; }
 @media (prefers-reduced-motion: reduce) { .g-machine i, .g-capsule, .g-swaps.hint .g-swap, .g-got li { animation: none; } }
+.g-how { margin: -4px 0 0; font-size: 13px; color: var(--ink-soft); }
+.g-done { margin: 0; font-weight: 700; color: var(--accent-dark); }
+.g-soon .ic { color: #e0a94a; }
