@@ -20,3 +20,8 @@ create table if not exists public.app_secret (
   updated_at timestamptz not null default now()
 );
 alter table public.app_secret enable row level security;
+
+-- Edge Function（service_role）が REST で読み書きできるように（新しいプロジェクトでは自動で付かない）
+grant select, insert on public.ai_usage to service_role;
+grant usage, select on sequence public.ai_usage_id_seq to service_role;
+grant select on public.app_secret to service_role;
