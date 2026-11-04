@@ -41,6 +41,7 @@
 - 花箱の花はえらべる: op に `flowers: { sillL: 'lupine' }`（tulip / lupine / buttercup / clover / dandelion。なし=いろいろ）。花のえらび方は「花のタネ」の道具と同じ一覧を出すとよい
 - ひさしの奥行きはソケットの `d`（なしで 0.38m、丸い家は短め）。大きい建物を足したら `d: 0.75` の長い版を使う（フミオさん希望）
 - アーチの扉: ミント `part:archdoor` と茶色 `part:archdoor-brown` の2色（どちらもガチャ）。アーチは ExtrudeGeometry のなめらかな形（`archGeo`）。リースは別のパーツ `part:wreath`（slot doordeco = 扉のかざり）
+- 質感（フミオさん 11/5）: 扉・窓わく・花箱は木目（canvas でかいた木目の絵を頂点の色にかける `TexBag` + `woodMat`）、窓は すこし透けるガラス（`glassMat` + 白い照りかえし）。部品は `build(P, o)` で P = { b, gl, wood, gls } の4つの入れ物を受けとる
 - 花のはち `piece:flowerpot`: どこにでも置ける小物。op.species で花をえらべる
 - 街灯 `piece:lamppost`: うさぽん村（usapon-machi/2026）の街灯モデルをそのまま。`assets/models/lamppost.json`（うさぽん村の PROPS.lamp）と読みこみ `js/props.js`。丘の家の灯りもこれに
 - `HOUSES['piece:hill'].sockets`: door / winL / winR / sillL / sillR / overDoor / overL / overR。`base` が最初の扉と窓
