@@ -1325,3 +1325,8 @@ input.pin { font-size: 26px; letter-spacing: 0.5em; text-align: center; }
 .g-how { margin: -4px 0 0; font-size: 13px; color: var(--ink-soft); }
 .g-done { margin: 0; font-weight: 700; color: var(--accent-dark); }
 .g-soon .ic { color: #e0a94a; }
+
+/* 英語の読み上げボタン（問題の英単語の横） */
+.say-btn { margin-left: 10px; vertical-align: middle; width: 44px; height: 44px; border-radius: 50%; border: 1.5px solid var(--line); background: var(--card); box-shadow: 0 3px 0 var(--press); color: var(--accent-dark); display: inline-grid; place-items: center; cursor: pointer; padding: 0; }
+.say-btn:active { transform: translateY(2px); box-shadow: 0 1px 0 var(--press); }
+.say-btn .ic { width: 22px; height: 22px; vertical-align: 0; }
