@@ -30,6 +30,26 @@
 
 いまガチャに出るのは4つ（石垣・てつの柵・ひさし・丘の家）だけなので、毎日1回だと4日でぜんぶそろいます。上の表を少しずつ ready にしてもらえると、長く楽しめます。
 
+## 家のパーツ（フミオさん 2026-11-04 夜）: 扉・窓・ひさしを家に付けかえる
+
+フミオさんの希望: 家は基本の形でポンと置き、扉・窓・ひさしは あとから自分で付けたり付けかえたりしたい。ひさしは四つ足なしで、家の入口や窓の上に付けるカフェ風。丘の家は入口が丘に埋もれていたので直す。丸窓とアーチの扉もガチャのパーツに。
+
+画面スレッドで `js/pieces.js` と `js/structures.js` を書きかえて、画像でフミオさんに見てもらいました（`house-parts-preview.png`）。
+パッチ: `docs/3d-patches/house-parts.patch`（ブランチ ccr-6c4b445c-hnuwt5-bridge の 0fcb8d5 に `git apply` で当たります）。
+
+- `PARTS`（pieces.js）: `part:door` `part:archdoor`（slot door）、`part:window` `part:roundwindow`（slot window）、`piece:awning`（slot over）。どれも +z が外向きの部品
+- `HOUSES['piece:hill'].sockets`: door / winL / winR / overDoor / overL / overR。`base` が最初の扉と窓
+- 置いたものの op に `parts: { door: 'part:archdoor', overDoor: 'piece:awning', winL: null }` のように持つ。`houseParts(op)` が base と合わせて返す（null = はずす）
+- 丘の家: 高さ 2.5m に。玄関は石のアーチで丘から前に出し（扉 1.45m）、上は草でおおう。窓は丘の表面にそって外向き
+- ひさしだけで置いたとき（むかしの置きかた）は、木の板のかべに付いた形で出る
+- 石垣のこけ: 上の まん中の 緑の丸が「穴」に見えたので、ふちに小さく
+
+### 3D側にお願いしたいこと
+
+1. パッチを当てる（ほかの家を足すときも `HOUSES` にソケットを書く）
+2. つくるモードで家をタップ → ソケットが光る → 手持ちの `ownedOfKind('part')` のうち slot が合うものを選ぶ →「{t:'parts', id, socket, part}」のような操作で付けかえ（元に戻すは前の値方式）
+3. 重ねて置く（フミオさん希望）: 石垣など上が平らなものに「乗れる面」を持たせ、その上に引いた柵・置いたおきものはその高さに乗せる。まず「石垣の上に てつの柵」「石垣の上に おきもの」から
+
 ## あとから
 
 - **なかまキャラ**: `js/data/gacha.js` に `kind: 'chara'` の行を足すとガチャから出ます。3D側は `js/characters.js` にモデルを足して、`ownedCharas(p)` の子を街に出してください。

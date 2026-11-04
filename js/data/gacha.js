@@ -4,6 +4,7 @@
 // kind（箱庭での使いみち）:
 //   fence = 柵のかたち（「柵」の道具で、歩いた線に立てる）
 //   piece = おきもの（「おきもの」の道具で、タップして置く）
+//   part  = 家のパーツ（家をタップして、扉・窓・ひさしの場所に付けたり付けかえたりする）。slot = door / window / over
 //   seed  = 花のタネ（「花のタネ」の道具でうえられる花がふえる）
 //   chara = なかま（あとから足すキャラクター。もらうと街に住む）
 // own: true  = 最初から持っている（ガチャには出ない）
@@ -13,6 +14,7 @@
 export const KINDS = {
   fence: { label: 'さく' },
   piece: { label: 'おきもの' },
+  part: { label: '家のパーツ' },
   seed: { label: '花のタネ' },
   chara: { label: 'なかま' },
 };
@@ -43,10 +45,16 @@ export const ITEMS = [
     svg: s('<path d="M3 21h18"/><path d="M3 17h18"/><path d="M6 17V6"/><path d="M12 17V4"/><path d="M18 17V6"/><path d="M4.5 7.5 6 5l1.5 2.5"/><path d="M10.5 5.5 12 3l1.5 2.5"/><path d="M16.5 7.5 18 5l1.5 2.5"/><path d="M3 10h18"/>') },
   { id: 'piece:raisedbed', label: 'レイズドベッド', kind: 'piece', rarity: 1, own: true, color: '#a8794b',
     svg: s('<path d="M3 13h18v6H3z"/><path d="M3 16h18"/><path d="M7 13c0-3 2-5 2-5"/><path d="M12 13c0-4 1-6 1-6"/><path d="M17 13c0-3-2-5-2-5"/>') },
-  { id: 'piece:awning', label: 'ひさし', kind: 'piece', rarity: 2, color: '#7b8291',
+  // ひさしは家に付けるパーツ（id は保存に使うので piece: のまま）
+  { id: 'piece:awning', label: 'ひさし', kind: 'part', slot: 'over', rarity: 2, color: '#7b8291',
     svg: s('<path d="M3 9l9-4 9 4"/><path d="M4 9h16"/><path d="M6 9v12"/><path d="M18 9v12"/><path d="M8 7v2M12 5.5V9M16 7v2"/><path d="M3 21h18"/>') },
   { id: 'piece:hill', label: '丘の家', kind: 'piece', rarity: 3, color: '#8fa871',
     svg: s('<path d="M2 20c3-7 6.5-10 10-10s7 3 10 10"/><path d="M9 20v-4a3 3 0 0 1 6 0v4"/><path d="M2 20h20"/><path d="M17 9V6h2v5"/><circle cx="12" cy="13" r=".6"/>') },
+
+  { id: 'part:door', label: 'ふつうの扉', kind: 'part', slot: 'door', rarity: 1, own: true, color: '#a87646',
+    svg: s('<rect x="6" y="3" width="12" height="18" rx="1"/><path d="M10 3v18M14 3v18"/><path d="M6 8h12M6 16h12"/><circle cx="16" cy="12.5" r=".6"/>') },
+  { id: 'part:window', label: 'ふつうの窓', kind: 'part', slot: 'window', rarity: 1, own: true, color: '#e0a94a',
+    svg: s('<rect x="5" y="4" width="14" height="14" rx="1"/><path d="M12 4v14M5 11h14"/><path d="M3 20h18"/>') },
 
   // ---- 3Dがまだのもの（できたら ready を消す。依頼: docs/request-gacha-parts.md） ----
   { id: 'fence:white', label: '白い柵', kind: 'fence', rarity: 1, ready: false, color: '#b9b2a6',
@@ -59,6 +67,10 @@ export const ITEMS = [
     svg: s('<path d="M4 6h16"/><path d="M4 10h16"/><path d="M3 14h18"/><path d="M6 6v8"/><path d="M18 6v8"/><path d="M5 14v6"/><path d="M19 14v6"/>') },
   { id: 'piece:rosearch', label: 'バラのアーチ', kind: 'piece', rarity: 2, ready: false, color: '#d9788c',
     svg: s('<path d="M5 21V11a7 7 0 0 1 14 0v10"/><path d="M9 21v-9a3 3 0 0 1 6 0v9"/><circle cx="6.5" cy="8.5" r="1"/><circle cx="12" cy="5" r="1"/><circle cx="17.5" cy="8.5" r="1"/>') },
+  { id: 'part:archdoor', label: 'アーチの扉', kind: 'part', slot: 'door', rarity: 2, ready: false, color: '#9a6a3e',
+    svg: s('<path d="M6 21V10a6 6 0 0 1 12 0v11"/><path d="M4 21h16"/><circle cx="12" cy="9" r="1.6"/><path d="M8 13.5h8M8 17.5h8"/><circle cx="15.5" cy="15.5" r=".6"/>') },
+  { id: 'part:roundwindow', label: '丸窓', kind: 'part', slot: 'window', rarity: 1, ready: false, color: '#d9a45c',
+    svg: s('<circle cx="12" cy="10" r="7"/><path d="M12 3v14M5 10h14"/><path d="M5 20h14"/><path d="M8 20v-2M12 20v-2M16 20v-2"/>') },
   { id: 'seed:sunflower', label: 'ひまわりのタネ', kind: 'seed', rarity: 1, ready: false, species: 'sunflower', color: '#e8b52e', svg: SEED },
   { id: 'seed:cosmos', label: 'コスモスのタネ', kind: 'seed', rarity: 1, ready: false, species: 'cosmos', color: '#e58fae', svg: SEED },
   { id: 'seed:lavender', label: 'ラベンダーのタネ', kind: 'seed', rarity: 2, ready: false, species: 'lavender', color: '#9d86d6', svg: SEED },
