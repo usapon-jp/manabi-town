@@ -1,6 +1,6 @@
 // オフラインでも開けるように、アプリの部品を端末にしまっておく。
 // 部品を変えたら VERSION を上げる（古いしまい場所は消える）。
-const VERSION = 'manabi-v47';
+const VERSION = 'manabi-v48';
 const FILES = [
   './',
   'index.html',
@@ -20,7 +20,7 @@ const FILES = [
   'js/review.js',
   'js/tests.js', 'js/rescue.js', 'js/scan.js', 'js/feedback.js', 'js/ask.js', 'js/coach.js', 'js/adult.js', 'js/challenge.js', 'js/photos.js',
   'js/sync.js', 'js/merge.js', 'js/account.js',
-  'js/icons.js',
+  'js/icons.js', 'js/gacha.js', 'js/data/gacha.js',
   'js/controls.js',
   'js/cutmask.js',
   'js/editor.js',

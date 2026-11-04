@@ -7,7 +7,7 @@
 //  - ポイントの記録（log）は両方をあわせて、新しい順に200こまで
 //  - どちらも同じところを変えていたら、この端末のほうをとる
 
-const ADD = new Set(['points', 'xp']); // ふえた分を足すもの
+const ADD = new Set(['points', 'xp', 'stones']); // ふえた分を足すもの（stones = ガチャ石）
 const LOG_MAX = 200;
 
 const isObj = (v) => v !== null && typeof v === 'object' && !Array.isArray(v);

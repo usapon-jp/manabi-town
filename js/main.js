@@ -19,6 +19,7 @@ import { renderTimerTab, startTimer, resumeIfRunning, kindForItem, minutesOn } f
 import { openBonus, bonusCount, openRecommend, openProgress, startDrill } from './bonus.js';
 import { DRILLS } from './quests.js';
 import { icon } from './icons.js';
+import { openGacha, stones, capsuleIcon } from './gacha.js';
 import { askAI, aiLeft, DAY_LIMIT } from './ai.js';
 import { recordResults, dueReview, startReview, reviewStats, REVIEW_PER_CORRECT } from './review.js';
 import { openTestEntry, openWeak, startWeak, testHistory } from './tests.js';
@@ -162,6 +163,7 @@ const timerDeps = {
 const bonusDeps = {
   gain: (p, n, reason, opts) => { gain(p, n, reason, opts); save(); render(); },
   render: () => render(),
+  celebrate: () => world?.celebrate(),
   openRecommend: () => openRecommend(currentProfile(), recommendations(currentProfile()), bonusDeps),
 };
 
@@ -188,7 +190,9 @@ function render() {
       h('span', { class: `fire ${st.doneToday ? 'on' : ''}`, title: 'れんぞく日数' }, icon('flame'), `${st.n}`),
       h('span', { class: 'points' }, icon('sprout'), `${p.points}`),
       h('button', { class: 'bonus-btn', 'aria-label': 'ボーナス', onclick: () => openBonus(p, bonusDeps) },
-        icon('gift'), bonusN ? h('i', { class: 'badge' }, bonusN) : null)),
+        icon('gift'), bonusN ? h('i', { class: 'badge' }, bonusN) : null),
+      h('button', { class: 'bonus-btn gacha-btn', 'aria-label': 'ガチャ', onclick: () => openGacha(p, bonusDeps) },
+        capsuleIcon(), stones(p) ? h('i', { class: 'badge stone' }, stones(p)) : null)),
   );
   hud.hidden = false;
   document.querySelector('.tabs').hidden = false;
