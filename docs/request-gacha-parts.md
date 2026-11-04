@@ -35,12 +35,14 @@
 フミオさんの希望: 家は基本の形でポンと置き、扉・窓・ひさしは あとから自分で付けたり付けかえたりしたい。ひさしは四つ足なしで、家の入口や窓の上に付けるカフェ風。丘の家は入口が丘に埋もれていたので直す。丸窓とアーチの扉もガチャのパーツに。
 
 画面スレッドで `js/pieces.js` と `js/structures.js` を書きかえて、画像でフミオさんに見てもらいました（`house-parts-preview.png`）。
-パッチ: `docs/3d-patches/house-parts.patch`（ブランチ ccr-6c4b445c-hnuwt5-bridge の 0fcb8d5 に `git apply` で当たります）。
+パッチ: `docs/3d-patches/house-parts.patch`（新しいファイル js/props.js・assets/models/lamppost.json も入っています。ブランチ ccr-6c4b445c-hnuwt5-bridge の 0fcb8d5 に `git apply` で当たります）。
 
 - `PARTS`（pieces.js）: `part:door` `part:archdoor`（slot door）、`part:window` `part:roundwindow`（slot window）、`piece:awning`（slot over）、`part:flowerbox`（slot sill = 窓の下）。どれも +z が外向きの部品
 - 花箱の花はえらべる: op に `flowers: { sillL: 'lupine' }`（tulip / lupine / buttercup / clover / dandelion。なし=いろいろ）。花のえらび方は「花のタネ」の道具と同じ一覧を出すとよい
 - ひさしの奥行きはソケットの `d`（なしで 0.38m、丸い家は短め）。大きい建物を足したら `d: 0.75` の長い版を使う（フミオさん希望）
-- アーチの扉はミント色にぬって、リース・まる窓・くるんとした金具・足もとの花のはち
+- アーチの扉: ミント色。アーチは ExtrudeGeometry のなめらかな形（`archGeo`）。リースは別のパーツ `part:wreath`（slot doordeco = 扉のかざり）
+- 花のはち `piece:flowerpot`: どこにでも置ける小物。op.species で花をえらべる
+- 街灯 `piece:lamppost`: うさぽん村（usapon-machi/2026）の街灯モデルをそのまま。`assets/models/lamppost.json`（うさぽん村の PROPS.lamp）と読みこみ `js/props.js`。丘の家の灯りもこれに
 - `HOUSES['piece:hill'].sockets`: door / winL / winR / sillL / sillR / overDoor / overL / overR。`base` が最初の扉と窓
 - 置いたものの op に `parts: { door: 'part:archdoor', overDoor: 'piece:awning', winL: null }` のように持つ。`houseParts(op)` が base と合わせて返す（null = はずす）
 - 丘の家: 高さ 2.5m に。玄関は石のアーチで丘から前に出し（扉 1.45m）、上は草でおおう。窓は丘の表面にそって外向き

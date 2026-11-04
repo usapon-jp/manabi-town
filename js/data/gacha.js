@@ -4,7 +4,7 @@
 // kind（箱庭での使いみち）:
 //   fence = 柵のかたち（「柵」の道具で、歩いた線に立てる）
 //   piece = おきもの（「おきもの」の道具で、タップして置く）
-//   part  = 家のパーツ（家をタップして、扉・窓・ひさしの場所に付けたり付けかえたりする）。slot = door / window / over（ひさし）/ sill（窓の下）
+//   part  = 家のパーツ（家をタップして、扉・窓・ひさしの場所に付けたり付けかえたりする）。slot = door / window / over（ひさし）/ sill（窓の下）/ doordeco（扉のかざり）
 //   seed  = 花のタネ（「花のタネ」の道具でうえられる花がふえる）
 //   chara = なかま（あとから足すキャラクター。もらうと街に住む）
 // own: true  = 最初から持っている（ガチャには出ない）
@@ -73,6 +73,12 @@ export const ITEMS = [
     svg: s('<circle cx="12" cy="12" r="8"/><path d="M12 4v16M4 12h16"/>') },
   { id: 'part:flowerbox', label: '花箱', kind: 'part', slot: 'sill', rarity: 1, ready: false, color: '#e58fae',
     svg: s('<path d="M4 15h16l-1.5 5h-13z"/><path d="M7 15v-3M12 15v-4M17 15v-3"/><circle cx="7" cy="10.5" r="1.5"/><circle cx="12" cy="9" r="1.5"/><circle cx="17" cy="10.5" r="1.5"/>') },
+  { id: 'part:wreath', label: 'リース', kind: 'part', slot: 'doordeco', rarity: 2, ready: false, color: '#6fb05a',
+    svg: s('<circle cx="12" cy="11" r="6"/><circle cx="12" cy="11" r="3"/><path d="M10 17l-2 4M14 17l2 4"/><circle cx="12" cy="17" r="1"/>') },
+  { id: 'piece:flowerpot', label: '花のはち', kind: 'piece', rarity: 1, ready: false, color: '#c97b55',
+    svg: s('<path d="M7 14h10l-1.5 7h-7z"/><path d="M6 14h12"/><path d="M12 14V9"/><circle cx="12" cy="7" r="2"/><path d="M12 11c-2 0-3-1-3.5-2.5M12 11c2 0 3-1 3.5-2.5"/>') },
+  { id: 'piece:lamppost', label: '街灯', kind: 'piece', rarity: 1, ready: false, color: '#5a4636',
+    svg: s('<path d="M12 21V10"/><path d="M9 21h6"/><path d="M9 6l1-2h4l1 2"/><path d="M9 6h6l-1 4h-4z"/><path d="M12 2v2"/>') },
   { id: 'seed:sunflower', label: 'ひまわりのタネ', kind: 'seed', rarity: 1, ready: false, species: 'sunflower', color: '#e8b52e', svg: SEED },
   { id: 'seed:cosmos', label: 'コスモスのタネ', kind: 'seed', rarity: 1, ready: false, species: 'cosmos', color: '#e58fae', svg: SEED },
   { id: 'seed:lavender', label: 'ラベンダーのタネ', kind: 'seed', rarity: 2, ready: false, species: 'lavender', color: '#9d86d6', svg: SEED },
