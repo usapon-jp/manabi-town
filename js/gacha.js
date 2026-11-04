@@ -95,6 +95,17 @@ export function pull(p, rnd = Math.random) {
   return { ok: true, item: it };
 }
 
+// まとめて n回ひく（10連）。のこりが n より少なければ、のこりの数だけ（石もその数だけ）
+export const manyCount = (p, n = 10) => Math.min(n, pool(p).length);
+export function pullMany(p, n = 10, rnd = Math.random) {
+  const k = manyCount(p, n);
+  if (!k) return { ok: false, why: 'complete' };
+  if (stones(p) < k) return { ok: false, why: 'stones' };
+  const items = [];
+  for (let i = 0; i < k; i++) { const r = pull(p, rnd); if (r.ok) items.push(r.item); }
+  return { ok: true, items };
+}
+
 // ---- 画面 --------------------------------------------------------------------------
 
 const GEM = '<path d="M6 3h12l4 6-10 13L2 9Z"/><path d="M11 3 8 9l4 13 4-13-3-6"/><path d="M2 9h20"/>';
@@ -137,6 +148,7 @@ export function openGacha(p, deps) {
   const n = stones(p);
   const left = pool(p);
   const done = !left.length;
+  const k10 = manyCount(p);
   const owned = ownedSet(p);
   const reopen = () => { s.close(); deps.render(); openGacha(p, deps); };
 
@@ -168,15 +180,25 @@ export function openGacha(p, deps) {
       h('span', { class: 'g-chip soft' }, icon('sprout'), `${p.points}`)),
     done
       ? h('p', { class: 'g-done' }, icon('party-popper'), ' ぜんぶ あつめたよ！ 石は とっておいてね')
-      : h('button', {
-        class: 'btn primary g-pull', disabled: n < 1,
-        onclick: () => {
-          const r = pull(p);
-          if (!r.ok) { toast(r.why === 'stones' ? '石が たりないよ' : 'ぜんぶ あつめたよ！'); return; }
-          s.close(); deps.render();
-          showResult(p, deps, r.item);
-        },
-      }, n < 1 ? '石が たりないよ' : '1回 ひく', h('small', {}, gemIcon(), '1')),
+      : h('div', { class: 'g-pulls' },
+        h('button', {
+          class: 'btn primary g-pull', disabled: n < 1,
+          onclick: () => {
+            const r = pull(p);
+            if (!r.ok) { toast(r.why === 'stones' ? '石が たりないよ' : 'ぜんぶ あつめたよ！'); return; }
+            s.close(); deps.render();
+            showResult(p, deps, [r.item]);
+          },
+        }, '1回 ひく', h('small', {}, gemIcon(), '1')),
+        h('button', {
+          class: 'btn g-pull', disabled: n < k10 || k10 < 2,
+          onclick: () => {
+            const r = pullMany(p, 10);
+            if (!r.ok) { toast(r.why === 'stones' ? '石が たりないよ' : 'ぜんぶ あつめたよ！'); return; }
+            s.close(); deps.render();
+            showResult(p, deps, r.items);
+          },
+        }, k10 >= 10 ? '10連' : `まとめて ${k10}回`, h('small', {}, gemIcon(), `${k10}`))),
     h('div', { class: `g-swaps ${n || done ? '' : 'hint'}` }, swap(1), swap(10)),
     h('p', { class: 'g-how' }, `まいにち1こ・レベルアップで${STONES.perLevel}こ もらえるよ`),
     book,
@@ -198,9 +220,11 @@ function openItem(it, have) {
 }
 
 // ひいたあと: カプセルをタップしてあける → 中身がポン
-function showResult(p, deps, it) {
+function showResult(p, deps, list) {
+  const top = Math.max(...list.map((x) => x.rarity));
+  const one = list.length === 1 ? list[0] : null;
   const s = sheet('g-result-card',
-    h('button', { class: `g-capsule r${it.rarity}`, 'aria-label': 'あける', onclick: () => open() }, h('i', { class: 'top' }), h('i', { class: 'bot' })),
+    h('button', { class: `g-capsule r${top}`, 'aria-label': 'あける', onclick: () => open() }, h('i', { class: 'top' }), h('i', { class: 'bot' })),
     h('p', { class: 'g-tap' }, icon('pointer'), ' タップして あける'));
   const card = s.el.querySelector('.sheet-card');
   let opened = false;
@@ -210,12 +234,13 @@ function showResult(p, deps, it) {
     card.classList.add('open');
     deps.celebrate?.();
     setTimeout(() => {
-      card.replaceChildren(
-        h('p', { class: 'sheet-title' }, it.rarity === 3 ? 'とても めずらしいのが 出た！' : 'もらった！'),
-        h('ul', { class: 'g-got' }, h('li', { class: `r${it.rarity}` }, thumb(it), h('i', { class: 'g-new' }, 'NEW'), h('b', {}, it.label), stars(it.rarity))),
-        h('p', { class: 'sheet-sub' }, it.kind === 'fence' ? '「つくる」の 柵で たてられるよ' : it.kind === 'piece' ? '「つくる」の おきもので おけるよ' : ''),
+      card.replaceChildren(...[
+        h('p', { class: 'sheet-title' }, top === 3 ? 'とても めずらしいのが 出た！' : one ? 'もらった！' : `${list.length}こ もらった！`),
+        h('ul', { class: `g-got ${one ? '' : 'many'}` }, list.map((it, i) => h('li', { class: `r${it.rarity}`, style: `--i:${i}` },
+          thumb(it), h('i', { class: 'g-new' }, 'NEW'), h('b', {}, it.label), stars(it.rarity)))),
+        one ? h('p', { class: 'sheet-sub' }, one.kind === 'fence' ? '「つくる」の 柵で たてられるよ' : one.kind === 'piece' ? '「つくる」の おきもので おけるよ' : '') : null,
         h('button', { class: 'btn primary', onclick: () => { s.close(); openGacha(p, deps); } }, 'OK'),
-      );
+      ].filter(Boolean));
     }, 420);
   }
 }
