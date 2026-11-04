@@ -90,6 +90,10 @@ export function merge3(b, l, r, key) {
 // 1人分（プロフィール）をまとめる。base がないとき（はじめての引っ越し）は、
 // ポイントを「クラウドの分 ＋ この端末にしかない記録の分」にする。
 export function mergeProfile(base, local, remote) {
+  // ガチャ石は、前にそろえたときにまだ無かったら 0こ だったとして 増えた分を足す（両方の端末でこうかんしても消えない）
+  if (isObj(base) && !(isObj(base.gacha) && typeof base.gacha.stones === 'number')) {
+    base = { ...base, gacha: { ...(isObj(base.gacha) ? base.gacha : {}), stones: 0 } };
+  }
   const out = merge3(base ?? undefined, local, remote);
   if (!base && isObj(local) && isObj(remote)) {
     const rk = new Set((remote.log || []).map(logKey));
