@@ -89,6 +89,42 @@ export async function listTracks() {
 
 export function selectedId() { return meta.selected; }
 export function setSelected(id) { meta.selected = id; saveMeta(meta); }
+
+// ---- プレイリスト（長く聴く用） ------------------------------------------------
+// meta.playlist: 曲idの並び / meta.mode: 'one'=1曲くりかえし, 'all'=じゅんばんにくりかえし, 'shuffle'=シャッフル / meta.useList: リストで流す
+export const playlist = () => (Array.isArray(meta.playlist) ? meta.playlist : []);
+export const mode = () => meta.mode || 'all';
+export const useList = () => !!meta.useList && playlist().length > 0;
+export function setMode(m) { meta.mode = m; saveMeta(meta); }
+export function setUseList(on) { meta.useList = !!on; saveMeta(meta); }
+export function togglePlaylist(id) {
+  const l = playlist().slice();
+  const i = l.indexOf(id);
+  if (i >= 0) l.splice(i, 1); else l.push(id);
+  meta.playlist = l;
+  if (!l.length) meta.useList = false;
+  saveMeta(meta);
+}
+export function movePlaylist(id, dir) {
+  const l = playlist().slice();
+  const i = l.indexOf(id); const j = i + dir;
+  if (i < 0 || j < 0 || j >= l.length) return;
+  [l[i], l[j]] = [l[j], l[i]];
+  meta.playlist = l; saveMeta(meta);
+}
+// つぎにかける曲（リストにない曲idは とばす）
+function nextId(current, valid) {
+  const l = playlist().filter((id) => valid.has(id));
+  if (!l.length) return null;
+  if (mode() === 'one') return current;
+  if (mode() === 'shuffle') {
+    if (l.length === 1) return l[0];
+    let n; do { n = l[Math.floor(Math.random() * l.length)]; } while (n === current);
+    return n;
+  }
+  const i = l.indexOf(current);
+  return l[(i + 1) % l.length];
+}
 export function volume() { return meta.volume ?? 0.6; }
 export function setVolume(v) { meta.volume = v; saveMeta(meta); if (player) player.volume = v; }
 
@@ -175,24 +211,44 @@ async function sourceFor(track) {
   return playerUrl;
 }
 
-export async function play(id = meta.selected) {
+// 再生のたびに番号をふる。読みこみ中に stop() や別の play() がきたら、古いほうは鳴らさない
+let playToken = 0;
+
+export async function play(id, opts = {}) {
   stop();
+  const token = playToken;
   const tracks = await listTracks();
+  if (token !== playToken) return null;
+  const valid = new Set(tracks.map((t) => t.id));
+  const listIds = playlist().filter((x) => valid.has(x));
+  const listOn = (opts.list ?? (id === undefined && useList())) && listIds.length > 0;
+  if (id === undefined) id = listOn ? (mode() === 'shuffle' ? listIds[Math.floor(Math.random() * listIds.length)] : listIds[0]) : meta.selected;
   const track = tracks.find((t) => t.id === id) || STANDARD[0];
   const el = document.createElement(track.kind === 'video' ? 'video' : 'audio');
-  el.loop = true;
+  // リストで流すときは、1曲おわったらつぎの曲へ（1曲くりかえしだけ loop）
+  el.loop = !listOn || mode() === 'one' || listIds.length < 2;
+  if (listOn && !el.loop) el.addEventListener('ended', () => { if (token === playToken) { const n = nextId(track.id, valid); if (n) play(n, { list: true }).catch(() => {}); } });
   el.playsInline = true;
   el.setAttribute('playsinline', '');
   el.volume = volume();
   el.style.display = 'none';
+  const src = await sourceFor(track);
+  if (token !== playToken) { if (src.startsWith('blob:')) URL.revokeObjectURL(src); return null; }
   document.body.append(el);
   player = el;
-  el.src = await sourceFor(track);
-  await el.play();
+  el.src = src;
+  try {
+    await el.play();
+  } catch (e) {
+    if (token !== playToken) return null;
+    throw e;
+  }
+  if (token !== playToken) { el.pause(); el.remove(); return null; }
   return track;
 }
 
 export function stop() {
+  playToken += 1;
   if (player) { player.pause(); player.remove(); player = null; }
   if (playerUrl) { URL.revokeObjectURL(playerUrl); playerUrl = null; }
 }

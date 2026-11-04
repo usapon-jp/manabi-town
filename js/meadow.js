@@ -149,6 +149,7 @@ function makeGround(cut, wind) {
     shader.uniforms.uCut = cut.uniforms.uCut;
     shader.uniforms.uCutR = cut.uniforms.uCutR;
     shader.uniforms.uDig = cut.uniforms.uDig;
+    shader.uniforms.uWater = cut.uniforms.uWater;
     shader.uniforms.uWaterTime = wind.uTime;
     shader.vertexShader = `varying vec2 vXZ;
       uniform sampler2D uCut; uniform sampler2D uDig; uniform float uCutR;
@@ -163,7 +164,7 @@ function makeGround(cut, wind) {
       .replace('#include <begin_vertex>', `#include <begin_vertex>
         vXZ = position.xz;
         transformed.y -= digD(position.xz);`);
-    shader.fragmentShader = 'varying vec2 vXZ;\nuniform sampler2D uCut;\nuniform sampler2D uDig;\nuniform float uCutR;\nuniform float uWaterTime;\n' + shader.fragmentShader.replace('#include <color_fragment>', `#include <color_fragment>
+    shader.fragmentShader = 'varying vec2 vXZ;\nuniform sampler2D uCut;\nuniform sampler2D uDig;\nuniform sampler2D uWater;\nuniform float uCutR;\nuniform float uWaterTime;\n' + shader.fragmentShader.replace('#include <color_fragment>', `#include <color_fragment>
       float pm = texture2D(uCut, (vXZ + uCutR) / (2.0 * uCutR)).r;
       float inner = smoothstep(0.42, 0.62, pm);
       float rim = smoothstep(0.28, 0.42, pm) * (1.0 - inner);
@@ -178,11 +179,11 @@ function makeGround(cut, wind) {
       float bw = texture2D(uDig, (vXZ + uCutR) / (2.0 * uCutR)).r;
       float wet = smoothstep(0.1, 0.3, bw);
       float mud = smoothstep(0.5, 0.68, bw);
-      float wat = smoothstep(0.86, 0.97, bw);
+      float wat = smoothstep(0.45, 0.62, texture2D(uWater, (vXZ + uCutR) / (2.0 * uCutR)).r);
       diffuseColor.rgb = mix(diffuseColor.rgb, diffuseColor.rgb * 0.55, wet * (1.0 - wat));
       diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.26, 0.17, 0.1) * (0.9 + 0.1 * sp), mud * (1.0 - wat));
       float rp = sin(vXZ.x * 2.7 + uWaterTime * 1.1) * sin(vXZ.y * 2.3 - uWaterTime * 0.8) + 0.5 * sin((vXZ.x + vXZ.y) * 5.1 + uWaterTime * 2.0);
-      vec3 wcol = mix(vec3(0.22, 0.62, 0.8), vec3(0.05, 0.28, 0.5), smoothstep(0.9, 1.0, bw));
+      vec3 wcol = mix(vec3(0.3, 0.68, 0.84), vec3(0.05, 0.28, 0.5), smoothstep(0.3, 1.0, bw));
       wcol += vec3(0.5, 0.6, 0.6) * pow(max(0.0, 0.5 + 0.5 * rp), 5.0) * 0.35;
       diffuseColor.rgb = mix(diffuseColor.rgb, wcol, wat);`);
   };

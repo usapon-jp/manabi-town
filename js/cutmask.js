@@ -1,6 +1,7 @@
 // 草をかった場所・ほった場所の地図。見えない大きな絵（と数字の表）で持つ。
 //   絵（canvas）  : 赤＝みち、緑＝花だんの土。 … 草・花が短くなり、地面が土の色になる
 //   ほり（dig）   : 0〜1。同じ場所をなぞるたびに 1/3 ずつふかくなり、3回で水がわく
+//   水（water）   : 3回ほった所（や池）から、つながった溝へ水がながれこむ
 // 方眼ではなく、なぞったとおりの自由な形がそのまま出る。
 import * as THREE from 'three';
 
@@ -31,6 +32,13 @@ export function createCutMask() {
   digTex.minFilter = THREE.LinearFilter; digTex.magFilter = THREE.LinearFilter;
   let touched = [];
   let digging = false;
+  // 水の表: 0 か 255。3回ほった所・池から、つながった溝（1回以上ほった所）が水になる
+  const water = new Uint8Array(N * N);
+  const waterTex = new THREE.DataTexture(water, N, N, THREE.RedFormat, THREE.UnsignedByteType);
+  waterTex.flipY = false; waterTex.generateMipmaps = false;
+  waterTex.minFilter = THREE.LinearFilter; waterTex.magFilter = THREE.LinearFilter;
+  let sources = [];   // 最初からある池など [{x,z,r}]
+  const queue = new Int32Array(N * N);
   // かった所（草が短い所）の表。花をまける場所の判定に使う
   const cutCpu = new Uint8Array(N * N);
 
@@ -109,7 +117,7 @@ export function createCutMask() {
   }
 
   const api = {
-    uniforms: { uCut: { value: tex }, uCutR: { value: CUT_R }, uDig: { value: digTex } },
+    uniforms: { uCut: { value: tex }, uCutR: { value: CUT_R }, uDig: { value: digTex }, uWater: { value: waterTex } },
     // pts = [x0,z0,x1,z1,...] をつないで、半径 r の筆でなぞる。ch: 'r'=かる 'e'=草にもどす 'b'=ほる（ほりは digEnd までが1回）
     stroke(pts, r, ch = 'r') {
       if (ch === 'b' && !digging) digging = true;
@@ -148,7 +156,7 @@ export function createCutMask() {
         const x = -CUT_R + (xx + 0.5) * w; const z = -CUT_R + (yy + 0.5) * w;
         let v = 0;
         if (inside(pts, x, z)) v = 1;
-        else { const d = distToPoly(pts, x, z); if (d < 1.4) v = 0.6 * (1 - d / 1.4); }
+        else { const d = distToPoly(pts, x, z); if (d < 1.4) v = 0.28 * (1 - d / 1.4); }
         if (v > dig[i]) { dig[i] = v; disp[i] = v; u8[i] = Math.round(v * 255); }
       }
       digTex.needsUpdate = true;
@@ -158,16 +166,42 @@ export function createCutMask() {
       const i = cellOf(x, z);
       return i < 0 ? 0 : DIG_DEPTH * sstep(0.1, 0.9, disp[i]);
     },
-    // 水があるか（3回ほった所）
-    isWater(x, z) { const i = cellOf(x, z); return i >= 0 && disp[i] >= 0.9; },
+    // 池など、最初からある水。つなげた溝に水がながれこむ
+    setSources(list) { sources = list || []; },
+    // 水をつくりなおす。3回ほった所・池から、つながった溝（1回以上ほった所）まで水になる。ほる操作のあとに呼ぶ
+    updateWater() {
+      water.fill(0);
+      let qh = 0; let qt = 0;
+      const w = (2 * CUT_R) / N;
+      const seed = (i) => { if (!water[i]) { water[i] = 255; queue[qt++] = i; } };
+      for (let i = 0; i < N * N; i++) if (disp[i] >= 0.9) seed(i);
+      for (const s of sources) {
+        const x0 = Math.max(0, Math.floor(toPx(s.x - s.r))); const x1 = Math.min(N - 1, Math.ceil(toPx(s.x + s.r)));
+        const y0 = Math.max(0, Math.floor(toPx(s.z - s.r))); const y1 = Math.min(N - 1, Math.ceil(toPx(s.z + s.r)));
+        for (let yy = y0; yy <= y1; yy++) for (let xx = x0; xx <= x1; xx++) {
+          if (Math.hypot(-CUT_R + (xx + 0.5) * w - s.x, -CUT_R + (yy + 0.5) * w - s.z) <= s.r) seed(yy * N + xx);
+        }
+      }
+      while (qh < qt) {
+        const i = queue[qh++];
+        const x = i % N; const y = (i / N) | 0;
+        if (x > 0) { const j = i - 1; if (!water[j] && disp[j] >= 0.3) seed(j); }
+        if (x < N - 1) { const j = i + 1; if (!water[j] && disp[j] >= 0.3) seed(j); }
+        if (y > 0) { const j = i - N; if (!water[j] && disp[j] >= 0.3) seed(j); }
+        if (y < N - 1) { const j = i + N; if (!water[j] && disp[j] >= 0.3) seed(j); }
+      }
+      waterTex.needsUpdate = true;
+    },
+    // 水があるか
+    isWater(x, z) { const i = cellOf(x, z); return i >= 0 && water[i] > 0; },
     // 草をかった土の上か（花のタネをまける所）。ほった所はだめ
     isCut(x, z) { const i = cellOf(x, z); return i >= 0 && cutCpu[i] === 1 && disp[i] < 0.05; },
     clear() {
-      dig.fill(0); sm.fill(0); disp.fill(0); u8.fill(0); cutCpu.fill(0); touched = []; digging = false;
+      dig.fill(0); sm.fill(0); disp.fill(0); u8.fill(0); cutCpu.fill(0); water.fill(0); touched = []; digging = false;
       ctx.globalCompositeOperation = 'source-over';
       ctx.fillStyle = '#000'; ctx.fillRect(0, 0, N, N);
       ctx.globalCompositeOperation = 'lighten';
-      tex.needsUpdate = true; digTex.needsUpdate = true;
+      tex.needsUpdate = true; digTex.needsUpdate = true; waterTex.needsUpdate = true;
     },
   };
   return api;

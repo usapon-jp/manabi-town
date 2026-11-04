@@ -11,10 +11,16 @@ export const GRADES = [
   { id: 'j1', label: '中1', bucket: 'j' },
   { id: 'j2', label: '中2', bucket: 'j' },
   { id: 'j3', label: '中3', bucket: 'j' },
+  // おとな（保護者が自分のために使う）。子ども用クエストは出さない（js/adult.js）
+  { id: 'adult', label: 'おとな', bucket: 'j' },
 ];
 
 export const SUBJECTS = ['国語', '算数・数学', '理科', '社会', '英語', 'その他'];
 
+const BACKUP_KEY = 'manabi-town-backup';   // 1日1回とっておく、ひとつ前の正常なデータ
+const BROKEN_KEY = 'manabi-town-broken';   // 読めなかったデータの原文（あとで直せるように捨てない）
+
+let lastWritten = null; // このタブが最後に書いた中身（ほかのタブが書いたかを見分ける）
 let state = load();
 const listeners = new Set();
 
@@ -22,23 +28,136 @@ function empty() {
   return { version: VERSION, profiles: [], currentId: null };
 }
 
-function migrate(s) {
-  if (!s || typeof s !== 'object') return empty();
-  if (s.version === VERSION) return s;
-  return empty();
+// 形を確かめて、足りないところをおぎなう。だめなら null
+function normalize(s) {
+  if (!s || typeof s !== 'object' || s.version !== VERSION || !Array.isArray(s.profiles)) return null;
+  const obj = (v) => (v && typeof v === 'object' && !Array.isArray(v) ? v : {});
+  const arr = (v) => (Array.isArray(v) ? v : []);
+  s.profiles = s.profiles.filter((p) => p && typeof p === 'object' && typeof p.id === 'string').map((p) => ({
+    ...p,
+    name: String(p.name ?? ''),
+    points: Number.isFinite(Number(p.points)) ? Number(p.points) : 0,
+    items: arr(p.items).filter((i) => i && typeof i === 'object'),
+    quizzes: arr(p.quizzes).filter((q) => q && typeof q === 'object' && Array.isArray(q.questions)),
+    daily: obj(p.daily),
+    log: arr(p.log),
+  }));
+  if (!s.profiles.some((p) => p.id === s.currentId)) s.currentId = s.profiles[0]?.id ?? null;
+  return s;
+}
+
+function readKey(key) {
+  let raw = null;
+  try {
+    raw = localStorage.getItem(key);
+    return raw ? { raw, data: normalize(JSON.parse(raw)) } : null;
+  } catch (e) { return { raw, data: null }; }
 }
 
 function load() {
-  try {
-    const raw = localStorage.getItem(KEY);
-    if (raw) return migrate(JSON.parse(raw));
-  } catch (e) { /* 保存が使えない環境でも動かす */ }
+  let main;
+  try { main = readKey(KEY); } catch (e) { return empty(); }
+  if (!main) return empty();
+  if (main.data) { lastWritten = main.raw; return main.data; }
+  // 読めなかった: 原文をとっておいて、バックアップからもどす
+  try { if (main.raw) localStorage.setItem(BROKEN_KEY, main.raw); } catch (e) { /* 容量がないときは あきらめる */ }
+  const backup = readKey(BACKUP_KEY);
+  if (backup?.data) {
+    setTimeout(() => window.dispatchEvent(new CustomEvent('manabi-restored')), 1500);
+    return backup.data;
+  }
   return empty();
 }
 
 export function save() {
-  try { localStorage.setItem(KEY, JSON.stringify(state)); } catch (e) { /* 無視 */ }
+  let ok = true;
+  try {
+    const raw = JSON.stringify(state);
+    localStorage.setItem(KEY, raw);
+    lastWritten = raw;
+    // 1日1回、正常に書けたデータをバックアップにも入れる
+    const t = today();
+    if (localStorage.getItem(`${BACKUP_KEY}-day`) !== t) {
+      localStorage.setItem(BACKUP_KEY, raw);
+      localStorage.setItem(`${BACKUP_KEY}-day`, t);
+    }
+  } catch (e) {
+    ok = false;
+  }
+  // 保存できなかったら、画面でお知らせする（main.js）
+  window.dispatchEvent(new CustomEvent(ok ? 'manabi-saved' : 'manabi-save-error'));
   listeners.forEach((fn) => fn());
+  return ok;
+}
+
+// ほかのタブ（同じアプリを2つ開いたとき）が保存したら、こちらも読みなおす。
+// これがないと、あとから保存したほうが前の進みを上書きしてしまう。
+function syncFromOtherTab() {
+  let raw;
+  try { raw = localStorage.getItem(KEY); } catch (e) { return; }
+  if (!raw || raw === lastWritten) return;
+  const next = readKey(KEY)?.data;
+  if (!next) return;
+  lastWritten = raw;
+  state = next;
+  listeners.forEach((fn) => fn());
+  window.dispatchEvent(new CustomEvent('manabi-synced'));
+}
+if (typeof window !== 'undefined') {
+  window.addEventListener('storage', (e) => { if (e.key === KEY) syncFromOtherTab(); });
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) syncFromOtherTab(); });
+}
+
+// ほかの端末の進みを入れる（sync.js から）。manabi-saved は出さない（送りかえさないため）
+// ひらいている画面（クイズ・シートなど）が持っている人やテストの入れ物は そのまま使いつづけるので、
+// 入れかえずに 中身だけ書きかえる（入れかえると、そのあとの ポイントが 古い入れ物に入って消える）
+const plain = (v) => v !== null && typeof v === 'object' && !Array.isArray(v);
+const keyOf = (x) => (plain(x) ? (x.id ?? x.key ?? null) : null);
+function patchInPlace(t, s) {
+  if (Array.isArray(t)) {
+    const pool = new Map();
+    t.forEach((x) => { const k = keyOf(x); if (k != null && !pool.has(k)) pool.set(k, x); });
+    const next = s.map((x) => {
+      const k = keyOf(x); const old = k != null ? pool.get(k) : null;
+      if (old && plain(x)) { pool.delete(k); patchInPlace(old, x); return old; }
+      return x;
+    });
+    t.length = 0; t.push(...next);
+    return t;
+  }
+  Object.keys(t).forEach((k) => { if (!(k in s)) delete t[k]; });
+  Object.keys(s).forEach((k) => {
+    const a = t[k]; const b = s[k];
+    if ((plain(a) && plain(b)) || (Array.isArray(a) && Array.isArray(b))) patchInPlace(a, b);
+    else t[k] = b;
+  });
+  return t;
+}
+
+export function replaceProfiles(profiles, currentId) {
+  // 送る途中のデータと 入れ物を わけあわないように、写しをつくる
+  const next = normalize({ version: VERSION, profiles: JSON.parse(JSON.stringify(profiles)), currentId: currentId ?? state.currentId });
+  if (!next) return false;
+  const old = new Map(state.profiles.map((p) => [p.id, p]));
+  state.profiles = next.profiles.map((p) => (old.has(p.id) ? patchInPlace(old.get(p.id), p) : p));
+  state.currentId = next.currentId;
+  try { const raw = JSON.stringify(state); localStorage.setItem(KEY, raw); lastWritten = raw; } catch (e) { /* 次の保存で もういちど */ }
+  listeners.forEach((fn) => fn());
+  window.dispatchEvent(new CustomEvent('manabi-synced'));
+  return true;
+}
+
+// 書き出し（保存できないときに、データをコピーしてとっておく）
+export function exportData() { return JSON.stringify(state); }
+
+// 書き出したデータを もどす。成功なら true
+export function importData(raw) {
+  let data;
+  try { data = normalize(JSON.parse(String(raw || '').trim())); } catch (e) { return false; }
+  if (!data || !data.profiles.length) return false;
+  state = data;
+  save();
+  return true;
 }
 
 export function onChange(fn) { listeners.add(fn); }

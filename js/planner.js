@@ -36,7 +36,7 @@ export function buildSteps(item) {
     // 入れた日からしめきりまでの日数でステップ数を決める（日がたっても数がかわらないように）
     const from = item.createdOn ? daysUntil(item.createdOn) : 0;
     const days = Math.max(1, Math.min(60, daysUntil(item.date) - from + 1));
-    return Array.from({ length: days }, () => `「${item.title}」を15分`);
+    return Array.from({ length: days }, () => `「${item.title}」を${item.minutes || 15}分`);
   }
   if (item.type === 'test') {
     const pages = parsePages(`${item.range} ${item.title}`);
@@ -45,10 +45,57 @@ export function buildSteps(item) {
       : ['はんいをざっと読む', '大事なところをノートにまとめる', '問題をとく'];
     return [...learn, 'まちがえた問題をとき直す', 'さいごにぜんぶ見直す'];
   }
-  // 宿題
+  // 宿題は1ページずつ（マス目に1ページ1マスでスタンプをおす）
   const pages = parsePages(`${item.title} ${item.range}`);
-  if (pages.length) return chunkPages(pages, 3).map(([a, b]) => `${pageLabel(a, b)} をやる`);
+  if (pages.length) return homeworkPages(item).map((n) => `p.${n} をやる`);
   return [`${item.title} をおわらせる`];
+}
+
+// 宿題のページ番号の列（p.102〜107 → [102,103,...,107]）
+export function homeworkPages(item) {
+  const out = [];
+  for (const [a, b] of parsePages(`${item.title} ${item.range}`)) for (let n = a; n <= b; n += 1) out.push(n);
+  return out;
+}
+
+// むかしの宿題は3ページで1ステップだった。ページ単位に数え直す（1回だけ）
+export function migrateHomework(item) {
+  if (item.type !== 'homework' || item.perPage) return false;
+  item.perPage = true;
+  const ranges = parsePages(`${item.title} ${item.range}`);
+  if (!ranges.length || !item.stepsDone) return true;
+  const sizes = chunkPages(ranges, 3).map(([a, b]) => b - a + 1);
+  const pagesFor = (n) => sizes.slice(0, n).reduce((x, y) => x + y, 0);
+  const total = sizes.length;
+  const doneSteps = Math.min(total, item.stepsDone);
+  // 日ごとの記録も、古い順にページ数へ
+  const log = item.doneLog || {};
+  const days = Object.keys(log).sort();
+  let before = doneSteps - days.reduce((n, d) => n + (log[d] || 0), 0);
+  const next = {};
+  for (const d of days) {
+    const after = Math.min(total, Math.max(0, before) + (log[d] || 0));
+    next[d] = pagesFor(after) - pagesFor(Math.max(0, before));
+    before = after;
+  }
+  item.stepsDone = pagesFor(doneSteps);
+  item.doneLog = next;
+  return true;
+}
+
+// いそぎの宿題（きょう・あした提出、または すぎている）。ページのマス目に使う
+export function urgentHomework(items) {
+  return items
+    .filter((i) => i.type === 'homework' && !i.done && daysUntil(i.date) <= 1)
+    .map((item) => {
+      const pages = homeworkPages(item);
+      const steps = buildSteps(item);
+      const done = Math.min(item.stepsDone || 0, steps.length);
+      const doneToday = (item.doneLog || {})[today()] || 0;
+      return { item, pages, total: steps.length, done, doneToday, days: daysUntil(item.date) };
+    })
+    // ぜんぶできても「だした！」を押すまでは出しておく（出しわすれ防止）
+    .sort((a, b) => a.item.date.localeCompare(b.item.date));
 }
 
 // しめきりまでに使える日数（きょうをふくむ）。テストと宿題は前の日までに終える

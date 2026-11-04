@@ -51,7 +51,12 @@ export function createWorld(container) {
   const refreshTown = () => {
     const p = currentProfile();
     const lv = p ? levelInfo(totalXp(p)).lv : 1;
-    if (lv !== shownLv) { town.setLevel(lv, shownLv > 0); shownLv = lv; }
+    if (lv !== shownLv) {
+      town.setLevel(lv, shownLv > 0); shownLv = lv;
+      // レベル3から町に池がある。そこへ溝をつなぐと、水がながれこむ
+      meadow.cut.setSources(lv >= 3 ? [{ x: -9.5, z: 3.5, r: 2.7 }] : []);
+      meadow.cut.updateWater();
+    }
   };
   refreshTown();
   onChange(refreshTown);
