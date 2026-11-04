@@ -442,6 +442,7 @@ export function createTown(scene) {
     return { ...p, group, shown: false, pop: 1 };
   });
   const walls = items.filter((it) => it.r > 0);
+  let extraWalls = [];
   let lastLv = 0;
 
   return {
@@ -473,9 +474,22 @@ export function createTown(scene) {
         it.group.userData.update?.(t, camPos, it.group.position);
       }
     },
+    // 子どもが作った柵・橋の手すりなど（まるい壁の並び）。builds.js が入れかえる
+    setWalls(list) { extraWalls = list || []; },
     // 建物の中に入らないよう、外に押しだす。押しだしたら true
     pushOut(pos) {
       let pushed = false;
+      for (const w of extraWalls) {
+        const dx = pos.x - w.x; const dz = pos.z - w.z;
+        const d = Math.hypot(dx, dz);
+        const min = w.r + 0.35;
+        if (d < min) {
+          const k = d > 0.0001 ? min / d : 0;
+          pos.x = w.x + (k ? dx * k : min);
+          pos.z = w.z + (k ? dz * k : 0);
+          pushed = true;
+        }
+      }
       for (const it of walls) {
         if (!it.shown || it.pop < 0.6) continue;
         const dx = pos.x - it.x;

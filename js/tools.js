@@ -20,4 +20,20 @@ export const TOOLS = [
     svg: svg('<path d="M20 4l-8.5 8.5"/><path d="M17 3l4 4"/><path d="M11.5 12.5L6.8 17.2a2.1 2.1 0 0 1-3-3L8.5 9.5"/>'),
   },
 ];
+// 柵・橋・おきもの（もちものはガチャでふえる。catalog.js）
+TOOLS.push(
+  {
+    id: 'fence', label: '柵', unlockLv: 1, op: 'fence', width: 'none',
+    svg: svg('<path d="M4 21V8l2-3 2 3v13"/><path d="M10 21V8l2-3 2 3v13"/><path d="M16 21V8l2-3 2 3v13"/><path d="M3 12h18"/><path d="M3 17h18"/>'),
+  },
+  {
+    id: 'bridge', label: '橋', unlockLv: 1, op: 'bridge', width: 'none',
+    svg: svg('<path d="M2 15c4-8 16-8 20 0"/><path d="M2 20h20"/><path d="M6 20v-6"/><path d="M12 20V9"/><path d="M18 20v-6"/>'),
+  },
+  {
+    id: 'piece', label: 'おきもの', unlockLv: 1, op: 'place', width: 'none',
+    svg: svg('<path d="M3 21h18"/><path d="M5 21V11l7-6 7 6v10"/><path d="M10 21v-6h4v6"/>'),
+  },
+);
+
 export const toolById = (id) => TOOLS.find((t) => t.id === id) || TOOLS[0];

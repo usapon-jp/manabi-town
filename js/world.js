@@ -71,7 +71,7 @@ export function createWorld(container) {
   canvas.style.touchAction = 'none';
   // 「つくる」: 草をかって道をつくるなど、子どもが草原を作りかえる（editor.js）
   const editor = createEditor({
-    container, scene, cut: meadow.cut, wind: meadow.wind,
+    container, scene, cut: meadow.cut, wind: meadow.wind, setWalls: (list) => town.setWalls(list),
     rotate: (d) => { view.angle += d; },
     pick: (e) => {
       const rect = canvas.getBoundingClientRect();
@@ -146,7 +146,8 @@ export function createWorld(container) {
       dash: move.dash,
       jump: takeJump(),
     });
-    editor.tick(dt, actor.position, move.dash);
+    editor.tick(dt, actor.position, move.dash, actor.heading);
+    editor.update(time.value);
     marker.material.opacity = Math.max(0, marker.material.opacity - dt * 1.2);
     town.update(dt, time.value, camera.position);
 
@@ -227,6 +228,7 @@ function createActor(scene, config, town) {
 
   return {
     position: root.position,
+    get heading() { return root.rotation.y; },
     walkTo(p) { state.target = p.clone(); },
     jump() { state.jumpT = 0; },
     update(dt, ctl = { x: 0, z: 0, mag: 0, dash: false, jump: false }) {

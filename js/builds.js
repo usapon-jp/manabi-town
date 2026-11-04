@@ -4,6 +4,8 @@ import * as THREE from 'three';
 import { Bag, GEO, rboxGeo, seeded } from './townkit.js';
 import { createPlantLayer, stampItems, LAYER_CAP } from './plants.js';
 import { heightAt } from './terrain.js';
+import { buildFence, buildBridge, registerDeck, clearDecks } from './structures.js';
+import { buildPiece } from './pieces.js';
 
 const { CYL } = GEO;
 export const STAMP_STEP = 0.5;      // 花をうえるときの、スタンプのきょり
@@ -58,15 +60,27 @@ function buildRing(op) {
   return b.mesh();
 }
 
-export function createBuilds({ scene, wind, cut }) {
+export function createBuilds({ scene, wind, cut, setWalls }) {
   const layer = createPlantLayer(wind);
   scene.add(layer.group);
   const rings = new THREE.Group();
   scene.add(rings);
 
+  const structs = new THREE.Group();   // 柵・橋
+  scene.add(structs);
+  let walls = [];                      // 柵・橋のてすりの、まるい壁
+  let updaters = [];                   // 毎フレーム動かすもの（レイズドベッドの花のゆれ）
+  let batching = false;
+  const flushWalls = () => { if (!batching) setWalls?.(walls); };
+
   function disposeRings() {
     rings.children.forEach((m) => m.geometry?.dispose());
     rings.clear();
+    structs.traverse((o) => o.geometry?.dispose());
+    structs.clear();
+    walls = [];
+    updaters = [];
+    clearDecks();
   }
 
   // 1つの操作を足す（plant の途中経過は editor が addStamp で足す）
@@ -77,17 +91,24 @@ export function createBuilds({ scene, wind, cut }) {
     else if (op.t === 'pond') cut.pond(op.pts);
     else if (op.t === 'plant') for (let i = 0; i < op.pts.length / 2; i++) stampItems(op.s, op.pts[i * 2], op.pts[i * 2 + 1], op.seed, i).forEach((it) => { if (cut.digAt(it.x, it.z) < 0.02) layer.add(it); });
     else if (op.t === 'ring') { rings.add(buildRing(op)); cut.fill(op.pts); }
+    else if (op.t === 'fence') { const f = buildFence(op); structs.add(f.mesh); walls.push(...f.walls); flushWalls(); }
+    else if (op.t === 'place') { const pc = buildPiece(op); if (pc) { structs.add(pc.mesh); walls.push(...pc.walls); if (pc.update) updaters.push((t) => pc.update(t)); flushWalls(); } }
+    else if (op.t === 'bridge') { const b = buildBridge(op); structs.add(b.mesh); walls.push(...b.walls); registerDeck(b.deck); flushWalls(); }
   }
 
   return {
     // 保存された操作ぜんぶから、はじめから作りなおす
     rebuild(ops) {
       cut.clear(); layer.clear(); disposeRings();
+      batching = true;
       for (const op of ops) if (op.t === 'dig' || op.t === 'pond') apply(op);   // 高さが決まってから、花やかこみを置く
       for (const op of ops) if (op.t !== 'dig' && op.t !== 'pond') apply(op);
+      batching = false;
+      setWalls?.(walls);
       cut.updateWater();
     },
     apply,
+    update(t) { for (const f of updaters) f(t); },
     addStamp(species, x, z, seed, index) { stampItems(species, x, z, seed, index).forEach((it) => { if (cut.digAt(it.x, it.z) < 0.02) layer.add(it); }); },
     // その種類にまだ入れるか
     room(species, extra = 3) { return layer.count(species) + extra <= LAYER_CAP; },
