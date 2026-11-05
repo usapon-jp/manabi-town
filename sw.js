@@ -1,6 +1,6 @@
 // オフラインでも開けるように、アプリの部品を端末にしまっておく。
 // 部品を変えたら VERSION を上げる（古いしまい場所は消える）。
-const VERSION = 'manabi-v68';
+const VERSION = 'manabi-v70';
 const FILES = [
   './',
   'index.html',
@@ -17,9 +17,10 @@ const FILES = [
   'js/bgm.js',
   'js/builds.js',
   'js/bonus.js',
+  'js/more.js',
   'js/ai.js',
   'js/review.js',
-  'js/tests.js', 'js/rescue.js', 'js/scan.js', 'js/feedback.js', 'js/ask.js', 'js/townask.js', 'js/townguide.js', 'js/coach.js', 'js/adult.js', 'js/subjects.js', 'js/challenge.js', 'js/voice.js', 'js/photos.js', 'js/pickphoto.js',
+  'js/tests.js', 'js/rescue.js', 'js/scan.js', 'js/feedback.js', 'js/ask.js', 'js/townask.js', 'js/townguide.js', 'js/coach.js', 'js/adult.js', 'js/subjects.js', 'js/challenge.js', 'js/voice.js', 'js/photos.js', 'js/pickphoto.js', 'js/rangebar.js',
   'js/sync.js', 'js/merge.js', 'js/account.js', 'js/notify.js',
   'js/icons.js', 'js/gacha.js', 'js/data/gacha.js', 'js/catalog.js',
   'js/controls.js',
