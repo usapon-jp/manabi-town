@@ -123,6 +123,7 @@ export function createBuilds({ scene, wind, cut, setWalls, setTown }) {
   function apply(op) {
     if (op.t === 'path') cut.stroke(op.pts, op.r);
     else if (op.t === 'dig') cut.digStroke(op.pts, op.r);
+    else if (op.t === 'fill') cut.fillStroke(op.pts, op.r);
     else if (op.t === 'seed') cut.stroke(op.pts, op.r, 'e');
     else if (op.t === 'pond') cut.pond(op.pts);
     else if (op.t === 'plant') for (let i = 0; i < op.pts.length / 2; i++) stampItems(op.s, op.pts[i * 2], op.pts[i * 2 + 1], op.seed, i).forEach((it) => { if (cut.digAt(it.x, it.z) < 0.02) layer.add(it); });
@@ -139,8 +140,8 @@ export function createBuilds({ scene, wind, cut, setWalls, setTown }) {
       batching = true;
       const { eff, town } = foldAll(ops);
       setTown?.(town);
-      for (const op of eff) if (op.t === 'dig' || op.t === 'pond') apply(op);   // 高さが決まってから、花やかこみを置く
-      for (const op of eff) if (op.t !== 'dig' && op.t !== 'pond') apply(op);
+      for (const op of eff) if (op.t === 'dig' || op.t === 'pond' || op.t === 'fill') apply(op);   // 高さが決まってから、花やかこみを置く
+      for (const op of eff) if (op.t !== 'dig' && op.t !== 'pond' && op.t !== 'fill') apply(op);
       batching = false;
       setWalls?.(walls);
       cut.updateWater();
