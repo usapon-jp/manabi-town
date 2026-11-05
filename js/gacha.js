@@ -10,7 +10,7 @@
 import { h, toast } from './ui.js';
 import { save, spendPoints, today, currentProfile } from './store.js';
 import { icon } from './icons.js';
-import { levelInfo, totalXp } from './progress.js';
+import { levelOf } from './progress.js';
 import { KINDS, RARITY, STONES, ITEMS } from './data/gacha.js';
 
 const byId = new Map(ITEMS.map((i) => [i.id, i]));
@@ -28,7 +28,7 @@ function g(p) {
   if (!Array.isArray(st.got)) st.got = [];
   return st;
 }
-const level = (p) => levelInfo(totalXp(p)).lv;
+const level = (p) => levelOf(p).lv;
 
 // いま もっている石
 export function stones(p) {

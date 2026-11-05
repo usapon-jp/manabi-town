@@ -1,15 +1,47 @@
 // 積み上がりを見せるための計算: レベル（けいけんち）、れんぞく日数、1週間のスタンプ。
 import { today, toISO } from './store.js';
 
-// レベル n から n+1 に上がるのに必要なけいけんち
-const need = (lv) => 60 + (lv - 1) * 30;
+// レベル n から n+1 に上がるのに必要なけいけんち（もとの曲線。Lv9まではどの学年もこれ）
+const baseNeed = (lv) => 60 + (lv - 1) * 30;
 
-export function levelInfo(xp) {
-  let lv = 1;
-  let rest = Math.max(0, xp || 0);
+// 学年ごとの むずかしさ（フミオさん 2026-11-05「中2はレベル10から上がりにくく」）。
+// from のレベルから、1つ上がるごとに 必要なけいけんちが step ずつ ふえる（0.25 なら Lv10で1.25倍、Lv13で2倍）。
+// 学年の id（js/store.js の GRADES）で決める。ここにない学年は もとの曲線のまま。
+export const CURVES = {
+  j1: { from: 10, step: 0.25 },
+  j2: { from: 10, step: 0.25 },
+  j3: { from: 10, step: 0.25 },
+};
+
+const curveOf = (p) => (p && CURVES[p.grade]) || null;
+export function needFor(lv, p) {
+  const c = curveOf(p);
+  const k = c && lv >= c.from ? 1 + (lv - c.from + 1) * c.step : 1;
+  return Math.round((baseNeed(lv) * k) / 10) * 10;
+}
+
+function walk(lv, rest, need) {
   while (rest >= need(lv)) { rest -= need(lv); lv += 1; }
   return { lv, into: rest, need: need(lv), left: need(lv) - rest };
 }
+
+// p をわたすと、その学年の曲線で数える。
+// いまのレベルが下がらないように、はじめて数えたときのレベルと そのレベルの はじまりの けいけんちを
+// p.lvKeep に とっておき、そこから先だけ 新しい曲線で数える。
+export function levelInfo(xp, p) {
+  xp = Math.max(0, xp || 0);
+  if (!p) return walk(1, xp, baseNeed);
+  let k = p.lvKeep;
+  if (!k || typeof k.lv !== 'number' || typeof k.base !== 'number') {
+    const old = walk(1, xp, baseNeed);
+    k = p.lvKeep = { lv: old.lv, base: xp - old.into };
+  }
+  const need = (lv) => needFor(lv, p);
+  if (xp < k.base) return walk(1, xp, baseNeed); // とりけしで へったとき
+  return walk(k.lv, xp - k.base, need);
+}
+
+export const levelOf = (p) => levelInfo(totalXp(p), p);
 
 // 勉強した日（ポイントをもらった日）
 export function activeDays(p) {

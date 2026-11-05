@@ -101,5 +101,8 @@ export function mergeProfile(base, local, remote) {
     out.id = remote.id;
     out.name = remote.name;
   }
+  // レベルの とっておき（js/progress.js）は、高いレベルのほうを のこす（レベルが下がらないように）
+  const keeps = [local?.lvKeep, remote?.lvKeep].filter((k) => isObj(k) && typeof k.lv === 'number');
+  if (keeps.length && isObj(out)) out.lvKeep = keeps.reduce((a, b) => (b.lv > a.lv || (b.lv === a.lv && b.base > a.base) ? b : a));
   return out;
 }
