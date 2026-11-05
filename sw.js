@@ -1,6 +1,6 @@
 // オフラインでも開けるように、アプリの部品を端末にしまっておく。
 // 部品を変えたら VERSION を上げる（古いしまい場所は消える）。
-const VERSION = 'manabi-v62';
+const VERSION = 'manabi-v68';
 const FILES = [
   './',
   'index.html',
@@ -11,6 +11,7 @@ const FILES = [
   'assets/icons/icon-512.png',
   'assets/icons/maskable-512.png',
   'assets/models/piyo_base_rig.glb',
+  'assets/models/lamppost.json',
   'css/style.css',
   'js/characters.js',
   'js/bgm.js',
@@ -22,6 +23,9 @@ const FILES = [
   'js/sync.js', 'js/merge.js', 'js/account.js', 'js/notify.js',
   'js/icons.js', 'js/gacha.js', 'js/data/gacha.js', 'js/catalog.js',
   'js/controls.js',
+  'js/props.js',
+  'js/structures.js',
+  'js/pieces.js',
   'js/cutmask.js',
   'js/editor.js',
   'js/cottage.js',
@@ -46,6 +50,7 @@ const FILES = [
   'js/tools.js',
   'js/wind.js',
   'js/town.js',
+  'js/townart.js',
   'js/townkit.js',
   'js/tutorial.js',
   'js/ui.js',
