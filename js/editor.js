@@ -178,7 +178,7 @@ export function createEditor({ container, scene, cut, wind, pick, rotate, setWal
   sub.className = 'wedit-sub';
   sub.hidden = true;
   sub.innerHTML = `
-    <span data-group="river"><button type="button" data-s="rmode" data-v="line">ながれ</button> <button type="button" data-s="rmode" data-v="pond">いけ</button></span>
+    <span data-group="river"><button type="button" data-s="rmode" data-v="line">ながれ</button> <button type="button" data-s="rmode" data-v="pond">いけ</button> <button type="button" data-s="rmode" data-v="fill">うめる</button></span>
     <span data-group="bed"><button type="button" data-s="mode" data-v="plant">うえる</button>
     <button type="button" data-s="mode" data-v="ring">かこむ</button>
     <span class="sep"></span></span>
@@ -316,7 +316,7 @@ export function createEditor({ container, scene, cut, wind, pick, rotate, setWal
     if (t.op === 'fence' || t.op === 'bridge' || t.op === 'place') { commitBuild(t, pts); return; }
     if (!pts || pts.length < 2) return;   // 1点だけ（その場で1回おした）でも、1つの操作として保存する
     const op = t.op === 'plant' ? { t: 'plant', s: st.species, seed: walk.seed, pts } : { t: t.op, r: handRadius(t), pts };
-    if (commit(op) && t.op === 'dig') replay();   // 高さが変わるので、花などを置きなおす
+    if (commit(op) && (t.op === 'dig' || t.op === 'fill')) replay();   // 高さが変わるので、花などを置きなおす
   }
   goBtn.addEventListener('pointerdown', (e) => { e.preventDefault(); walkStart(e); });
   goBtn.addEventListener('pointerup', walkEnd);
@@ -340,7 +340,7 @@ export function createEditor({ container, scene, cut, wind, pick, rotate, setWal
     root.querySelectorAll('[data-a="tool"]').forEach((b) => b.classList.toggle('on', b.dataset.v === st.tool));
     const dot = 8 + st.size * 5;
     q('size').innerHTML = `<i style="width:${dot}px;height:${dot}px"></i><span>${BRUSH_NAME[st.size]}</span>`;
-    q('size').hidden = !(st.tool === 'path' || (st.tool === 'river' && st.riverMode === 'line'));
+    q('size').hidden = !(st.tool === 'path' || (st.tool === 'river' && (st.riverMode === 'line' || st.riverMode === 'fill')));
     q('undo').disabled = !(ops() || []).length;
     use.querySelector('.wundo').hidden = !(ops() || []).length;
     sub.hidden = !(st.editing && (st.tool === 'bed' || st.tool === 'river'));
@@ -510,7 +510,7 @@ export function createEditor({ container, scene, cut, wind, pick, rotate, setWal
     say('ひとつ もどしたよ');
   }
 
-  const brushR = () => (st.tool === 'path' ? BRUSH[st.size] : st.tool === 'river' ? (st.riverMode === 'line' ? RBRUSH[st.size] : 0.3) : st.bedMode === 'plant' ? 0.55 : 0.3);
+  const brushR = () => (st.tool === 'path' ? BRUSH[st.size] : st.tool === 'river' ? (st.riverMode === 'line' || st.riverMode === 'fill' ? RBRUSH[st.size] : 0.3) : st.bedMode === 'plant' ? 0.55 : 0.3);
   function place(p) {
     const r = Math.hypot(p.x, p.z);
     if (r > ROAM) { p.x *= ROAM / r; p.z *= ROAM / r; }
@@ -713,10 +713,11 @@ export function createEditor({ container, scene, cut, wind, pick, rotate, setWal
         const r = BRUSH[st.size];
         st.stroke = { kind: 'path', r, pts: [round(p.x), round(p.z)], last };
         cut.stroke([p.x, p.z], r);
-      } else if (st.tool === 'river' && st.riverMode === 'line') {
+      } else if (st.tool === 'river' && (st.riverMode === 'line' || st.riverMode === 'fill')) {
         const r = RBRUSH[st.size];
-        st.stroke = { kind: 'dig', r, pts: [round(p.x), round(p.z)], last };
-        cut.stroke([p.x, p.z], r, 'b');
+        const fill = st.riverMode === 'fill';
+        st.stroke = { kind: fill ? 'fill' : 'dig', r, pts: [round(p.x), round(p.z)], last };
+        cut.stroke([p.x, p.z], r, fill ? 'f' : 'b');
       } else if (st.tool === 'river') {
         st.stroke = { kind: 'pond', pts: [round(p.x), round(p.z)], last };
         drawTrail(st.stroke.pts, false);
@@ -735,9 +736,9 @@ export function createEditor({ container, scene, cut, wind, pick, rotate, setWal
       const s = st.stroke;
       if (!s) return;
       const d = Math.hypot(p.x - s.last.x, p.z - s.last.z);
-      if (s.kind === 'path' || s.kind === 'dig') {
+      if (s.kind === 'path' || s.kind === 'dig' || s.kind === 'fill') {
         if (d < MIN_STEP || s.pts.length >= MAX_PTS * 2) return;
-        cut.stroke([s.last.x, s.last.z, p.x, p.z], s.r, s.kind === 'dig' ? 'b' : 'r');
+        cut.stroke([s.last.x, s.last.z, p.x, p.z], s.r, s.kind === 'dig' ? 'b' : s.kind === 'fill' ? 'f' : 'r');
         s.pts.push(round(p.x), round(p.z));
         s.last = { x: p.x, z: p.z };
       } else if (s.kind === 'plant') {
@@ -758,6 +759,7 @@ export function createEditor({ container, scene, cut, wind, pick, rotate, setWal
       if (type !== 'up') { replay(); return; }     // とちゅうでキャンセルされたら、なかったことにする
       if (s.kind === 'path') commit({ t: 'path', r: s.r, pts: s.pts });
       else if (s.kind === 'dig') { if (commit({ t: 'dig', r: s.r, pts: s.pts })) replay(); }   // 高さが変わるので、花などを置きなおす
+      else if (s.kind === 'fill') { if (commit({ t: 'fill', r: s.r, pts: s.pts })) replay(); }
       else if (s.kind === 'pond') {
         if (loopLength(s.pts) < LOOP_MIN) { say('もっと ひろく かこんでね'); return; }
         if (commit({ t: 'pond', pts: s.pts })) replay();
@@ -806,7 +808,7 @@ export function createEditor({ container, scene, cut, wind, pick, rotate, setWal
       return;
     }
     const r = handRadius(t);
-    const ch = t.op === 'dig' ? 'b' : t.op === 'seed' ? 'e' : 'r';
+    const ch = t.op === 'dig' ? 'b' : t.op === 'fill' ? 'f' : t.op === 'seed' ? 'e' : 'r';
     const step = t.op === 'plant' ? STAMP_STEP : MIN_STEP;
     if (t.op === 'plant') {
       // 花のタネ: 草をかった土の上にだけまける
