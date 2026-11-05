@@ -3,7 +3,7 @@
 // action:
 //   ping  … キーが置かれているかだけ確認（Claude は呼ばない）
 //   hint  … 問題のヒント（答えは言わない。level 1→3 で少しずつ近づく）
-//   judge … 手書きの字の画像が、お手本の漢字と同じか判定
+//   judge … 手書きの字の画像が、お手本の漢字（lang:'en' なら英単語のつづり）と同じか判定。Haiku → ×・自信なしだけ Sonnet
 //   quiz  … にがてな単元から、にた問題（3択）を作る
 //   scan  … プリントや範囲の写真から、テスト・宿題の予定（教科・名前・はんい・日にち）を読み取る（Haiku）
 //   ask   … ピヨ先生への質問（チャット・写真つき・図（SVG）つき）。mode: ask / zu（図で）/ yomu（英語よみあげ）/ talk（英会話）。Haiku（算数・数学・理科の計算と図は Sonnet）
@@ -300,15 +300,30 @@ Deno.serve(async (req) => {
       return ok({ say, svg, en, fix });
     }
     if (body.action === 'judge') {
+      // まず Haiku。×のときと 自信がないときだけ Sonnet で見なおす（まちがって×にしないため）
       const img = clip(body.image, 400_000).replace(/^data:image\/\w+;base64,/, '');
-      const expected = clip(body.expected, 20);
-      const system = '子どもが手書きした漢字を採点する先生。字のきれいさではなく、正しい字か（とめ・はね・画の数・形のちがい）を見る。返事は JSON だけ: {"ok":true/false,"comment":"ひらがな多めで30文字以内のひとこと"}';
-      const text = await claude(key, [
+      const expected = clip(body.expected, 30);
+      const en = body.lang === 'en';
+      const form = '返事は JSON だけ: {"ok":true/false,"sure":true/false,"comment":"ひらがな多めで30文字以内のひとこと（×なら どこがちがうか）"}';
+      const system = en
+        ? `子どもが手書きした英単語のつづりを採点する先生。字のきれいさではなく、つづりが正しいか（文字のぬけ・入れかわり・b/d や m/n のちがい）を見る。大文字・小文字のちがいは まちがいにしない。${form}`
+        : `子どもが手書きした漢字を採点する先生。字のきれいさではなく、正しい字か（とめ・はね・画の数・形のちがい）を見る。${form}`;
+      const ask = en
+        ? `お手本: 「${expected}」（いみ: ${clip(body.reading, 30)}）。この手書きは「${expected}」と正しく書けている？`
+        : `お手本: 「${expected}」（よみ: ${clip(body.reading, 30)}）。この手書きは「${expected}」と正しく書けている？`;
+      const content = [
         { type: 'image', source: { type: 'base64', media_type: 'image/png', data: img } },
-        { type: 'text', text: `お手本: 「${expected}」（よみ: ${clip(body.reading, 30)}）。この手書きは「${expected}」と正しく書けている？` },
-      ], system, 120);
-      const m = text.match(/\{[\s\S]*\}/);
-      const r = m ? JSON.parse(m[0]) : { ok: false, comment: text.slice(0, 40) };
+        { type: 'text', text: ask },
+      ];
+      const read = (text: string) => {
+        const m = text.match(/\{[\s\S]*\}/);
+        try { if (m) return JSON.parse(m[0]); } catch { /* 下へ */ }
+        return { ok: false, sure: false, comment: '' };
+      };
+      let r = read(await claude(key, content, system, 160));
+      if (!r.ok || r.sure === false) {
+        try { r = read(await claude(key, content, system, 1500, MODEL_SMART)); } catch { /* Sonnet が だめなら Haiku の答えのまま */ }
+      }
       return ok({ ok: !!r.ok, comment: clip(r.comment, 60) });
     }
     return new Response(JSON.stringify({ error: 'unknown action' }), { status: 400, headers });

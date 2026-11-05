@@ -4,7 +4,7 @@ import { h } from './ui.js';
 import { createInkPad } from './ink/pad.js';
 import { icon } from './icons.js';
 import { askAI, aiErrorText, aiLeft } from './ai.js';
-import { currentProfile, gradeLabel } from './store.js';
+import { currentProfile, gradeLabel, updateProfile } from './store.js';
 
 const PRAISE = ['せいかい！', 'すごい！', 'やったね！', 'ばっちり！'];
 export const KYOKASHO = '"UD Digi Kyokasho N-R", "UD デジタル 教科書体 N-R", YuKyokasho, "Klee One", "Hiragino Mincho ProN", serif';
@@ -73,12 +73,21 @@ export function runQuestions(title, questions, onFinish, opts = {}) {
       } }, opt));
       answerArea = h('div', { class: 'options' }, buttons);
     } else if (kind === 'write') {
-      answerArea = writeArea(q, (ok) => {
-        react(ok);
-        results.push({ q, ok });
-        if (ok) score += 1;
+      // 書けた／書けなかった（紙で自己採点でも、スマホで ピヨ先生の判定でも、同じようにポイントが入る）
+      let mine = null;
+      answerArea = writeArea(q, pads, (ok, comment) => {
+        if (!mine) {
+          react(ok);
+          mine = { q, ok };
+          results.push(mine);
+        } else {
+          mine.ok = ok;   // 「ほんとは 書けてたよ」で なおしたとき
+        }
+        score = results.filter((r) => r.ok).length;
         feedback.className = `feedback ${ok ? 'ok' : 'ng'}`;
-        feedback.textContent = ok ? `ピヨ先生「${PRAISE[index % PRAISE.length]}」` : 'ピヨ先生「お手本を見て、ノートに3回書いてみよう」';
+        feedback.textContent = comment
+          ? `ピヨ先生「${comment}」`
+          : ok ? `ピヨ先生「${PRAISE[index % PRAISE.length]}」` : 'ピヨ先生「お手本を見て、ノートに3回書いてみよう」';
         next.hidden = false;
       });
     } else {
@@ -154,34 +163,203 @@ function burst(box, count = 8) {
   }
 }
 
-// ---- 漢字を書く ----------------------------------------------------------------
-// いまはノートに書いて自分で答え合わせ。「こたえを見る」でお手本が出て、書けた／書けなかったを押す。
-// （Claude で自動判定できるようになったら、ここを指で書く形にもどす）
+// ---- 漢字・英単語を書く --------------------------------------------------------
+// 書き方は2つから えらべる（えらんだ方を おぼえておく。つぎの問題からも同じ）
+//   紙に書く   … ノートに書いて「こたえを見る」→ 書けた／書けなかった を自分で押す
+//   スマホに書く … 指やペンでマスに書いて、ピヨ先生（AI）が ○× を つける。
+//                  つながらないときは お手本を重ねて 自分で ○× にする
+const WRITE_MODES = [
+  { id: 'phone', label: 'スマホに書く', ic: 'smartphone' },
+  { id: 'paper', label: '紙に書く', ic: 'notebook-pen' },
+];
+const EN_FONT = '"Hiragino Maru Gothic ProN", "Arial Rounded MT Bold", ui-rounded, sans-serif';
 
-function writeArea(q, onJudge) {
-  const chars = [...q.answerText];
-  const boxes = h('div', { class: 'model', 'aria-hidden': 'true' },
-    chars.map((c) => h('span', { class: 'cell' }, h('b', {}, c))));
-  const reveal = h('button', { class: 'btn primary' }, 'こたえを見る');
-  const judgeRow = h('div', { class: 'self-judge', hidden: true },
-    h('button', { class: 'judge ok', onclick: () => done(true) }, h('b', {}, '○'), '書けた！'),
-    h('button', { class: 'judge ng', onclick: () => done(false) }, h('b', {}, '×'), '書けなかった'));
-  const note = h('div', { class: 'notebook' },
-    h('span', { class: 'note-ic', 'aria-hidden': 'true' }, icon('notebook-pen')),
-    h('p', {}, 'ノートに 書いてみよう'));
+function writeArea(q, pads, onJudge) {
+  const en = q.lang === 'en';
+  const p = currentProfile();
+  let mode = p?.writeMode === 'phone' ? 'phone' : 'paper';
+  let locked = false;   // 答え合わせを はじめたら、書き方は かえられない
+  const body = h('div', { class: 'write-body' });
+  const switches = WRITE_MODES.map((m) => h('button', { type: 'button', class: m.id === mode ? 'on' : '', onclick: () => {
+    if (locked || mode === m.id) return;
+    mode = m.id;
+    if (p) updateProfile(p, { writeMode: mode });
+    switches.forEach((b, i) => b.classList.toggle('on', WRITE_MODES[i].id === mode));
+    draw();
+  } }, icon(m.ic), m.label));
+  const seg = h('div', { class: 'seg write-mode', role: 'group', 'aria-label': '書きかた' }, switches);
+  const lock = () => { locked = true; seg.classList.add('locked'); switches.forEach((b) => { b.disabled = true; }); };
 
-  reveal.addEventListener('click', () => {
-    reveal.hidden = true;
-    note.hidden = true;
-    boxes.classList.add('show');
-    judgeRow.hidden = false;
-  });
-  function done(ok) {
-    judgeRow.querySelectorAll('button').forEach((b) => { b.disabled = true; });
-    judgeRow.classList.add(ok ? 'picked-ok' : 'picked-ng');
-    onJudge(ok);
+  function draw() {
+    // まえの板を かたづける
+    for (let i = pads.length - 1; i >= 0; i -= 1) if (pads[i].writePad) { pads[i].destroy(); pads.splice(i, 1); }
+    body.replaceChildren(...(mode === 'phone' ? phoneBody() : paperBody()));
   }
-  return h('div', { class: 'write-area' }, note, boxes, reveal, judgeRow);
+
+  // ○× の2つのボタン（紙のときと、ピヨ先生が見られなかったとき）
+  function selfJudge(okLabel, ngLabel) {
+    const row = h('div', { class: 'self-judge', hidden: true },
+      h('button', { class: 'judge ok', onclick: () => pick(true) }, h('b', {}, '○'), okLabel),
+      h('button', { class: 'judge ng', onclick: () => pick(false) }, h('b', {}, '×'), ngLabel));
+    function pick(ok) {
+      row.querySelectorAll('button').forEach((b) => { b.disabled = true; });
+      row.classList.add(ok ? 'picked-ok' : 'picked-ng');
+      onJudge(ok);
+    }
+    return row;
+  }
+
+  function paperBody() {
+    const chars = [...q.answerText];
+    const model = en
+      ? h('div', { class: 'model en', 'aria-hidden': 'true' }, h('b', {}, q.answerText))
+      : h('div', { class: 'model', 'aria-hidden': 'true' }, chars.map((c) => h('span', { class: 'cell' }, h('b', {}, c))));
+    const reveal = h('button', { class: 'btn primary' }, 'こたえを見る');
+    const judgeRow = selfJudge('書けた！', '書けなかった');
+    const note = h('div', { class: 'notebook' },
+      h('span', { class: 'note-ic', 'aria-hidden': 'true' }, icon('notebook-pen')),
+      h('p', {}, 'ノートに 書いてみよう'));
+    reveal.addEventListener('click', () => {
+      lock();
+      reveal.hidden = true;
+      note.hidden = true;
+      model.classList.add('show');
+      judgeRow.hidden = false;
+    });
+    return [note, model, reveal, judgeRow];
+  }
+
+  function phoneBody() {
+    const chars = [...q.answerText];
+    let showAnswer = false;
+    const pad = createInkPad({
+      className: 'write-pad',
+      size: en ? 6 : 9,
+      drawBackground: (ctx, w, hgt) => (en ? enLines(ctx, w, hgt, showAnswer && q.answerText) : kanjiCells(ctx, w, hgt, chars, showAnswer)),
+    });
+    pad.writePad = true;
+    pads.push(pad);
+
+    const undo = h('button', { class: 'btn small', onclick: () => pad.undo() }, '1つもどす');
+    const clear = h('button', { class: 'btn small', onclick: () => pad.clear() }, 'ぜんぶけす');
+    const tools = h('div', { class: 'write-tools' }, undo, clear);
+    const check = h('button', { class: 'btn primary', disabled: true }, icon('circle-check'), ' こたえあわせ');
+    pad.onChange(() => { check.disabled = locked || pad.isEmpty(); });
+    const status = h('p', { class: 'write-status', role: 'status', hidden: true });
+    const answer = h('p', { class: 'answer-text', hidden: true }, `こたえ：${q.answerText}`);
+    const judgeRow = selfJudge('あってた', 'ちがった');
+    const fix = h('button', { class: 'link fix-judge', hidden: true }, 'ほんとは 書けてたよ');
+    fix.addEventListener('click', () => { fix.hidden = true; onJudge(true, 'ごめんね、ちゃんと 書けてたね！'); });
+
+    check.addEventListener('click', async () => {
+      if (locked || pad.isEmpty()) return;
+      lock();
+      check.hidden = true;
+      tools.hidden = true;
+      pad.el.classList.add('done');
+      const image = snapshot(pad.el);
+      status.hidden = false;
+      status.className = 'write-status loading';
+      status.textContent = 'ピヨ先生が 見てるよ…';
+      showAnswer = true;
+      let r = null;
+      try {
+        r = await askAI({ action: 'judge', image, expected: q.answerText, reading: q.big || '', lang: en ? 'en' : 'ja' }, { timeout: 40000 });
+      } catch (e) { /* 下で 自分で ○× にする */ }
+      pad.redraw();   // お手本を 赤くうすく重ねる
+      answer.hidden = false;
+      if (r && typeof r.ok === 'boolean') {
+        status.hidden = true;
+        onJudge(r.ok, r.comment || '');
+        if (!r.ok) fix.hidden = false;
+      } else {
+        status.className = 'write-status';
+        status.textContent = 'いまは ピヨ先生が 見られないみたい。お手本と くらべて ○×を つけてね';
+        judgeRow.hidden = false;
+      }
+    });
+
+    return [h('div', { class: `write-frame ${en ? 'en' : ''}`, style: `--n:${en ? 3 : chars.length}` }, pad.el),
+      tools, check, status, answer, judgeRow, fix];
+  }
+
+  draw();
+  return h('div', { class: 'write-area' }, seg, body);
+}
+
+// 漢字のマス（十字の点線）。showAnswer のときは お手本を赤くうすく重ねる
+function kanjiCells(ctx, w, hgt, chars, showAnswer) {
+  const n = chars.length;
+  const cell = Math.min(hgt, w / n);
+  const x0 = (w - cell * n) / 2;
+  const y0 = (hgt - cell) / 2;
+  ctx.save();
+  ctx.fillStyle = '#ffffff';
+  ctx.fillRect(0, 0, w, hgt);
+  ctx.strokeStyle = '#d9cdb4';
+  ctx.lineWidth = 2;
+  ctx.strokeRect(x0 + 1, y0 + 1, cell * n - 2, cell - 2);
+  for (let i = 0; i < n; i += 1) {
+    const x = x0 + cell * i;
+    if (i > 0) { ctx.beginPath(); ctx.moveTo(x, y0); ctx.lineTo(x, y0 + cell); ctx.stroke(); }
+    ctx.save();
+    ctx.setLineDash([5, 6]);
+    ctx.strokeStyle = '#eadfca';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.moveTo(x + cell / 2, y0 + 6); ctx.lineTo(x + cell / 2, y0 + cell - 6);
+    ctx.moveTo(x + 6, y0 + cell / 2); ctx.lineTo(x + cell - 6, y0 + cell / 2);
+    ctx.stroke();
+    ctx.restore();
+    if (showAnswer) {
+      ctx.fillStyle = 'rgba(226, 92, 72, 0.28)';
+      ctx.font = `${Math.round(cell * 0.82)}px ${KYOKASHO}`;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(chars[i], x + cell / 2, y0 + cell / 2 + cell * 0.03);
+    }
+  }
+  ctx.restore();
+}
+
+// 英語ノートの4本線（3本目が ベースライン）。word があれば お手本を うすく重ねる
+function enLines(ctx, w, hgt, word) {
+  const gap = hgt / 5;
+  ctx.save();
+  ctx.fillStyle = '#ffffff';
+  ctx.fillRect(0, 0, w, hgt);
+  [1, 2, 3, 4].forEach((k) => {
+    ctx.beginPath();
+    ctx.setLineDash(k === 2 ? [5, 6] : []);
+    ctx.strokeStyle = k === 3 ? '#e2b7a6' : '#d9cdb4';
+    ctx.lineWidth = k === 3 ? 2 : 1.5;
+    ctx.moveTo(10, gap * k); ctx.lineTo(w - 10, gap * k);
+    ctx.stroke();
+  });
+  if (word) {
+    let size = gap * 2.7;
+    ctx.font = `${Math.round(size)}px ${EN_FONT}`;
+    const tw = ctx.measureText(word).width;
+    if (tw > w * 0.9) { size *= (w * 0.9) / tw; ctx.font = `${Math.round(size)}px ${EN_FONT}`; }
+    ctx.fillStyle = 'rgba(226, 92, 72, 0.32)';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'alphabetic';
+    ctx.fillText(word, w / 2, gap * 3);
+  }
+  ctx.restore();
+}
+
+// 書いた字を 小さめの画像にする（お手本を重ねる前に とる）
+function snapshot(canvas, max = 640) {
+  const k = Math.min(1, max / Math.max(canvas.width, canvas.height));
+  const c = document.createElement('canvas');
+  c.width = Math.max(1, Math.round(canvas.width * k));
+  c.height = Math.max(1, Math.round(canvas.height * k));
+  const ctx = c.getContext('2d');
+  ctx.fillStyle = '#fff';
+  ctx.fillRect(0, 0, c.width, c.height);
+  ctx.drawImage(canvas, 0, 0, c.width, c.height);
+  return c.toDataURL('image/png');
 }
 
 // ---- 算数のメモ ----------------------------------------------------------------
