@@ -28,7 +28,8 @@ export function splitLang(text) {
   return out;
 }
 
-export function createVoice() {
+// onSpeaking(true/false): 読み上げが はじまった・おわった（「とめる」ボタンを出すため）
+export function createVoice({ onSpeaking } = {}) {
   let rec = null;
   let utter = null;
   const voices = {};
@@ -59,9 +60,10 @@ export function createVoice() {
       const parts = lang === 'mix' ? splitLang(t) : [{ text: t, lang }];
       const token = {};
       utter = token;
+      onSpeaking?.(true);
       const next = (i) => {
         if (utter !== token) return;
-        if (i >= parts.length) { utter = null; onEnd?.(); return; }
+        if (i >= parts.length) { utter = null; onSpeaking?.(false); onEnd?.(); return; }
         const pt = parts[i];
         const u = new SpeechSynthesisUtterance(pt.text);
         u.lang = pt.lang;
@@ -75,7 +77,7 @@ export function createVoice() {
       };
       next(0);
     },
-    stopSpeak() { if (TTS) { utter = null; try { speechSynthesis.cancel(); } catch { /* 無視 */ } } },
+    stopSpeak() { if (TTS) { const was = !!utter; utter = null; try { speechSynthesis.cancel(); } catch { /* 無視 */ } if (was) onSpeaking?.(false); } },
     speaking() { return !!utter; },
     // onResult(text) は 話しおわったとき。onEnd(reason) は 聞きとりが おわったとき（reason: ok | none | denied | error）
     // lang: 'ja-JP'（ふつう）か 'en-US'（英会話）
