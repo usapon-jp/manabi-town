@@ -74,23 +74,23 @@ export function openTownAsk(p) {
     try {
       const r = await askAI({ action: 'town', grade: gradeLabel(p), messages, guide: GUIDE, keys: Object.keys(SHOW) }, { timeout: 30000 });
       wait.remove();
-      if (closed) return;
       const say = r.say || 'ごめんね、うまく こたえられなかった。ちがう 言いかたで きいてみてね';
+      // しつもんを のこす（チュートリアル・ヒントを よくする 材料）。とちゅうで とじても のこす
+      logFeedback(p, 'まち:しつもん', `[${r.tag || '?'}] Q: ${t}\nA: ${say.slice(0, 300)}`, 'town1');
+      if (closed) return;
       messages.push({ role: 'assistant', text: say });
       const spot = SHOW[r.show] ? r.show : '';
       bubble('assistant', h('p', {}, say),
         h('div', { class: 'ask-foot' },
           spot ? h('button', { type: 'button', class: 'town-here', onclick: () => { close(); pointAt(spot); } }, icon('pointer'), ' ここだよ') : null,
           canSpeak ? h('button', { type: 'button', class: 'ask-say', 'aria-label': '読んで', onclick: () => { voice.unlock(); voice.speak(say, null, { lang: 'ja-JP' }); } }, icon('volume-2'), h('span', {}, '読んで')) : null));
-      // しつもんを のこす（チュートリアル・ヒントを よくする 材料）
-      logFeedback(p, 'まち:しつもん', `[${r.tag || '?'}] Q: ${t}\nA: ${say.slice(0, 300)}`, 'town1');
     } catch (e) {
       wait.remove();
+      logFeedback(p, 'まち:しつもん', `[とどかず] Q: ${t}`, 'town1');
       if (closed) return;
       messages.pop();
       bubble('assistant err', aiErrorText(e).replace('ヒント', 'しつもん'));
       input.value = t;
-      logFeedback(p, 'まち:しつもん', `[とどかず] Q: ${t}`, 'town1');
     } finally { busy = false; }
   }
 }
