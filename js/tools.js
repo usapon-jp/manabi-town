@@ -9,7 +9,8 @@ export const TOOLS = [
   },
   {
     id: 'fill', label: 'うめる', unlockLv: 1, op: 'fill', width: 'river',
-    svg: svg('<path d="M3 17h18"/><path d="M5 13h14"/><path d="M8 9h8"/><path d="M12 3v4"/><path d="m10 5 2 2 2-2"/>'),
+    // 土を盛ったバケツ（うめる）
+    svg: svg('<path d="M4.6 12l1.6 7.6c.2 1.1 1 1.9 2.1 1.9h7.4c1.1 0 1.9-.8 2.1-1.9l1.6-7.6"/><path d="M3.4 12h17.2"/><path d="M5.4 12c.5-3.6 3.1-5.6 6.6-5.6s6.1 2 6.6 5.6"/><path d="M8.6 3.8h.01"/><path d="M12 2.4h.01"/><path d="M15.4 3.8h.01"/><path d="M6.6 16h10.8"/>'),
   },
   {
     id: 'seed', label: '草のタネ', unlockLv: 1, op: 'seed', width: 'brush',
@@ -21,7 +22,8 @@ export const TOOLS = [
   },
   {
     id: 'shovel', label: 'スコップ', unlockLv: 1, op: 'dig', width: 'river',
-    svg: svg('<path d="M20 4l-8.5 8.5"/><path d="M17 3l4 4"/><path d="M11.5 12.5L6.8 17.2a2.1 2.1 0 0 1-3-3L8.5 9.5"/>'),
+    // スコップ（持ち手・つば・刃）
+    svg: svg('<g transform="rotate(40 12 12)"><path d="M8.5 2.6h7"/><path d="M12 2.6v8.4"/><path d="M6.6 11.2h10.8"/><path d="M6.6 11.2c-.7 5.2.9 9.6 5.4 11.2 4.5-1.6 6.1-6 5.4-11.2"/><path d="M12 13.6v5.4"/></g>'),
   },
 ];
 // 柵・橋・おきもの（もちものはガチャでふえる。catalog.js）
