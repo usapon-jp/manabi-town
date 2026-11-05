@@ -288,7 +288,9 @@ Deno.serve(async (req) => {
       const isSci = /理科/.test(clip(body.subject, 20)) && (/[0-9０-９]/.test(lastText) || sciWords.test(lastText));
       const isMath = /算数|数学/.test(clip(body.subject, 20)) || mode === 'zu' || isSci || (mode === 'ask' && (mathWords.test(lastText) || sciWords.test(lastText)));
       const thinkHard = mode === 'ask' || mode === 'zu';
-      const text = await claude(key, [], system, thinkHard ? 12000 : mode === 'talk' ? 500 : 1500, isMath ? MODEL_SMART : MODEL, msgs, thinkHard);
+      // 本気モード（メガネ）: 子どもが えらんだら しつもんでも かならず Sonnet
+      const smart = isMath || (body.smart === true && thinkHard);
+      const text = await claude(key, [], system, thinkHard ? 12000 : mode === 'talk' ? 500 : 1500, smart ? MODEL_SMART : MODEL, msgs, thinkHard);
       const r = parseReply(text);
       let svg = r.svg;
       if (!/^<svg[\s>]/.test(svg) || svg.length > 20000 || /<script|<foreignObject|<image|\son\w+\s*=|href\s*=\s*["']?(https?:|javascript:|data:)/i.test(svg)) svg = '';

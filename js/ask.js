@@ -38,6 +38,14 @@ export function openAsk(p, { subject, mode: startMode } = {}) {
   let closed = false;
   let voiceOn = false;   // 音声モード: 返事を読み上げて、おわったら また聞きとる
   let subj = subject || '';
+  // 本気モード（メガネ）: おすと かならず Sonnet が じっくり考えて答える。ふだんは 受け口が 自動で ふりわける
+  let honki = false;
+  const honkiBtn = h('button', { type: 'button', class: 'ask-honki', 'aria-pressed': 'false', title: '本気モード（じっくり 考えて 答える）', onclick: () => {
+    honki = !honki;
+    honkiBtn.classList.toggle('on', honki);
+    honkiBtn.setAttribute('aria-pressed', String(honki));
+    layer.classList.toggle('honki', honki);
+  } }, icon('glasses'), h('span', {}, '本気'));
   const listenLang = () => (mode === 'talk' ? 'en-US' : 'ja-JP');
 
   const log = h('div', { class: 'chat-log' });
@@ -96,8 +104,9 @@ export function openAsk(p, { subject, mode: startMode } = {}) {
   const layer = h('div', { class: 'chat ask' },
     h('div', { class: 'ask-head' },
       h('div', { class: 'chat-top' },
-        h('img', { src: 'assets/icons/icon-192.png', alt: '', width: 36, height: 36 }),
+        h('span', { class: 'ask-face' }, h('img', { src: 'assets/icons/icon-192.png', alt: '', width: 36, height: 36 }), icon('glasses', 'ask-face-glasses')),
         h('b', {}, 'ピヨ先生'),
+        honkiBtn,
         speaker,
         h('button', { class: 'chat-close', 'aria-label': 'とじる', onclick: close }, icon('x'))),
       modeRow),
@@ -149,6 +158,8 @@ export function openAsk(p, { subject, mode: startMode } = {}) {
     subjRow.querySelectorAll('.pick').forEach((b) => b.classList.toggle('on', b.textContent === subj));
     subjRow.hidden = id === 'yomu' || id === 'talk';
     camBtn.hidden = libBtn.hidden = id === 'talk';   // 英会話は 声と文字だけ
+    honkiBtn.hidden = id !== 'ask';   // 図では いつも じっくり。英語は ふつうで じゅうぶん
+    layer.classList.toggle('honki', honki && id === 'ask');
     log.replaceChildren();
     if (id === 'talk') {
       messages.push({ role: 'assistant', text: MODES.talk.helloEn });
@@ -170,9 +181,9 @@ export function openAsk(p, { subject, mode: startMode } = {}) {
     const blank = mode === 'yomu' ? '（しゃしんの 英語を よんで）' : '（しゃしんの もんだいを おしえて）';
     messages.push({ role: 'user', text: t || blank });
     bubble('user', img ? h('img', { class: 'ask-photo', src: img, alt: '' }) : null, t);
-    const wait = bubble('assistant thinking', mode === 'zu' ? '図を かいてるよ…' : 'かんがえ中…');
+    const wait = bubble('assistant thinking', mode === 'zu' ? '図を かいてるよ…' : honki && mode === 'ask' ? '本気で かんがえ中…' : 'かんがえ中…');
     try {
-      const r = await askAI({ action: 'ask', mode, grade: gradeLabel(p), subject: subj, messages, image: sticky || undefined }, { timeout: mode === 'zu' || mode === 'ask' ? 90000 : 45000 });
+      const r = await askAI({ action: 'ask', mode, grade: gradeLabel(p), subject: subj, messages, image: sticky || undefined, smart: honki && mode === 'ask' }, { timeout: mode === 'zu' || mode === 'ask' ? 90000 : 45000 });
       wait.remove();
       if (closed || my !== turn) return;
       // 会話の つづきに つかう ことば（英会話は 英語のまま、ほかは 英文も つける）

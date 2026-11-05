@@ -1391,6 +1391,16 @@ input.pin { font-size: 26px; letter-spacing: 0.5em; text-align: center; }
 .ask-modes button svg { width: 22px; height: 22px; color: var(--accent-dark); }
 .ask-modes button.on { background: var(--accent); border-color: var(--accent); color: #fff; }
 .ask-modes button.on svg { color: #fff; }
+.ask-face { position: relative; display: inline-flex; flex-shrink: 0; }
+.ask-face-glasses { position: absolute; left: 3px; top: 7px; width: 30px; height: 30px; color: #3b2f22; display: none; }
+.chat.ask.honki .ask-face-glasses { display: block; }
+.ask-honki {
+  display: inline-flex; align-items: center; gap: 4px; border: 1.5px solid var(--line); background: #fff; color: var(--ink-soft);
+  border-radius: 999px; padding: 5px 10px; font: inherit; font-size: 13px; font-weight: 700; cursor: pointer;
+}
+.ask-honki svg { width: 20px; height: 20px; }
+.ask-honki.on { background: var(--navy); border-color: var(--navy); color: #fff; }
+.ask-honki[hidden] { display: none; }
 .chat.ask .msg { white-space: normal; }
 .chat.ask .msg p { margin: 0; white-space: pre-wrap; }
 .chat.ask .msg > * + * { margin-top: 8px; }
