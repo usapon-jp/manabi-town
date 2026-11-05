@@ -432,12 +432,132 @@ function lampPost() {
   return { mesh: g, walls: [{ dx: 0, dz: 0, r: 0.15 }] };
 }
 
+// ---- ベンチ（木の板と、くるっと巻いた脚。座れそうな、やさしい形） --------------------
+function bench(op) {
+  const rnd = seeded(op.seed || 21);
+  const g = new THREE.Group(); const b = new Bag();
+  const W = 1.5;
+  g.add(blob(1.0, 0.5, 0.25));
+  // 座面（3まいの板）と背もたれ（2まい）
+  for (let k = 0; k < 3; k++) b.add(rboxGeo(W, 0.05, 0.13, 0.02), WOOD[(k + 1) % 3], { y: 0.42, z: -0.14 + k * 0.15 });
+  for (let k = 0; k < 2; k++) b.add(rboxGeo(W, 0.12, 0.04, 0.015), WOOD[k % 3], { y: 0.66 + k * 0.15, z: -0.27, rx: -0.12 });
+  // 脚: 両はしの、くろい鉄の脚（まるい足）
+  for (const sx of [-1, 1]) {
+    const x = sx * (W / 2 - 0.1);
+    b.add(rboxGeo(0.05, 0.42, 0.45, 0.015), 0x3b3a40, { x, y: 0.21, z: -0.04 });
+    b.add(rboxGeo(0.05, 0.4, 0.05, 0.015), 0x3b3a40, { x, y: 0.55, z: -0.26, rx: -0.12 });
+    b.add(CYL, 0x3b3a40, { x, y: 0.46, z: 0.18, sx: 0.03, sy: 0.12, sz: 0.03, rz: Math.PI / 2 });   // ひじかけ
+    b.add(SPH, 0x3b3a40, { x, y: 0.49, z: 0.2, s: 0.035 });
+  }
+  // 座面の上の、小さなクッションと、おき忘れの花
+  b.add(rboxGeo(0.34, 0.07, 0.26, 0.03), 0xf4c9cf, { x: -0.38, y: 0.48, z: -0.06, ry: 0.15 });
+  b.add(SPH, 0xffffff, { x: 0.45, y: 0.46, z: 0.02, s: 0.03 });
+  if (rnd() < 2) b.add(SPH, 0xfff2b0, { x: 0.45, y: 0.46, z: 0.02, s: 0.012 });
+  g.add(b.mesh());
+  return { mesh: g, walls: [{ dx: -0.55, dz: 0, r: 0.3 }, { dx: 0, dz: 0, r: 0.3 }, { dx: 0.55, dz: 0, r: 0.3 }] };
+}
+
+// ---- ポスト（まるい屋根の赤いポスト。ささえの棒つき） ------------------------------
+function mailbox(op) {
+  const g = new THREE.Group(); const b = new Bag(); const gl = new Bag();
+  const RED = 0xd9564a;
+  g.add(blob(0.5, 0.5, 0.22));
+  b.add(CYL, 0x8a6a4a, { y: 0.45, sx: 0.045, sy: 0.9, sz: 0.045 });                       // 棒
+  b.add(rboxGeo(0.42, 0.26, 0.28, 0.06), RED, { y: 1.0 });                                   // はこ
+  b.add(HALF, RED, { y: 1.13, sx: 0.21, sy: 0.12, sz: 0.14, rx: 0, rz: 0 });                // まるい屋根
+  b.add(rboxGeo(0.26, 0.035, 0.02, 0.01), 0x3a2b24, { y: 1.04, z: 0.145 });                // 投入口
+  b.add(rboxGeo(0.05, 0.14, 0.03, 0.01), 0xffd45c, { x: 0.22, y: 1.1, z: 0.0, rz: 0.1 });  // 旗
+  b.add(SPH, 0xffd45c, { x: 0.24, y: 1.18, z: 0, s: 0.03 });
+  b.add(rboxGeo(0.14, 0.09, 0.012, 0.01), 0xfff6dc, { y: 0.95, z: 0.145 });                // 名札
+  // 足もとの、小さな花
+  for (let i = 0; i < 4; i++) b.add(SPH, [0xff9fbd, 0xfff08a, 0xffffff, 0xc7a6ff][i], { x: -0.14 + i * 0.09, y: 0.06, z: 0.12 + (i % 2) * 0.04, s: 0.04 });
+  g.add(b.mesh(), gl.mesh(true));
+  return { mesh: g, walls: [{ dx: 0, dz: 0, r: 0.2 }] };
+}
+
+// ---- ランタン（ちいさな あかり。ぼんやり光る） --------------------------------------
+function lantern(op) {
+  const g = new THREE.Group(); const b = new Bag(); const gl = new Bag();
+  const IRON = 0x3b3a40;
+  g.add(blob(0.35, 0.35, 0.2));
+  b.add(CYL, IRON, { y: 0.03, sx: 0.12, sy: 0.06, sz: 0.12 });                              // 台
+  b.add(CYL, IRON, { y: 0.22, sx: 0.12, sy: 0.04, sz: 0.12 });
+  b.add(CYL, IRON, { y: 0.55, sx: 0.12, sy: 0.04, sz: 0.12 });
+  for (const sx of [-1, 1]) for (const sz of [-1, 1]) b.add(CYL, IRON, { x: sx * 0.1, y: 0.39, z: sz * 0.1, sx: 0.012, sy: 0.34, sz: 0.012 });   // 4本の柱
+  gl.add(rboxGeo(0.17, 0.3, 0.17, 0.03), 0xffe39a, { y: 0.39 });                             // あかり
+  gl.add(SPH, 0xfffbe0, { y: 0.39, s: 0.05 });                                               // ほのお
+  b.add(HALF, IRON, { y: 0.57, sx: 0.15, sy: 0.12, sz: 0.15 });                              // 屋根
+  b.add(new THREE.TorusGeometry(0.05, 0.012, 6, 14, Math.PI), IRON, { y: 0.74, rz: 0 });   // 取っ手
+  b.add(SPH, IRON, { y: 0.575 + 0.12, s: 0.025 });
+  const halo = new THREE.Sprite(new THREE.SpriteMaterial({ map: haloTex(), color: 0xffe39a, transparent: true, opacity: 0.55, depthWrite: false, blending: THREE.AdditiveBlending }));
+  halo.scale.setScalar(1.3); halo.position.y = 0.4;
+  g.add(b.mesh(), gl.mesh(true), halo);
+  g.userData.update = (t) => { halo.material.opacity = 0.45 + Math.sin(t * 2.4 + (op.seed || 0)) * 0.1; };
+  return { mesh: g, walls: [{ dx: 0, dz: 0, r: 0.14 }] };
+}
+let _halo = null;
+function haloTex() {
+  if (_halo) return _halo;
+  const c = document.createElement('canvas'); c.width = c.height = 64;
+  const x = c.getContext('2d'); const gr = x.createRadialGradient(32, 32, 0, 32, 32, 32);
+  gr.addColorStop(0, 'rgba(255,255,255,1)'); gr.addColorStop(0.4, 'rgba(255,255,255,0.35)'); gr.addColorStop(1, 'rgba(255,255,255,0)');
+  x.fillStyle = gr; x.fillRect(0, 0, 64, 64);
+  _halo = new THREE.CanvasTexture(c); return _halo;
+}
+
+// ---- バラのアーチ（くぐれる。ツルとバラが からまる） --------------------------------
+function roseArch(op) {
+  const rnd = seeded(op.seed || 31);
+  const g = new THREE.Group(); const b = new Bag();
+  const W = 1.4; const H = 2.1;
+  g.add(blob(1.1, 0.5, 0.22));
+  const ROSE = [0xff7d9a, 0xff9fbd, 0xffffff, 0xffb27a];
+  const pts = [];
+  // 2本の柱と、まるいアーチ（細い鉄）
+  for (const sx of [-1, 1]) b.add(CYL, 0xf3efe6, { x: sx * W / 2, y: (H - W / 2) / 2, z: 0, sx: 0.035, sy: H - W / 2, sz: 0.035 });
+  const arc = new THREE.TorusGeometry(W / 2, 0.035, 8, 28, Math.PI);
+  b.add(arc, 0xf3efe6, { y: H - W / 2 });
+  // ツル（アーチにそって、うねる）と、葉と、バラ
+  const N = 34;
+  for (let i = 0; i <= N; i++) {
+    const t = i / N;
+    const a = Math.PI * t;
+    const side = i % 2 ? 1 : -1;
+    // 柱の高さ(0〜0.5)→アーチ(0.5〜1)の2つの区間
+    let x; let y;
+    if (t < 0.5 === false) { x = Math.cos(Math.PI - (t - 0.5) * 2 * Math.PI) * 0 + 0; }
+    const ax = Math.cos(Math.PI * (1 - t)) * (W / 2); const ay = (H - W / 2) + Math.sin(Math.PI * (1 - t)) * (W / 2);
+    x = ax + (rnd() - 0.5) * 0.12; y = ay + (rnd() - 0.5) * 0.12;
+    b.add(SPH, 0x5fa34a, { x, y, z: (rnd() - 0.5) * 0.14, sx: 0.07, sy: 0.035, sz: 0.05, rz: rnd() * 3 });
+    if (i % 2 === 0) {
+      const col = ROSE[Math.floor(rnd() * ROSE.length)];
+      b.add(SPH, col, { x, y, z: 0.05 * side, s: 0.085 });
+      b.add(SPH, new THREE.Color(col).multiplyScalar(0.82).getHex(), { x, y, z: 0.05 * side, s: 0.055 });
+    }
+    void a; void pts;
+  }
+  // 柱をのぼるツル
+  for (const sx of [-1, 1]) for (let k = 0; k < 10; k++) {
+    const y = 0.15 + k * ((H - W / 2 - 0.2) / 9);
+    const x = sx * W / 2 + Math.sin(k * 1.7 + sx) * 0.05;
+    b.add(SPH, 0x5fa34a, { x, y, z: (rnd() - 0.5) * 0.08, sx: 0.06, sy: 0.03, sz: 0.045, rz: rnd() * 3 });
+    if (k % 2 === 1) { const col = ROSE[Math.floor(rnd() * ROSE.length)]; b.add(SPH, col, { x, y, z: 0.05, s: 0.08 }); b.add(SPH, new THREE.Color(col).multiplyScalar(0.8).getHex(), { x, y, z: 0.05, s: 0.05 }); }
+  }
+  g.add(b.mesh());
+  // くぐれる: 柱だけ当たり判定
+  return { mesh: g, walls: [{ dx: -W / 2, dz: 0, r: 0.1 }, { dx: W / 2, dz: 0, r: 0.1 }] };
+}
+
 export const PIECES = {
   'piece:awning': awning,
   'piece:raisedbed': raisedBed,
   'piece:hill': hillHouse,
   'piece:flowerpot': flowerPot,
   'piece:lamppost': lampPost,
+  'piece:bench': bench,
+  'piece:mailbox': mailbox,
+  'piece:lantern': lantern,
+  'piece:rosearch': roseArch,
 };
 
 // 1つ置く。op = { k:'piece:xxx', x, z, rot, seed }

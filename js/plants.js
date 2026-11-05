@@ -251,6 +251,78 @@ function dandelion() {
   return { foliage: f.geometry(), petals: p.geometry(), H: H + 0.2 };
 }
 
+// ひまわり（たかい茎に、大きな金色の花。まんなかは こげ茶）
+function sunflower() {
+  const f = new Builder(); const p = new Builder();
+  const H = rand(0.85, 1.1);
+  for (let i = 0; i < 6; i++) leaf(f, { angle: (i / 6) * Math.PI * 2 + rand(-0.2, 0.2), len: rand(0.3, 0.42), wid: 0.1, lift: 0.18, droop: 0.2, base: mul(LEAF_DARK, 1.05), tip: mul(LEAF_LIGHT, 0.95), fold: 0.4 });
+  stem(f, 0.04, H, 0, 0.026, [0.3, 0.52, 0.18], 0.05);
+  // 茎の葉
+  leaf(f, { angle: 0.4, len: 0.3, wid: 0.09, lift: 0.1, droop: 0.12, base: mul(LEAF_DARK, 1.1), tip: mul(LEAF_LIGHT, 0.9), fold: 0.3, y0: H * 0.45 });
+  // 花びら（2重）と中心
+  for (let ring = 0; ring < 2; ring++) {
+    const n = 14; const off = ring * 0.22;
+    for (let i = 0; i < n; i++) {
+      const a = (i / n) * Math.PI * 2 + off;
+      const dx = Math.cos(a); const dz = Math.sin(a);
+      const px = -dz; const pz = dx;
+      const r0 = 0.07; const r1 = 0.2 - ring * 0.02; const w = 0.035;
+      const y = H + 0.03 + ring * 0.008;
+      const v = ring ? 0.82 : 1;
+      p.tri([0.04 + dx * r0, y, dz * r0], [0.04 + dx * r1 + px * w, y + 0.02, dz * r1 + pz * w], [0.04 + dx * r1 - px * w, y + 0.02, dz * r1 - pz * w], [v, v, v], [v, v, v], [v, v, v]);
+    }
+  }
+  orb(f, 0.04, H + 0.045, 0, 0.08, [0.3, 0.17, 0.08], 1);
+  orb(f, 0.04, H + 0.05, 0, 0.05, [0.2, 0.11, 0.05], 0);
+  return { foliage: f.geometry(), petals: p.geometry(), H: H + 0.15 };
+}
+
+// コスモス（細い葉と、やわらかい8まいの花びら）
+function cosmos() {
+  const f = new Builder(); const p = new Builder();
+  const H = rand(0.55, 0.8);
+  for (let i = 0; i < 9; i++) leaf(f, { angle: (i / 9) * Math.PI * 2 + rand(-0.3, 0.3), len: rand(0.2, 0.32), wid: 0.018, lift: rand(0.25, 0.45), droop: rand(0.05, 0.15), base: mul(LEAF_DARK, 1.1), tip: mul(LEAF_LIGHT, 1.0), fold: 0.1 });
+  for (let k = 0; k < 2; k++) {
+    const a = rand(0, Math.PI * 2); const d = rand(0.04, 0.14); const h = H * (k ? 0.75 : 1);
+    const x = Math.cos(a) * d; const z = Math.sin(a) * d;
+    stem(f, x, h, z, 0.012, [0.32, 0.56, 0.2], 0.05);
+    const n = 8;
+    for (let i = 0; i < n; i++) {
+      const aa = (i / n) * Math.PI * 2;
+      const dx = Math.cos(aa); const dz = Math.sin(aa);
+      const px = -dz; const pz = dx;
+      const r0 = 0.03; const r1 = 0.15; const w = 0.052;
+      const y = h + 0.02;
+      p.tri([x + dx * r0, y, z + dz * r0], [x + dx * r1 + px * w, y + 0.025, z + dz * r1 + pz * w], [x + dx * r1 - px * w, y + 0.025, z + dz * r1 - pz * w], [0.92, 0.92, 0.92], [1, 1, 1], [1, 1, 1]);
+      p.tri([x + dx * r0, y, z + dz * r0], [x + dx * r1 + px * w, y + 0.025, z + dz * r1 + pz * w], [x + dx * (r1 + 0.02), y + 0.03, z + dz * (r1 + 0.02)], [0.95, 0.95, 0.95], [1, 1, 1], [1, 1, 1]);
+    }
+    orb(f, x, h + 0.025, z, 0.032, [1.0, 0.78, 0.15], 1);
+  }
+  return { foliage: f.geometry(), petals: p.geometry(), H: H + 0.15 };
+}
+
+// ラベンダー（こんもりした銀緑の株に、細い穂がたくさん）
+function lavender() {
+  const f = new Builder(); const p = new Builder();
+  const SILVER = [0.4, 0.56, 0.34];
+  for (let i = 0; i < 12; i++) leaf(f, { angle: (i / 12) * Math.PI * 2 + rand(-0.15, 0.15), len: rand(0.2, 0.32), wid: 0.02, lift: rand(0.2, 0.35), droop: rand(0.02, 0.1), base: mul(SILVER, 0.8), tip: mul(SILVER, 1.15), fold: 0.1 });
+  const spikes = 7;
+  for (let s = 0; s < spikes; s++) {
+    const a = (s / spikes) * Math.PI * 2 + rand(-0.3, 0.3); const d = rand(0.04, 0.16);
+    const x = Math.cos(a) * d; const z = Math.sin(a) * d;
+    const H = rand(0.45, 0.65);
+    stem(f, x * 1.4, H, z * 1.4, 0.009, [0.4, 0.58, 0.32], 0.05);
+    const N = 9;
+    for (let k = 0; k < N; k++) {
+      const u = k / (N - 1);
+      const y = H * 0.62 + u * (H * 0.38);
+      const r = 0.032 * (1 - u * 0.5);
+      for (const [dx, dz] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) orb(p, x * 1.4 + dx * r * 0.7, y, z * 1.4 + dz * r * 0.7, 0.022 * (1 - u * 0.4), [1, 1, 1], 0);
+    }
+  }
+  return { foliage: f.geometry(), petals: p.geometry(), H: 0.75 };
+}
+
 // ---- ならべる -------------------------------------------------------------
 
 function scatter({ template, count, flowerColors, clusters, clusterSpread, scale, tilt = 0.12, wind, gain }) {
@@ -300,6 +372,10 @@ export const SPECIES = {
   tulip: { make: tulip, colors: [0xff7a8a, 0xff9dbd, 0xffb27a, 0xfff08a, 0xffffff, 0xff5f7a], scale: [0.9, 1.4], gain: 0.12, tilt: 0.12, label: 'チューリップ' },
   clover: { make: clover, colors: [0xffffff, 0xfff0f5, 0xffe6ef], scale: [0.9, 1.5], gain: 0.08, tilt: 0.05, label: 'シロツメクサ' },
   dandelion: { make: dandelion, colors: [0xffffff, 0xffffff, 0xfff6c8, 0xffe14a, 0xffdd33], scale: [0.9, 1.5], gain: 0.14, tilt: 0.12, label: 'タンポポ' },
+  // ガチャの花のタネ（子どもがうえるときだけ。野原には はえない）
+  sunflower: { make: sunflower, colors: [0xffc21f, 0xffb81c, 0xffd23a], scale: [1.0, 1.5], gain: 0.1, tilt: 0.06, label: 'ひまわり', gacha: true },
+  cosmos: { make: cosmos, colors: [0xff8fb3, 0xffb3c8, 0xffffff, 0xd9a6ff, 0xff6f9a], scale: [0.8, 1.3], gain: 0.16, tilt: 0.14, label: 'コスモス', gacha: true },
+  lavender: { make: lavender, colors: [0xa58bf0, 0x9d7ef0, 0xb9a3f5, 0x8f74e6], scale: [0.8, 1.3], gain: 0.1, tilt: 0.1, label: 'ラベンダー', gacha: true },
 };
 export const SPECIES_KEYS = Object.keys(SPECIES);
 
@@ -308,6 +384,7 @@ export function makePlants(wind) {
   const counts = { buttercup: [110, 9, 1.9], lupine: [260, 10, 1.6], tulip: [220, 10, 1.5], clover: [160, 12, 2.2], dandelion: [200, 8, 2.4] };
   for (const key of SPECIES_KEYS) {
     const sp = SPECIES[key];
+    if (sp.gacha) continue;   // ガチャの花は、野原には はえない
     const [count, clusters, clusterSpread] = counts[key];
     g.add(scatter({ template: sp.make(), count, flowerColors: sp.colors, clusters, clusterSpread, scale: sp.scale, tilt: sp.tilt, wind, gain: sp.gain }));
   }

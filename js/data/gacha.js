@@ -57,15 +57,15 @@ export const ITEMS = [
     svg: s('<rect x="5" y="4" width="14" height="14" rx="1"/><path d="M12 4v14M5 11h14"/><path d="M3 20h18"/>') },
 
   // ---- 3Dがまだのもの（できたら ready を消す。依頼: docs/request-gacha-parts.md） ----
-  { id: 'fence:white', label: '白い柵', kind: 'fence', rarity: 1, ready: false, color: '#b9b2a6',
+  { id: 'fence:white', label: '白い柵', kind: 'fence', rarity: 1, color: '#b9b2a6',
     svg: s('<path d="M4 21V8a1.5 1.5 0 0 1 3 0v13"/><path d="M10.5 21V8a1.5 1.5 0 0 1 3 0v13"/><path d="M17 21V8a1.5 1.5 0 0 1 3 0v13"/><path d="M2 12h20"/><path d="M2 17h20"/>') },
-  { id: 'piece:lantern', label: 'ランタン', kind: 'piece', rarity: 1, ready: false, color: '#e0a94a',
+  { id: 'piece:lantern', label: 'ランタン', kind: 'piece', rarity: 1, color: '#e0a94a',
     svg: s('<path d="M12 2v2"/><path d="M9 4h6"/><path d="M8 7l1-3h6l1 3"/><path d="M8 7h8l-1 11H9z"/><path d="M10 21h4"/><path d="M12 18v3"/><path d="M12 10v4"/>') },
-  { id: 'piece:mailbox', label: 'ポスト', kind: 'piece', rarity: 1, ready: false, color: '#d9785c',
+  { id: 'piece:mailbox', label: 'ポスト', kind: 'piece', rarity: 1, color: '#d9785c',
     svg: s('<path d="M4 12a4 4 0 0 1 8 0v5H4z"/><path d="M8 8h8a4 4 0 0 1 4 4v5h-8"/><path d="M10 17v5"/><path d="M15 10V5h3"/>') },
-  { id: 'piece:bench', label: 'ベンチ', kind: 'piece', rarity: 2, ready: false, color: '#a8794b',
+  { id: 'piece:bench', label: 'ベンチ', kind: 'piece', rarity: 2, color: '#a8794b',
     svg: s('<path d="M4 6h16"/><path d="M4 10h16"/><path d="M3 14h18"/><path d="M6 6v8"/><path d="M18 6v8"/><path d="M5 14v6"/><path d="M19 14v6"/>') },
-  { id: 'piece:rosearch', label: 'バラのアーチ', kind: 'piece', rarity: 2, ready: false, color: '#d9788c',
+  { id: 'piece:rosearch', label: 'バラのアーチ', kind: 'piece', rarity: 2, color: '#d9788c',
     svg: s('<path d="M5 21V11a7 7 0 0 1 14 0v10"/><path d="M9 21v-9a3 3 0 0 1 6 0v9"/><circle cx="6.5" cy="8.5" r="1"/><circle cx="12" cy="5" r="1"/><circle cx="17.5" cy="8.5" r="1"/>') },
   { id: 'part:archdoor', label: 'アーチの扉（ミント）', kind: 'part', slot: 'door', rarity: 2, color: '#86c2b2',
     svg: s('<path d="M6 21V10a6 6 0 0 1 12 0v11"/><path d="M4 21h16"/><circle cx="12" cy="9" r="1.6"/><path d="M8 13.5h8M8 17.5h8"/><circle cx="15.5" cy="15.5" r=".6"/>') },
@@ -81,9 +81,9 @@ export const ITEMS = [
     svg: s('<path d="M7 14h10l-1.5 7h-7z"/><path d="M6 14h12"/><path d="M12 14V9"/><circle cx="12" cy="7" r="2"/><path d="M12 11c-2 0-3-1-3.5-2.5M12 11c2 0 3-1 3.5-2.5"/>') },
   { id: 'piece:lamppost', label: '街灯', kind: 'piece', rarity: 1, color: '#5a4636',
     svg: s('<path d="M12 21V10"/><path d="M9 21h6"/><path d="M9 6l1-2h4l1 2"/><path d="M9 6h6l-1 4h-4z"/><path d="M12 2v2"/>') },
-  { id: 'seed:sunflower', label: 'ひまわりのタネ', kind: 'seed', rarity: 1, ready: false, species: 'sunflower', color: '#e8b52e', svg: SEED },
-  { id: 'seed:cosmos', label: 'コスモスのタネ', kind: 'seed', rarity: 1, ready: false, species: 'cosmos', color: '#e58fae', svg: SEED },
-  { id: 'seed:lavender', label: 'ラベンダーのタネ', kind: 'seed', rarity: 2, ready: false, species: 'lavender', color: '#9d86d6', svg: SEED },
+  { id: 'seed:sunflower', label: 'ひまわりのタネ', kind: 'seed', rarity: 1, species: 'sunflower', color: '#e8b52e', svg: SEED },
+  { id: 'seed:cosmos', label: 'コスモスのタネ', kind: 'seed', rarity: 1, species: 'cosmos', color: '#e58fae', svg: SEED },
+  { id: 'seed:lavender', label: 'ラベンダーのタネ', kind: 'seed', rarity: 2, species: 'lavender', color: '#9d86d6', svg: SEED },
 ];
 
 // なかまキャラを足すときの例（3Dのモデルは js/characters.js にも足す）:
