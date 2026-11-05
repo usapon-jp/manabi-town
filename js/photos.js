@@ -3,6 +3,7 @@
 // 保存: 写真の本体は この端末の IndexedDB（おおきいので localStorage には入れない）。
 // 同期: p.photos の id つき一覧は プロフィールと いっしょに足し合わせ、本体は Storage（manabi-photos/<user>/<id>.jpg）へ。
 import { h, toast } from './ui.js';
+import { pickPhoto } from './pickphoto.js';
 import { save } from './store.js';
 import { shrink } from './scan.js';
 import { icon } from './icons.js';
@@ -78,8 +79,7 @@ export async function openPhotos(p, opts = {}) {
   const tabs = h('div', { class: 'ph-tabs' });
   const info = h('p', { class: 'sheet-sub' });
   const close = () => sheet.remove();
-  const file = h('input', { type: 'file', accept: 'image/*', capture: 'environment', hidden: true, onchange: async () => {
-    const f = file.files[0]; file.value = '';
+  const addFile = async (f) => {
     if (!f) return;
     const folder = fl.find((x) => x.id === cur);
     try {
@@ -88,7 +88,7 @@ export async function openPhotos(p, opts = {}) {
       toast('しりょうに 入れたよ');
     } catch { toast('この写真は ひらけなかった'); return; }
     draw();
-  } });
+  };
   const useBtn = h('button', { type: 'button', class: 'btn primary', onclick: async () => {
     const urls = [];
     for (const id of chosen) { const d = await getData(id); if (d) urls.push(d); }
@@ -104,7 +104,7 @@ export async function openPhotos(p, opts = {}) {
       h('b', {}, f.name), h('small', {}, `${f.subject ? `${f.subject}・` : ''}${count(f.id)}まい`))));
     const mine = all.filter((x) => x.folder === cur);
     grid.replaceChildren(
-      h('button', { type: 'button', class: 'ph-add', onclick: () => file.click() }, icon('camera'), h('span', {}, '撮る・えらぶ')),
+      h('button', { type: 'button', class: 'ph-add', onclick: () => pickPhoto(addFile, { title: 'しりょうに 入れる' }) }, icon('camera'), h('span', {}, '撮る・えらぶ')),
       ...mine.map((x) => h('div', { class: `ph-item ${chosen.has(x.id) ? 'on' : ''}` },
         !x.data ? h('span', { class: 'ph-wait' }, 'じゅんびちゅう') : h('img', { src: x.data, alt: '', onclick: () => {
           if (!opts.pick) return;
@@ -122,7 +122,7 @@ export async function openPhotos(p, opts = {}) {
   const sheet = h('div', { class: 'sheet', onclick: (e) => { if (e.target === sheet) close(); } },
     h('div', { class: 'sheet-card piyo-menu ph-card' },
       h('p', { class: 'sheet-title' }, icon('folder'), ' しりょうの写真'),
-      tabs, info, grid, useBtn, file,
+      tabs, info, grid, useBtn,
       h('button', { class: 'link', type: 'button', onclick: close }, 'とじる')));
   document.body.append(sheet);
   draw();
