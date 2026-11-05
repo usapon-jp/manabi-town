@@ -13,7 +13,8 @@ const drillsFor = (p) => (isAdult(p) ? [] : ALL_DRILLS);
 import { runQuestions } from './runner.js';
 import { buildSteps } from './planner.js';
 import { levelInfo, totalXp, streak, week } from './progress.js';
-import { minutesOn, sessions, SUBJECT_COLORS } from './timer.js';
+import { minutesOn, sessions } from './timer.js';
+import { subjectColor } from './subjects.js';
 import { icon } from './icons.js';
 import { recordResults, dueReview, startReview, REVIEW_MAX, REVIEW_PER_CORRECT, REVIEW_CLEAR } from './review.js';
 import { openWeak, startWeak, openTestEntry, WEAK_PER_CORRECT, WEAK_CLEAR } from './tests.js';
@@ -235,7 +236,7 @@ export function openProgress(p, deps) {
     subjects.length ? h('div', { class: 'q-group' }, h('h4', {}, '今週の教科'),
       h('ul', { class: 'prog-items' }, subjects.map(([sub, m]) => h('li', { class: 'sub-row' },
         h('span', { class: 'sub-name' }, sub),
-        h('span', { class: 'gbar' }, h('i', { style: `width:${Math.round((m / maxSub) * 100)}%;background:${SUBJECT_COLORS[sub] || '#9aa897'}` })),
+        h('span', { class: 'gbar' }, h('i', { style: `width:${Math.round((m / maxSub) * 100)}%;background:${subjectColor(p, sub)}` })),
         h('small', {}, `${m}分`))))) : null,
   );
   lookReward(p, 'lookProg', deps);

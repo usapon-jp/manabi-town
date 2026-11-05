@@ -8,12 +8,13 @@ import { h, toast, daysLabel } from './ui.js';
 import { save, today, daysUntil, addItem, toISO } from './store.js';
 import { askAI, aiErrorText } from './ai.js';
 import { icon } from './icons.js';
+import { notifyCard } from './notify.js';
+import { ADULT_DEFAULT as ADULT_SUBJECTS } from './subjects.js';
 
 export const ROUTINE_POINTS = 5;
 export const WEEK_BONUS = 30;           // 週◯回を達成したときの はじめの値（ルーティーンごとに なおせる）
 const BONUS_CHOICES = [10, 20, 30, 50, 100];
 export const CONSULT_BONUS = 30;
-export const ADULT_SUBJECTS = ['資格・勉強', '仕事', '健康', 'くらし', 'しゅみ', 'その他'];
 export const WHEN = ['あさ', 'ひる', 'よる'];
 const WEEK = ['日', '月', '火', '水', '木', '金', '土'];
 const WEEK_MON = ['月', '火', '水', '木', '金', '土', '日'];
@@ -123,7 +124,8 @@ export function checkRoutine(p, r, deps) {
   return on;
 }
 
-function cleanRoutine({ title, days = [], when = '', weekly: w = 0, bonus }) {
+const HM = /^([01]\d|2[0-3]):[0-5]\d$/;
+function cleanRoutine({ title, days = [], when = '', weekly: w = 0, bonus, time = '' }) {
   const t = String(title || '').trim().slice(0, 30);
   if (!t) return null;
   const n = Math.min(7, Math.max(0, Math.round(Number(w) || 0)));
@@ -133,6 +135,7 @@ function cleanRoutine({ title, days = [], when = '', weekly: w = 0, bonus }) {
     when: WHEN.includes(when) ? when : '',
     weekly: n,
     bonus: n ? (Number.isFinite(Number(bonus)) ? Math.max(0, Math.round(Number(bonus))) : WEEK_BONUS) : 0,
+    time: HM.test(String(time)) ? String(time) : '',   // スマホに お知らせする時刻（なければ知らせない）
   };
 }
 
@@ -160,7 +163,27 @@ export function removeRoutine(p, id) {
 }
 
 const daysText = (days) => (!days?.length || days.length === 7 ? '毎日' : days.slice().sort().map((d) => WEEK[d]).join('・'));
-const routineText = (r) => (weekly(r) ? `週${weekly(r)}回・達成で+${bonusOf(r)}` : daysText(r.days)) + (r.when ? `・${r.when}` : '');
+const timeText = (t) => `${Number(t.slice(0, 2))}:${t.slice(3)}`;
+const routineText = (r) => (weekly(r) ? `週${weekly(r)}回・達成で+${bonusOf(r)}` : daysText(r.days)) + (r.when ? `・${r.when}` : '') + (r.time ? `・${timeText(r.time)}に お知らせ` : '');
+
+// スマホのお知らせ用の一覧（notify.js が集めてサーバーへ送る）。
+// きょうもう できたものは あすから、週◯回で今週の分が終わったものは 来週の月曜から 知らせる
+export function routineReminders(p) {
+  const t = today();
+  const tomorrow = toISO(addDays(new Date(), 1));
+  const nextMon = toISO(addDays(mondayOf(new Date()), 7));
+  return routines(p).filter((r) => r.time).map((r) => {
+    const n = weekly(r);
+    let skipUntil = '';
+    if (n && weekCount(p, r) >= n) skipUntil = nextMon;
+    else if (doneMap(p, t)[r.id]) skipUntil = tomorrow;
+    return {
+      id: `r-${p.id}-${r.id}`.slice(0, 80), kind: 'routine', title: r.title, time: r.time,
+      body: n ? `${p.name}さん、週${n}回の ルーティーン。きょう やってみよう` : `${p.name}さん、ルーティーンの じかんです`,
+      days: n ? [] : (r.days || []), skipUntil, url: 'quest',
+    };
+  });
+}
 
 // この30日で何日 毎日のルーティーンを ぜんぶ できたか（週◯回のものは べつに数える）
 function fullDays(p) {
@@ -185,6 +208,7 @@ function routineForm(r, onSave, onCancel) {
   let n = (r && weekly(r)) || 3;
   let bonus = r ? bonusOf(r) : WEEK_BONUS;
   let when = r?.when || '';
+  const time = h('input', { type: 'time', value: r?.time || '', class: 'time-in' });
   const picked = new Set(r?.days || []);
 
   const seg = h('div', { class: 'seg' });
@@ -210,13 +234,16 @@ function routineForm(r, onSave, onCancel) {
   paint();
   return h('form', { class: 'card form routine-form', onsubmit: (e) => {
     e.preventDefault();
-    onSave({ title: title.value, days: mode === 'days' ? [...picked] : [], when, weekly: mode === 'weekly' ? n : 0, bonus });
+    onSave({ title: title.value, days: mode === 'days' ? [...picked] : [], when, weekly: mode === 'weekly' ? n : 0, bonus, time: time.value });
   } },
   h('h3', {}, r ? 'ルーティーンを なおす' : 'ルーティーンを足す'),
   h('label', {}, 'なにを', title),
   seg, daysBox, weeklyBox,
   h('p', { class: 'hint' }, '時間帯（なくてもOK）'),
   whenPicks,
+  h('p', { class: 'hint' }, h('span', {}, icon('bell'), ' スマホに お知らせ（時刻を入れると その時間に とどく）')),
+  h('div', { class: 'row time-row' }, time,
+    h('button', { type: 'button', class: 'link', onclick: () => { time.value = ''; } }, 'お知らせなし')),
   h('div', { class: 'row' },
     h('button', { class: 'btn primary', type: 'submit' }, r ? 'ほぞん' : '足す'),
     onCancel ? h('button', { class: 'btn', type: 'button', onclick: onCancel }, 'やめる') : null));
@@ -293,6 +320,7 @@ export function renderRoutineTab(panel, p, deps) {
   panel.replaceChildren(...[
     h('h2', {}, 'ルーティーン'),
     consultCta(p, deps),
+    all.some((r) => r.time) ? notifyCard(p, { rerender: deps.render }) : null,
     ...weeklies.map((r) => weeklyCard(p, r, check)),
     daily.length || !weeklies.length ? h('div', { class: 'card quest' },
       h('h3', {}, `きょうの分 ${doneN} / ${list.length}`),
@@ -346,6 +374,20 @@ function cleanPlan(plan) {
   return { routines: routinesOut, goals, memo: String(plan?.memo || '').slice(0, 160) };
 }
 
+// ピヨが文の中に「- 5分くらい」のように候補を書いてきたときは、文から抜いてボタンにする
+const LIST_LINE = /^\s*(?:[-‐−ー・•*●○◯]|\d{1,2}[.)．）、])\s*(.+?)\s*$/;
+export function splitChoices(say, choices) {
+  const keep = [];
+  const found = [];
+  for (const line of String(say || '').split('\n')) {
+    const m = line.match(LIST_LINE);
+    if (m && m[1].length <= 40) found.push(m[1]); else keep.push(line);
+  }
+  const text = keep.join('\n').replace(/\n{3,}/g, '\n\n').trim();
+  const all = [...(Array.isArray(choices) ? choices : []), ...found].map((c) => String(c).trim()).filter(Boolean);
+  return { text: text || String(say || '').trim(), choices: [...new Set(all)] };
+}
+
 export function openConsult(p, deps) {
   const messages = [];
   let busy = false;
@@ -378,9 +420,10 @@ export function openConsult(p, deps) {
     try {
       const r = await askAI({ action: 'consult', name: p.name, today: today(), current: contextText(p), memo: p.consultMemo || '', messages }, { timeout: 30000 });
       wait.remove();
-      if (r.say) { messages.push({ role: 'assistant', text: r.say }); bubble('assistant', r.say); }
+      const s = splitChoices(r.say, r.choices);
+      if (r.say) { messages.push({ role: 'assistant', text: r.say }); bubble('assistant', s.text); }
       if (r.done && r.plan) { propose(cleanPlan(r.plan)); return; }
-      choices.replaceChildren(...(r.choices || []).map((c) => h('button', { type: 'button', class: 'pick', onclick: () => say(c) }, c)),
+      choices.replaceChildren(...s.choices.map((c) => h('button', { type: 'button', class: 'pick', onclick: () => say(c) }, c)),
         messages.length > 4 ? h('button', { type: 'button', class: 'pick', onclick: () => say('ここまでで まとめて') }, 'ここで まとめる') : null);
     } catch (e) {
       wait.remove();
