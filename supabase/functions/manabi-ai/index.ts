@@ -315,15 +315,16 @@ Deno.serve(async (req) => {
         { type: 'image', source: { type: 'base64', media_type: 'image/png', data: img } },
         { type: 'text', text: ask },
       ];
+      // 読めない返事は null（×とはちがう。アプリは 自分で ○× にする）
       const read = (text: string) => {
         const m = text.match(/\{[\s\S]*\}/);
-        try { if (m) return JSON.parse(m[0]); } catch { /* 下へ */ }
-        return { ok: false, sure: false, comment: '' };
+        try { const o = m ? JSON.parse(m[0]) : null; return o && typeof o.ok === 'boolean' ? o : null; } catch { return null; }
       };
       let r = read(await claude(key, content, system, 160));
-      if (!r.ok || r.sure === false) {
-        try { r = read(await claude(key, content, system, 1500, MODEL_SMART)); } catch { /* Sonnet が だめなら Haiku の答えのまま */ }
+      if (!r || !r.ok || r.sure === false) {
+        try { r = read(await claude(key, content, system, 1500, MODEL_SMART)) || r; } catch { /* Sonnet が だめなら Haiku の答えのまま */ }
       }
+      if (!r) throw new Error('judge-unreadable');
       return ok({ ok: !!r.ok, comment: clip(r.comment, 60) });
     }
     return new Response(JSON.stringify({ error: 'unknown action' }), { status: 400, headers });
