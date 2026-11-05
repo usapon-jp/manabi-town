@@ -116,7 +116,12 @@ function buildStoneWall(op) {
         x: p.x + (rnd() - 0.5) * 0.06, y: y + 0.08 + r * 0.16, z: p.z + (rnd() - 0.5) * 0.06, ry: ang - Math.PI / 2 + (rnd() - 0.5) * 0.12,
       });
     }
-    if (rnd() < 0.4) bag.add(SPH, MOSS, { x: p.x, y: y + 0.5, z: p.z, sx: 0.16, sy: 0.05, sz: 0.14 });
+    // こけ（石のすきまや上のかどに、小さく）
+    if (rnd() < 0.35) {
+      const side = rnd() < 0.5 ? -1 : 1; const off = side * (0.15 + rnd() * 0.04);
+      const cx = Math.cos(ang - Math.PI / 2); const cz = -Math.sin(ang - Math.PI / 2);
+      bag.add(SPH, MOSS, { x: p.x + cz * off + cx * (rnd() - 0.5) * 0.3, y: y + 0.42 + rnd() * 0.04, z: p.z - cx * off + cz * (rnd() - 0.5) * 0.3, sx: 0.07 + rnd() * 0.05, sy: 0.035, sz: 0.06 + rnd() * 0.04, ry: rnd() * 3 });
+    }
     walls.push({ x: p.x, z: p.z, r: 0.22 });
   }
   return { mesh: bag.mesh(), walls };
