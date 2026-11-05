@@ -1420,3 +1420,12 @@ input.pin { font-size: 26px; letter-spacing: 0.5em; text-align: center; }
 .notify-card .steps { margin: 6px 0 0; padding-left: 1.3em; line-height: 1.7; }
 .time-row { display: flex; gap: 12px; align-items: center; }
 .time-in { font: inherit; font-size: 1.1rem; padding: 8px 10px; border: 1.5px solid var(--line); border-radius: 12px; background: #fff; color: var(--navy); min-width: 8em; }
+
+/* 読み上げを とめる（読み上げ中だけ出る） */
+.ask-stop {
+  justify-self: center; display: inline-flex; align-items: center; gap: 8px; padding: 8px 18px;
+  border-radius: 999px; border: 0; background: #c0583f; color: #fff; font: inherit; font-size: 15px; font-weight: 700; cursor: pointer;
+  box-shadow: 0 2px 8px rgba(192, 88, 63, 0.3);
+}
+.ask-stop[hidden] { display: none; }
+.ask-stop-sq { width: 12px; height: 12px; border-radius: 2px; background: #fff; display: inline-block; }

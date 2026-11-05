@@ -33,7 +33,8 @@ export function openAsk(p, { subject, mode: startMode } = {}) {
   let photo = null;      // つぎのしつもんに つける写真（data URL）
   let busy = false;
   let turn = 0;          // モードを かえたら ふえる（古い返事を 出さないため）
-  const voice = createVoice();
+  const stopBtn = h('button', { type: 'button', class: 'ask-stop', hidden: true, onclick: () => voice.stopSpeak() }, h('i', { class: 'ask-stop-sq' }), 'よみあげを とめる');
+  const voice = createVoice({ onSpeaking: (on) => { stopBtn.hidden = !on; } });
   let closed = false;
   let voiceOn = false;   // 音声モード: 返事を読み上げて、おわったら また聞きとる
   let subj = subject || '';
@@ -100,7 +101,7 @@ export function openAsk(p, { subject, mode: startMode } = {}) {
         speaker,
         h('button', { class: 'chat-close', 'aria-label': 'とじる', onclick: close }, icon('x'))),
       modeRow),
-    log, h('div', { class: 'chat-foot' }, subjRow, thumb, form), file);
+    log, h('div', { class: 'chat-foot' }, stopBtn, subjRow, thumb, form), file);
   document.body.append(layer);
   document.body.classList.add('running');
 
@@ -171,7 +172,7 @@ export function openAsk(p, { subject, mode: startMode } = {}) {
     bubble('user', img ? h('img', { class: 'ask-photo', src: img, alt: '' }) : null, t);
     const wait = bubble('assistant thinking', mode === 'zu' ? '図を かいてるよ…' : 'かんがえ中…');
     try {
-      const r = await askAI({ action: 'ask', mode, grade: gradeLabel(p), subject: subj, messages, image: sticky || undefined }, { timeout: mode === 'zu' ? 60000 : 45000 });
+      const r = await askAI({ action: 'ask', mode, grade: gradeLabel(p), subject: subj, messages, image: sticky || undefined }, { timeout: mode === 'zu' || mode === 'ask' ? 90000 : 45000 });
       wait.remove();
       if (closed || my !== turn) return;
       // 会話の つづきに つかう ことば（英会話は 英語のまま、ほかは 英文も つける）

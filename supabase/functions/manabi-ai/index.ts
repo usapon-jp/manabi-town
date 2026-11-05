@@ -26,13 +26,14 @@ function cors(origin: string | null) {
 }
 
 // 呼び出しごとに使用量を ai_usage に記録する（action・モデル・トークン数・推定料金だけ）
-async function callClaude(action: string, who: string, key: string, content: unknown[], system: string, maxTokens = 200, model = MODEL, history?: unknown[]) {
+async function callClaude(action: string, who: string, key: string, content: unknown[], system: string, maxTokens = 200, model = MODEL, history?: unknown[], think = false) {
   const r = await fetch('https://api.anthropic.com/v1/messages', {
     method: 'POST',
     headers: { 'x-api-key': key, 'anthropic-version': '2023-06-01', 'content-type': 'application/json' },
     // Haiku 5.5 はなにも書かないと「考える」が入り、短い max_tokens を考えるだけで使いきって 答えが空になる（ヒントが出なかった原因）。
     // 短い答えでよい Haiku の呼び出しは 考えずに答えさせる（Sonnet 5.5 は disabled を受けつけないので そのまま）
-    body: JSON.stringify({ model, max_tokens: maxTokens, system, messages: history || [{ role: 'user', content }], ...(model === MODEL ? { thinking: { type: 'disabled' } } : {}) }),
+    // think=true（しつもん・図）は 考えてから答える（計算まちがいを へらす）。そのぶん max_tokens を大きく
+    body: JSON.stringify({ model, max_tokens: maxTokens, system, messages: history || [{ role: 'user', content }], ...(model === MODEL && !think ? { thinking: { type: 'disabled' } } : {}) }),
   });
   const j = await r.json();
   if (j?.usage) await recordUsage(action, who, model, j.usage);
@@ -41,6 +42,30 @@ async function callClaude(action: string, who: string, key: string, content: unk
 }
 
 const clip = (s: unknown, n: number) => String(s ?? '').slice(0, n);
+
+// ピヨ先生の返事を { say, svg, en, fix } にする。JSON でも、文章＋<svg>＋<en> でも、```でかこまれていても読める
+export function parseReply(text: string) {
+  const str = (v: unknown) => (typeof v === 'string' ? v.trim() : '');
+  let t = String(text || '');
+  const j = t.match(/^\s*(?:```(?:json)?\s*)?(\{[\s\S]*\})\s*(?:```)?\s*$/);
+  if (j) {
+    try {
+      const o = JSON.parse(j[1]);
+      if (o && typeof o === 'object') return { say: str(o.say), svg: str(o.svg), en: str(o.en), fix: str(o.fix) };
+    } catch { /* JSON がこわれていたら 下で 文章として読む */ }
+  }
+  const svgM = t.match(/<svg[\s>][\s\S]*?<\/svg>/i);
+  const svg = svgM ? svgM[0].trim() : '';
+  t = t.replace(/<svg[\s>][\s\S]*?<\/svg>/gi, '').replace(/<svg[\s>][\s\S]*$/i, '');   // とちゅうで切れた図も すてる
+  const enM = t.match(/<en>([\s\S]*?)<\/en>/i);
+  const fixM = t.match(/<fix>([\s\S]*?)<\/fix>/i);
+  t = t.replace(/<(en|fix)>[\s\S]*?<\/\1>/gi, '');
+  // JSON がこわれていたときの のこり（"say": "…"）から 文だけ とりだす
+  const sayM = t.match(/"say"\s*:\s*"((?:[^"\\]|\\.)*)"/);
+  let say = sayM ? sayM[1].replace(/\\n/g, '\n').replace(/\\"/g, '"') : t;
+  say = say.replace(/```[a-z]*\s*/gi, '').replace(/^[\s{}"',:]+|[\s{}"',:]+$/g, '').replace(/\n{3,}/g, '\n\n').trim();
+  return { say, svg, en: enM ? enM[1].trim() : '', fix: fixM ? fixM[1].trim() : '' };
+}
 
 Deno.serve(async (req) => {
   const origin = req.headers.get('origin');
@@ -195,6 +220,8 @@ Deno.serve(async (req) => {
       const mode = ['zu', 'yomu', 'talk'].includes(String(body.mode)) ? String(body.mode) : 'ask';
       const grade = clip(body.grade, 20);
       const svgRule = 'svg のきまり: <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 240"> で始める。シンプルに。文字は font-family="sans-serif" font-size 14〜18 の日本語OK。線は #5e4a35（太さ2）、ぬりは #8fa871 #f0d59a #dfe9c9 #f4c7b8 など。背景は透明。script・外部参照・画像・アニメーションは使わない。';
+      // 図（SVG）は JSON に入れると 引用符がこわれやすいので、ふつうの文章＋タグで返してもらう
+      const FREE_FORMAT = '返事の書き方: まず せつめいを ふつうの文章で書く。図があるときは そのあとに <svg …>…</svg> を そのまま書く。読み上げたい英語があれば <en>英語</en> と書く。JSON・```・マークダウンは使わない。';
       const base = [
         'あなたは「ピヨ先生」。小学生・中学生の家庭教師で、子どもの質問に答える。やさしい話し言葉、ひらがな多め（学年で習う漢字はOK）。',
         `子どもは ${grade}。教科: ${clip(body.subject, 20) || 'わからない'}。学年に合った言葉と やり方で。`,
@@ -202,21 +229,21 @@ Deno.serve(async (req) => {
       const byMode: Record<string, string[]> = {
         ask: [
           'いきなり答えだけを言わない。考え方 → 途中 → 答え の順に、みじかく。「わからない」と言われたら もっとやさしく言いかえる。',
-          '1回の返事は200文字くらいまで。まちがいを おそれない・責めない。最後に「わかったかな？」など、つぎに つながる ひとことを。',
+          '答える前に 計算を自分で たしかめる（まちがえたまま書かない）。1回の返事は300文字くらいまで。まちがいを おそれない・責めない。最後に「わかったかな？」など、つぎに つながる ひとことを。',
           '図があると分かりやすい時だけ（わり算の図・線分図・グラフ・さんかく・ものの流れなど）、svg に図を入れる。なければ空文字。',
           svgRule,
           '英語の文や単語を声で聞かせると良い時は、en に英語だけを入れる（なければ空文字）。',
           '写真がついていたら、その問題を読んで答える。読めない所は、読めないと言う。',
-          '返事は JSON だけ: {"say":"返事","svg":"<svg…>…</svg> か空文字","en":"英語 か空文字"}',
+          FREE_FORMAT,
         ],
         zu: [
           '子どもは「図で おしえて」とたのんでいる。かならず svg に図を1まい入れる。図が主役で、say は図の見かた・考え方を150文字くらいで。',
           '算数・数学の図形は、座標をきちんと計算して正確にかく（辺の長さ・角度・平行・直角の記号・補助線は点線 stroke-dasharray="5 4"）。長さや角度の数字・頂点の記号（A B C）を図に書く。',
           '文章題は線分図・面積図・表、割合は帯グラフ、関数は座標軸つきのグラフ、理科は かんたんな模式図に。だいじな所は ぬりで目立たせる。文字が図と重ならないように。',
-          'いきなり答えだけを言わない。考え方 → 途中 → 答え の順に。最後に つぎに つながる ひとことを。',
+          '答える前に 計算を自分で たしかめる（まちがえたまま書かない）。いきなり答えだけを言わない。考え方 → 途中 → 答え の順に。最後に つぎに つながる ひとことを。',
           svgRule,
           '写真がついていたら、その問題を読んで図にする。読めない所は、読めないと言う。',
-          '返事は JSON だけ: {"say":"せつめい","svg":"<svg…>…</svg>"}',
+          FREE_FORMAT,
         ],
         yomu: [
           '子どもは「英語を よみあげて」とたのんでいる。アプリが en を英語の声で読み上げる。',
@@ -251,15 +278,14 @@ Deno.serve(async (req) => {
         const lastM = msgs[msgs.length - 1];
         lastM.content = [{ type: 'image', source: { type: 'base64', media_type: 'image/jpeg', data: img } }, { type: 'text', text: String(lastM.content) }];
       }
-      const text = await claude(key, [], system, mode === 'zu' ? 3000 : mode === 'talk' ? 500 : 1500, MODEL, msgs);
-      const m = text.match(/\{[\s\S]*\}/);
-      let r: Record<string, unknown> = {};
-      try { r = m ? JSON.parse(m[0]) : {}; } catch { r = {}; }
-      let svg = typeof r.svg === 'string' ? r.svg.trim() : '';
+      const thinkHard = mode === 'ask' || mode === 'zu';
+      const text = await claude(key, [], system, thinkHard ? 12000 : mode === 'talk' ? 500 : 1500, MODEL, msgs, thinkHard);
+      const r = parseReply(text);
+      let svg = r.svg;
       if (!/^<svg[\s>]/.test(svg) || svg.length > 20000 || /<script|<foreignObject|<image|\son\w+\s*=|href\s*=\s*["']?(https?:|javascript:|data:)/i.test(svg)) svg = '';
-      const en = clip(typeof r.en === 'string' ? r.en.trim() : '', 800);
-      const fix = clip(typeof r.fix === 'string' ? r.fix.trim() : '', 200);
-      const say = clip(r.say || (m ? '' : text), 600);
+      const en = clip(r.en, 800);
+      const fix = clip(r.fix, 200);
+      const say = clip(r.say || (mode === 'zu' && !svg ? 'ごめんね、図が うまく かけなかった。もういちど 聞いてみてね' : ''), 2000);
       return ok({ say, svg, en, fix });
     }
     if (body.action === 'judge') {
