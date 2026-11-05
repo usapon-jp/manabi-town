@@ -6,7 +6,7 @@
 //   judge … 手書きの字の画像が、お手本の漢字と同じか判定
 //   quiz  … にがてな単元から、にた問題（3択）を作る
 //   scan  … プリントや範囲の写真から、テスト・宿題の予定（教科・名前・はんい・日にち）を読み取る（Haiku）
-//   ask   … ピヨ先生への質問（チャット・写真つき・図（SVG）つき）。Haiku
+//   ask   … ピヨ先生への質問（チャット・写真つき・図（SVG）つき）。mode: ask / zu（図で）/ yomu（英語よみあげ）/ talk（英会話）。Haiku
 //   usage … 今月の AI 使用額（推定）。せってい画面に出す。Claude は呼ばない
 //   plan  … ピヨ先生と作戦会議（進め方・得意苦手・理解度チェックする単元を決める）。ここだけ Sonnet
 //   consult … おとなモードの「ピヨと相談」。ルーティーンと目標・試験を会話で決める（Haiku）
@@ -191,17 +191,50 @@ Deno.serve(async (req) => {
       return ok({ items, note: clip(r.note, 120) });
     }
     if (body.action === 'ask') {
-      const system = [
+      // mode: ask（ふつう）/ zu（かならず図）/ yomu（英語よみあげ）/ talk（英会話）
+      const mode = ['zu', 'yomu', 'talk'].includes(String(body.mode)) ? String(body.mode) : 'ask';
+      const grade = clip(body.grade, 20);
+      const svgRule = 'svg のきまり: <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 240"> で始める。シンプルに。文字は font-family="sans-serif" font-size 14〜18 の日本語OK。線は #5e4a35（太さ2）、ぬりは #8fa871 #f0d59a #dfe9c9 #f4c7b8 など。背景は透明。script・外部参照・画像・アニメーションは使わない。';
+      const base = [
         'あなたは「ピヨ先生」。小学生・中学生の家庭教師で、子どもの質問に答える。やさしい話し言葉、ひらがな多め（学年で習う漢字はOK）。',
-        `子どもは ${clip(body.grade, 20)}。教科: ${clip(body.subject, 20) || 'わからない'}。学年に合った言葉と やり方で。`,
-        'いきなり答えだけを言わない。考え方 → 途中 → 答え の順に、みじかく。「わからない」と言われたら もっとやさしく言いかえる。',
-        '1回の返事は200文字くらいまで。まちがいを おそれない・責めない。最後に「わかったかな？」など、つぎに つながる ひとことを。',
-        '図があると分かりやすい時だけ（わり算の図・線分図・グラフ・さんかく・ものの流れなど）、svg に図を入れる。なければ空文字。',
-        'svg のきまり: <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 200"> で始める。シンプルに。文字は font-family="sans-serif" font-size 14〜18 の日本語OK。線は #5e4a35、ぬりは #8fa871 #f0d59a #dfe9c9 など。背景は透明。script・外部参照・画像は使わない。',
-        '写真がついていたら、その問題を読んで答える。読めない所は、読めないと言う。',
-        '返事は JSON だけ: {"say":"返事","svg":"<svg…>…</svg> か空文字"}',
-      ].join('\n');
-      const raw = (Array.isArray(body.messages) ? body.messages : []).slice(-10)
+        `子どもは ${grade}。教科: ${clip(body.subject, 20) || 'わからない'}。学年に合った言葉と やり方で。`,
+      ];
+      const byMode: Record<string, string[]> = {
+        ask: [
+          'いきなり答えだけを言わない。考え方 → 途中 → 答え の順に、みじかく。「わからない」と言われたら もっとやさしく言いかえる。',
+          '1回の返事は200文字くらいまで。まちがいを おそれない・責めない。最後に「わかったかな？」など、つぎに つながる ひとことを。',
+          '図があると分かりやすい時だけ（わり算の図・線分図・グラフ・さんかく・ものの流れなど）、svg に図を入れる。なければ空文字。',
+          svgRule,
+          '英語の文や単語を声で聞かせると良い時は、en に英語だけを入れる（なければ空文字）。',
+          '写真がついていたら、その問題を読んで答える。読めない所は、読めないと言う。',
+          '返事は JSON だけ: {"say":"返事","svg":"<svg…>…</svg> か空文字","en":"英語 か空文字"}',
+        ],
+        zu: [
+          '子どもは「図で おしえて」とたのんでいる。かならず svg に図を1まい入れる。図が主役で、say は図の見かた・考え方を150文字くらいで。',
+          '算数・数学の図形は、座標をきちんと計算して正確にかく（辺の長さ・角度・平行・直角の記号・補助線は点線 stroke-dasharray="5 4"）。長さや角度の数字・頂点の記号（A B C）を図に書く。',
+          '文章題は線分図・面積図・表、割合は帯グラフ、関数は座標軸つきのグラフ、理科は かんたんな模式図に。だいじな所は ぬりで目立たせる。文字が図と重ならないように。',
+          'いきなり答えだけを言わない。考え方 → 途中 → 答え の順に。最後に つぎに つながる ひとことを。',
+          svgRule,
+          '写真がついていたら、その問題を読んで図にする。読めない所は、読めないと言う。',
+          '返事は JSON だけ: {"say":"せつめい","svg":"<svg…>…</svg>"}',
+        ],
+        yomu: [
+          '子どもは「英語を よみあげて」とたのんでいる。アプリが en を英語の声で読み上げる。',
+          'en には 読み上げる英語だけを入れる（日本語・記号・番号は入れない。600文字まで）。子どもが書いた英語は、つづりのまちがいを直して en に入れる。写真なら写っている英文を そのまま書き起こす。',
+          '日本語で「〇〇を英語で」と聞かれたら、学年に合った かんたんな英語にして en に入れる。',
+          'say には みじかい日本語の意味と、読み方のポイント（つなげて読む所・アクセント）を1つ、100文字くらいで。発音をカタカナで書きすぎない。',
+          '返事は JSON だけ: {"say":"日本語","en":"English"}',
+        ],
+        talk: [
+          `子どもと英会話の練習をする。${grade}が分かる、みじかく かんたんな英語で（小学生は1文5〜8語、中学生は習った文法まで）。`,
+          'en には ピヨ先生の英語の返事（1〜2文）。かならず 質問で終えて、会話が つづくようにする。話題は 学校・すきなもの・きょうのこと・食べ物・どうぶつ など。',
+          'say には en の日本語の意味を みじかく（ひらがな多め）。',
+          '子どもの英語に まちがいがあれば、fix に正しい英文を1つだけ（責めない）。まちがいがなければ fix は空文字。子どもが日本語で書いたら、fix に その英語の言い方を入れて、en で やさしく つづける。',
+          '返事は JSON だけ: {"en":"English","say":"日本語の意味","fix":"直した英文 か空文字"}',
+        ],
+      };
+      const system = [...base, ...byMode[mode]].join('\n');
+      const raw = (Array.isArray(body.messages) ? body.messages : []).slice(-12)
         .map((m: { role?: string; text?: string }) => ({ role: m?.role === 'assistant' ? 'assistant' : 'user', content: clip(m?.text, 800) }))
         .filter((m: { content: string }) => m.content);
       // deno-lint-ignore no-explicit-any
@@ -210,20 +243,24 @@ Deno.serve(async (req) => {
         const last = msgs[msgs.length - 1];
         if (last && last.role === m.role) last.content += `\n${m.content}`; else msgs.push(m);
       }
-      while (msgs.length && msgs[0].role !== 'user') msgs.shift();
+      // ピヨ先生から話しはじめた会話（英会話）は、先頭に「はじめ」を おく
+      if (msgs.length && msgs[0].role !== 'user') msgs.unshift({ role: 'user', content: '（はじめよう）' });
       if (!msgs.length || msgs[msgs.length - 1].role !== 'user') return new Response(JSON.stringify({ error: 'no-question' }), { status: 400, headers });
       const img = clip(body.image, 1_800_000).replace(/^data:image\/\w+;base64,/, '');
       if (img) {
         const lastM = msgs[msgs.length - 1];
         lastM.content = [{ type: 'image', source: { type: 'base64', media_type: 'image/jpeg', data: img } }, { type: 'text', text: String(lastM.content) }];
       }
-      const text = await claude(key, [], system, 1500, MODEL, msgs);
+      const text = await claude(key, [], system, mode === 'zu' ? 3000 : mode === 'talk' ? 500 : 1500, MODEL, msgs);
       const m = text.match(/\{[\s\S]*\}/);
       let r: Record<string, unknown> = {};
       try { r = m ? JSON.parse(m[0]) : {}; } catch { r = {}; }
       let svg = typeof r.svg === 'string' ? r.svg.trim() : '';
-      if (!/^<svg[\s>]/.test(svg) || svg.length > 12000 || /<script|<foreignObject|\son\w+\s*=|href\s*=\s*["']?(https?:|javascript:|data:)/i.test(svg)) svg = '';
-      return ok({ say: clip(r.say || text.replace(/\{[\s\S]*\}/, ''), 600), svg });
+      if (!/^<svg[\s>]/.test(svg) || svg.length > 20000 || /<script|<foreignObject|<image|\son\w+\s*=|href\s*=\s*["']?(https?:|javascript:|data:)/i.test(svg)) svg = '';
+      const en = clip(typeof r.en === 'string' ? r.en.trim() : '', 800);
+      const fix = clip(typeof r.fix === 'string' ? r.fix.trim() : '', 200);
+      const say = clip(r.say || (m ? '' : text), 600);
+      return ok({ say, svg, en, fix });
     }
     if (body.action === 'judge') {
       const img = clip(body.image, 400_000).replace(/^data:image\/\w+;base64,/, '');
