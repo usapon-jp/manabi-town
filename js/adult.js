@@ -8,12 +8,12 @@ import { h, toast, daysLabel } from './ui.js';
 import { save, today, daysUntil, addItem, toISO } from './store.js';
 import { askAI, aiErrorText } from './ai.js';
 import { icon } from './icons.js';
+import { ADULT_DEFAULT as ADULT_SUBJECTS } from './subjects.js';
 
 export const ROUTINE_POINTS = 5;
 export const WEEK_BONUS = 30;           // 週◯回を達成したときの はじめの値（ルーティーンごとに なおせる）
 const BONUS_CHOICES = [10, 20, 30, 50, 100];
 export const CONSULT_BONUS = 30;
-export const ADULT_SUBJECTS = ['資格・勉強', '仕事', '健康', 'くらし', 'しゅみ', 'その他'];
 export const WHEN = ['あさ', 'ひる', 'よる'];
 const WEEK = ['日', '月', '火', '水', '木', '金', '土'];
 const WEEK_MON = ['月', '火', '水', '木', '金', '土', '日'];
