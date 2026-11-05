@@ -13,6 +13,7 @@ import { scanButton } from './scan.js';
 import { feedbackCard } from './feedback.js';
 import { photosCard } from './photos.js';
 import { openAsk } from './ask.js';
+import { townAskButton } from './townask.js';
 import { bindControls } from './controls.js';
 import { levelOf, streak, week } from './progress.js';
 import { renderTimerTab, startTimer, resumeIfRunning, kindForItem, minutesOn } from './timer.js';
@@ -381,6 +382,7 @@ function renderHome(p) {
       icon('book-open'),
       h('span', { class: 'quest-label' }, hot ? 'きょう ていしゅつ！' : left ? 'きょうやること' : 'ぜんぶ できた！'),
       left ? h('span', { class: 'quest-badge' }, String(left)) : null),
+    townAskButton(p),   // まちづくりの つかいかたを ピヨに しつもん（たたんだ ときだけ 見える）
     h('div', { class: 'card-body' },
       bar,
       dueCard(p, urgent),

@@ -12,6 +12,9 @@ export function makeWind(cut) {
 
 // stub: かった場所での高さの残り（草は0.12=かりあと、花などは0=なくなる）
 export function addWind(material, wind, h, gain, stub = 0) {
+  // three.js は onBeforeCompile の中身の文字が同じだと、シェーダーを使いまわす。
+  // 高さ・ゆれ・stub がちがうと別のシェーダーにしないと、うえた花が「かった所で消える」設定になってしまう
+  material.customProgramCacheKey = () => `wind:${h.toFixed(3)}:${gain.toFixed(3)}:${stub.toFixed(3)}`;
   material.onBeforeCompile = (shader) => {
     shader.uniforms.uTime = wind.uTime;
     shader.uniforms.uActor = wind.uActor;

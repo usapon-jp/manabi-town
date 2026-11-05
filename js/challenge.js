@@ -60,7 +60,12 @@ async function makeFor(p, subject, n, seed, pics = []) {
     for (let i = 0; i < 6 && reads.length < n; i += 1) reads.push(...buildDrill('kanji', bucket, `${seed}:${i}`).filter((q) => q.kind !== 'write'));
     return shuffle(reads, rand).slice(0, n);
   }
-  if (!pics.length && subject === '英語') return buildDrill('english', bucket, seed, rand).slice(0, n);
+  if (!pics.length && subject === '英語') {
+    // つづり（書く）は ドリルとクエストで。ここは いみ（えらぶ）だけ
+    const picks = [];
+    for (let i = 0; i < 6 && picks.length < n; i += 1) picks.push(...buildDrill('english', bucket, `${seed}:${i}`).filter((q) => q.kind !== 'write'));
+    return shuffle(picks, rand).slice(0, n);
+  }
   if (!pics.length && subject === '算数・数学') return buildDrill('math', bucket, seed, rand).slice(0, n);
   const r = await askAI({ action: 'quiz', subject, grade: gradeLabel(p), topic: topicFor(p, subject), count: Math.min(5, n), images: pics }, { timeout: 40000 });
   return (r.questions || []).filter((q) => q && q.q && Array.isArray(q.options) && q.options.length >= 2 && Number.isInteger(q.answer) && q.answer >= 0 && q.answer < q.options.length)
