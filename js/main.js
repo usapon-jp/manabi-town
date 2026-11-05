@@ -25,7 +25,7 @@ import { recordResults, dueReview, startReview, reviewStats, REVIEW_PER_CORRECT 
 import { openTestEntry, openWeak, startWeak, testHistory } from './tests.js';
 import { startSync } from './sync.js';
 import { syncCard, openLogin, openPicker, askPin, pinField, pinFor } from './account.js';
-import { openPlanChat, startCheck, summary as planSummary, PLAN_BONUS, dailyBase, extraQuestions, activeExtras, ensurePools, dailyLabel } from './coach.js';
+import { openPlanChat, startCheck, summary as planSummary, PLAN_BONUS, dailyBase, extraQuestions, missingPools, ensurePools, dailyLabel } from './coach.js';
 import { startNotify, notifyCard } from './notify.js';
 import { isAdult, todayRoutines, checkRoutine, renderRoutineTab, consultCta, openConsult, ROUTINE_POINTS } from './adult.js';
 import { subjectNames, subjectColor, openSubjectEditor } from './subjects.js';
@@ -568,7 +568,7 @@ function renderTodo(p) {
 async function startDaily(p) {
   const key = today();
   // 作戦会議で足した 一問一答が まだ できていなければ、ここで作る
-  if (activeExtras(p).length && !extraQuestions(p, key).length) {
+  if (missingPools(p).length) {
     toast('ピヨ先生が 問題を作り中…', 8000);
     await ensurePools(p);
   }

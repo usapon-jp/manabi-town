@@ -89,12 +89,17 @@ export function dailyLabel(c) {
 }
 
 // 一問一答を まだ作っていない extra の分を作る（Haiku、1つにつき1回だけ）
-let making = null;
+// 一問一答が まだない extra
+export function missingPools(p) {
+  return activeExtras(p).filter((x) => !(p.coach.pools || {})[poolKey(x)]?.length);
+}
+
+const making = new Map();   // プロフィールごとに、作っている とちゅうの しごと
 export function ensurePools(p) {
-  const need = activeExtras(p).filter((x) => !(p.coach.pools || {})[poolKey(x)]?.length);
+  const need = missingPools(p);
   if (!need.length) return Promise.resolve(true);
-  if (making) return making;
-  making = Promise.all(need.map((x) => askAI({ action: 'quiz', pool: true, subject: x.subject, grade: gradeLabel(p), topic: x.topic, count: POOL_SIZE }, { timeout: 60000 })
+  if (making.has(p.id)) return making.get(p.id);
+  const job = Promise.all(need.map((x) => askAI({ action: 'quiz', pool: true, subject: x.subject, grade: gradeLabel(p), topic: x.topic, count: POOL_SIZE }, { timeout: 60000 })
     .then((r) => {
       const qs = (r.questions || []).filter((q) => q && q.q && Array.isArray(q.options) && q.options.length >= 2 && Number.isInteger(q.answer) && q.answer >= 0 && q.answer < q.options.length)
         .map((q) => ({ q: String(q.q).slice(0, 200), options: q.options.slice(0, 4).map((o) => String(o).slice(0, 60)), answer: q.answer }));
@@ -103,8 +108,9 @@ export function ensurePools(p) {
     })
     .catch(() => false)))
     .then((oks) => { save(); return oks.every(Boolean); })
-    .finally(() => { making = null; });
-  return making;
+    .finally(() => { making.delete(p.id); });
+  making.set(p.id, job);
+  return job;
 }
 
 // きょうの extra の問題。日にちで 3もんずつ ずらして、ぜんぶ出たら また はじめから（何周も）
