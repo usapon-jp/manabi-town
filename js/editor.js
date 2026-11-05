@@ -126,7 +126,7 @@ export function createEditor({ container, scene, cut, wind, pick, rotate, setWal
   const st = {
     editing: false, tool: 'path', size: 1, stroke: null, loadedId: null, visible: false,
     bedMode: 'plant', species: 'tulip', border: 'log', riverMode: 'line',
-    fenceStyle: 'fence:wood', piece: 'piece:raisedbed',
+    fenceStyle: 'fence:wood', piece: 'piece:raisedbed', part: 'part:door',
   };
   const builds = createBuilds({ scene, wind, cut, setWalls, setTown: (m) => town?.setOverrides(m) });
 
@@ -209,16 +209,17 @@ export function createEditor({ container, scene, cut, wind, pick, rotate, setWal
     goBtn.setAttribute('aria-label', t.label);
     use.querySelector('.tname').textContent = t.label;
     // 道具につく小さな選び: 花の色／柵のかたち／おきもの（もっているものだけ）
-    const kind = hand.id === 'fence' ? 'fence' : hand.id === 'piece' ? 'piece' : null;
+    const kind = hand.id === 'fence' ? 'fence' : hand.id === 'piece' ? 'piece' : hand.id === 'part' ? 'part' : null;
     if (kind) {
       const ids = ownedOfKind(kind);
       const bag = kind === 'piece' ? bagItems() : [];
       const labelOf = (id) => ITEMS[id]?.label || bag.find((b) => b.key === id)?.label || id;
       const all = [...ids, ...bag.map((b) => b.key)];
-      const cur = kind === 'fence' ? st.fenceStyle : st.piece;
-      if (!all.includes(cur)) { if (kind === 'fence') st.fenceStyle = all[0]; else st.piece = all[0]; }
+      const curOf = () => (kind === 'fence' ? st.fenceStyle : kind === 'part' ? st.part : st.piece);
+      const setCur = (v) => { if (kind === 'fence') st.fenceStyle = v; else if (kind === 'part') st.part = v; else st.piece = v; };
+      if (!all.includes(curOf())) setCur(all[0]);
       spEl.innerHTML = all.map((id) => `<button type="button" class="txt" data-id="${id}" aria-label="${labelOf(id)}">${id.startsWith('bag:') ? 'バッグ: ' : ''}${labelOf(id)}</button>`).join('');
-      spEl.querySelectorAll('button').forEach((b) => b.classList.toggle('on', b.dataset.id === (kind === 'fence' ? st.fenceStyle : st.piece)));
+      spEl.querySelectorAll('button').forEach((b) => b.classList.toggle('on', b.dataset.id === curOf()));
       spEl.hidden = false;
     } else if (hand.id === 'flower') {
       spEl.innerHTML = SPECIES_KEYS.map((k) => `<button type="button" data-sp="${k}" aria-label="${SPECIES[k].label}" style="background:${DOT[k]}"></button>`).join('');
@@ -229,7 +230,7 @@ export function createEditor({ container, scene, cut, wind, pick, rotate, setWal
   spEl.addEventListener('click', (e) => {
     const b = e.target.closest('button'); if (!b) return;
     if (b.dataset.sp) st.species = b.dataset.sp;
-    else if (b.dataset.id) { if (hand.id === 'fence') st.fenceStyle = b.dataset.id; else st.piece = b.dataset.id; }
+    else if (b.dataset.id) { if (hand.id === 'fence') st.fenceStyle = b.dataset.id; else if (hand.id === 'part') st.part = b.dataset.id; else st.piece = b.dataset.id; }
     refreshHand();
   });
   refreshHand();
@@ -265,6 +266,9 @@ export function createEditor({ container, scene, cut, wind, pick, rotate, setWal
   function walkEnd(e) {
     if (!walk.held || (e && e.pointerId !== walk.id)) return;
     walk.held = false;
+    const keep = walk.attachTarget;   // はなした しゅんかんの、はめられる場所
+    walk.attachNow = keep;
+    hideGhost();
     goBtn.classList.remove('hold');
     if (walk.sel) {
       walk.sel = false; selEl.hidden = true;
@@ -288,8 +292,7 @@ export function createEditor({ container, scene, cut, wind, pick, rotate, setWal
     } else if (t.op === 'place') {
       const bag = bagItems().find((b) => b.key === st.piece);
       if (bag) {                       // バッグから出す（しまっていた建物・おきもの）
-        if (town && !town.canPlace(pts[0], pts[1], bag.r, bag.kind === 'town' ? bag.id : null)) { say('ほかの たてものと かさなってるよ'); return; }
-        if (cut.isWater(pts[0], pts[1])) { say('水の上には おけないよ'); return; }
+        if (!validPlace(pts[0], pts[1], bag.r, bag.kind === 'town' ? bag.id : null, bag.kind === 'piece' ? bag.h : null)) { say('ここには おけないよ（赤い わっか）'); return; }
         op = bag.kind === 'town'
           ? { t: 'town', id: bag.id, x: pts[0], z: pts[1], rot: pts[2], stored: false }
           : { t: 'pmove', hx: bag.h.ox, hz: bag.h.oz, x: pts[0], z: pts[1], rot: pts[2], stored: false };
@@ -297,8 +300,7 @@ export function createEditor({ container, scene, cut, wind, pick, rotate, setWal
         if (!isOwned(st.piece)) { say('それは まだ もっていないよ'); return; }
         // ガチャで出た物は、1こずつ（さいしょから持っている物は、なんこでも）
         if (!ITEMS[st.piece]?.own && foldAll(ops() || []).eff.some((o) => o.t === 'place' && o.k === st.piece)) { say('もう ならべてるよ。うごかすなら「うごかす」を つかってね'); return; }
-        if (town && !town.canPlace(pts[0], pts[1], PIECE_R[st.piece] || 0.9)) { say('ほかの たてものと かさなってるよ'); return; }
-        if (cut.isWater(pts[0], pts[1])) { say('水の上には おけないよ'); return; }
+        if (!validPlace(pts[0], pts[1], PIECE_R[st.piece] || 0.9, null, null)) { say('ここには おけないよ（赤い わっか）'); return; }
         op = { t: 'place', k: st.piece, seed, x: pts[0], z: pts[1], rot: pts[2] };
       }
     }
@@ -310,6 +312,7 @@ export function createEditor({ container, scene, cut, wind, pick, rotate, setWal
     const t = toolById(walk.kind || hand.id);
     walk.pts = null; walk.last = null;
     if (t.op === 'place' && !pts) pts = [round(here.x), round(here.z), Math.round(here.rot * 100) / 100];
+    if (t.op === 'attach') { commitAttach(); return; }
     if (t.op === 'fence' || t.op === 'bridge' || t.op === 'place') { commitBuild(t, pts); return; }
     if (!pts || pts.length < 2) return;   // 1点だけ（その場で1回おした）でも、1つの操作として保存する
     const op = t.op === 'plant' ? { t: 'plant', s: st.species, seed: walk.seed, pts } : { t: t.op, r: handRadius(t), pts };
@@ -400,6 +403,79 @@ export function createEditor({ container, scene, cut, wind, pick, rotate, setWal
     a.needsUpdate = true;
     trailGeo.setDrawRange(0, cnt);
     trail.visible = true;
+  }
+
+  // ---- 「おける？」「はめられる？」の赤・緑 ----
+  const GREEN = 0x5fd36a; const RED = 0xe5604d;
+  const ghost = new THREE.Group();
+  {
+    const disc = new THREE.Mesh(new THREE.CircleGeometry(1, 40), new THREE.MeshBasicMaterial({ color: GREEN, transparent: true, opacity: 0.22, depthTest: false, depthWrite: false }));
+    const rim = new THREE.Mesh(new THREE.RingGeometry(0.9, 1, 48), new THREE.MeshBasicMaterial({ color: GREEN, transparent: true, opacity: 0.95, depthTest: false, depthWrite: false, side: THREE.DoubleSide }));
+    for (const m of [disc, rim]) { m.rotation.x = -Math.PI / 2; m.renderOrder = 9; ghost.add(m); }
+    ghost.visible = false; scene.add(ghost);
+  }
+  const marks = Array.from({ length: 10 }, () => {
+    const m = new THREE.Mesh(new THREE.SphereGeometry(0.13, 12, 8), new THREE.MeshBasicMaterial({ color: RED, transparent: true, opacity: 0.95, depthTest: false }));
+    m.renderOrder = 10; m.visible = false; scene.add(m); return m;
+  });
+  function hideGhost() { ghost.visible = false; marks.forEach((m) => { m.visible = false; }); }
+  function showGhost(x, z, r, ok) {
+    ghost.position.set(x, heightAt(x, z) + 0.07, z);
+    ghost.scale.setScalar(Math.max(0.25, r));
+    ghost.children.forEach((c) => c.material.color.setHex(ok ? GREEN : RED));
+    ghost.visible = true;
+  }
+  const ahead = (pos, heading, d) => ({ x: pos.x + Math.sin(heading) * d, z: pos.z + Math.cos(heading) * d });
+  // ここに置けるか: 水の上でない・はんいの中・町の建物や、ほかのおきものとかさならない
+  function validPlace(x, z, r, selfId, selfH) {
+    if (Math.hypot(x, z) > ROAM) return false;
+    if (cut.isWater(x, z)) return false;
+    if (town && !town.canPlace(x, z, r, selfId)) return false;
+    for (const o of foldAll(ops() || []).eff) {
+      if (o.t !== 'place') continue;
+      if (selfH && o.ox === selfH.ox && o.oz === selfH.oz) continue;
+      if (Math.hypot(x - o.x, z - o.z) < r + (PIECE_R[o.k] || 0.9) * 0.6 + 0.2) return false;
+    }
+    return true;
+  }
+  // いま手に持っているおきものの、大きさと「出せるか」（ガチャで出た物は1こずつ）
+  function pieceSel() {
+    const bag = bagItems().find((b) => b.key === st.piece);
+    if (bag) return { r: bag.r, selfId: bag.kind === 'town' ? bag.id : null, h: bag.kind === 'piece' ? bag.h : null, allowed: true };
+    const owned = isOwned(st.piece);
+    const placed = foldAll(ops() || []).eff.some((o) => o.t === 'place' && o.k === st.piece);
+    return { r: PIECE_R[st.piece] || 0.9, selfId: null, h: null, allowed: owned && (ITEMS[st.piece]?.own || !placed) };
+  }
+  // パーツ: ピヨが持って、はめられる場所（光る玉）に合わせる。合うとみどり
+  function socketWorld(h, sid) {
+    const s = HOUSES[h.k].sockets[sid];
+    const c = Math.cos(h.rot || 0); const sn = Math.sin(h.rot || 0);
+    return { x: h.x + s.x * c + s.z * sn, z: h.z - s.x * sn + s.z * c, y: heightAt(h.x, h.z) + s.y, slot: s.slot };
+  }
+  function attachTick(pos, heading) {
+    const slot = ITEMS[st.part]?.slot;
+    let house = null; let hd = 7;
+    for (const h of houses()) { const d = Math.hypot(pos.x - h.x, pos.z - h.z); if (d < hd) { hd = d; house = h; } }
+    marks.forEach((m) => { m.visible = false; });
+    walk.attachTarget = null;
+    if (!house || !slot) { hideGhost(); return; }
+    const g = ahead(pos, heading, 1.3);
+    let best = null; let bd = 2.0; let i = 0;
+    for (const sid of Object.keys(HOUSES[house.k].sockets)) {
+      const w = socketWorld(house, sid);
+      if (w.slot !== slot || i >= marks.length) continue;
+      marks[i].position.set(w.x, w.y, w.z); marks[i].material.color.setHex(RED); marks[i].visible = true; marks[i].scale.setScalar(1);
+      const d = Math.hypot(g.x - w.x, g.z - w.z);
+      if (d < bd) { bd = d; best = { i, sid }; }
+      i += 1;
+    }
+    if (best) { marks[best.i].material.color.setHex(GREEN); marks[best.i].scale.setScalar(1.6); walk.attachTarget = { h: house, sid: best.sid }; }
+    showGhost(g.x, g.z, 0.4, !!best);
+  }
+  function commitAttach() {
+    const t = walk.attachNow; walk.attachNow = null;
+    if (!t) { say('はめられる 場所に ちかづいてね（光る玉）'); return; }
+    if (commit({ t: 'parts', hx: t.h.ox, hz: t.h.oz, socket: t.sid, part: st.part })) replay();
   }
 
   const here = { x: 0, z: 0, rot: 0 };   // いまのピヨの場所とむき（おきものを、タップだけで置くとき）
@@ -710,10 +786,15 @@ export function createEditor({ container, scene, cut, wind, pick, rotate, setWal
     const t = toolById(walk.kind);
     const x = pos.x; const z = pos.z;
     if (t.op === 'place') {
-      // おきもの: おした場所に、ピヨのむいている向きで1つ置く
-      if (!walk.pts) walk.pts = [round(x), round(z), Math.round(heading * 100) / 100];
+      // おきもの: ピヨの前に「おける？」の わっかが出る。みどり＝おける、あか＝おけない。はなすと、そこに置く
+      const sel = pieceSel();
+      const g = ahead(pos, heading, Math.min(3.4, Math.max(1.5, sel.r + 0.8)));   // 大きい物でも、画面の中に輪が見えるように、まえに出しすぎない
+      const ok = sel.allowed && validPlace(g.x, g.z, sel.r, sel.selfId, sel.h);
+      showGhost(g.x, g.z, sel.r, ok);
+      walk.pts = [round(g.x), round(g.z), Math.round(heading * 100) / 100];
       return;
     }
+    if (t.op === 'attach') { attachTick(pos, heading); return; }
     if (t.op === 'fence' || t.op === 'bridge') {
       if (speedy) return;
       if (!walk.pts) { walk.pts = [round(x), round(z)]; walk.last = { x, z }; return; }

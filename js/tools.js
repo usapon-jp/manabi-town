@@ -31,6 +31,10 @@ TOOLS.push(
     svg: svg('<path d="M2 15c4-8 16-8 20 0"/><path d="M2 20h20"/><path d="M6 20v-6"/><path d="M12 20V9"/><path d="M18 20v-6"/>'),
   },
   {
+    id: 'part', label: 'つける', unlockLv: 1, op: 'attach', width: 'none',
+    svg: svg('<path d="M10 3H5a2 2 0 0 0-2 2v5"/><path d="M14 3h5a2 2 0 0 1 2 2v5"/><path d="M10 21H5a2 2 0 0 1-2-2v-5"/><path d="M14 21h5a2 2 0 0 0 2-2v-5"/><circle cx="12" cy="12" r="3"/>'),
+  },
+  {
     id: 'piece', label: 'おきもの', unlockLv: 1, op: 'place', width: 'none',
     svg: svg('<path d="M3 21h18"/><path d="M5 21V11l7-6 7 6v10"/><path d="M10 21v-6h4v6"/>'),
   },

@@ -182,7 +182,7 @@ export function createWorld(container) {
     },
     celebrate() { actor.jump(); },
     quality: () => quality,
-    warp(x, z, angle, dist) { actor.position.set(x, heightAt(x, z), z); view.target.copy(actor.position); if (angle != null) view.angle = angle; if (dist) view.dist = dist; },
+    warp(x, z, angle, dist, face) { actor.position.set(x, heightAt(x, z), z); view.target.copy(actor.position); if (angle != null) view.angle = angle; if (dist) view.dist = dist; if (face != null) actor.face(face); },
   };
 }
 
@@ -239,6 +239,7 @@ function createActor(scene, config, town) {
   return {
     position: root.position,
     get heading() { return root.rotation.y; },
+    face(a) { root.rotation.y = a; },
     walkTo(p) { state.target = p.clone(); },
     jump() { state.jumpT = 0; },
     update(dt, ctl = { x: 0, z: 0, mag: 0, dash: false, jump: false }) {
