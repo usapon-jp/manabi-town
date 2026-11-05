@@ -7,6 +7,7 @@ import { runQuestions } from './runner.js';
 import { parseImport } from './importer.js';
 import { h, toast, daysLabel } from './ui.js';
 import { todayTasks, completeStep, undoStep, buildSteps, migrateHomework, urgentHomework } from './planner.js';
+import { homeRangeBar, itemRangeBar, openRangeSheet } from './rangebar.js';
 import { startTutorial } from './tutorial.js';
 import { openRescue } from './rescue.js';
 import { scanButton } from './scan.js';
@@ -322,7 +323,7 @@ function recommendations(p) {
   const test = p.items.filter((i) => !i.done && i.type === 'test' && daysUntil(i.date) >= 0).sort((a, b) => a.date.localeCompare(b.date))[0];
   if (test) {
     const total = buildSteps(test).length;
-    recs.push({ ic: 'target', text: `${test.subject}テストまで ${daysLabel(daysUntil(test.date))}`, sub: `すすみ ${Math.min(total, test.stepsDone || 0)} / ${total}`, act: () => openProgress(p, bonusDeps) });
+    recs.push({ ic: 'target', text: `${test.subject}テストまで ${daysLabel(daysUntil(test.date))}`, sub: `すすみ ${Math.min(total, test.stepsDone || 0)} / ${total}`, act: () => openRangeSheet(p, rangeDeps(p)) });
   }
   if (minutesOn(p, today()) < 30) recs.push({ ic: 'clock-3', text: 'タイマーで 15分 やってみよう', sub: `きょう ${minutesOn(p, today())}分`, act: () => show('timer') });
   const day = p.bonus?.days?.[today()] || {};
@@ -394,6 +395,7 @@ function renderHome(p) {
     townAskButton(p),   // まちづくりの つかいかたを ピヨに しつもん（たたんだ ときだけ 見える）
     h('div', { class: 'card-body' },
       bar,
+      homeRangeBar(p, rangeDeps(p)),   // テスト範囲の すすみバー
       dueCard(p, urgent),
       h('div', { class: 'coach' },
       h('button', { class: 'coach-face', 'aria-label': 'きょうのおすすめ', onclick: () => bonusDeps.openRecommend() },
@@ -464,6 +466,9 @@ function dueCard(p, list) {
   }));
 }
 
+// テスト範囲バーの「つぎを タイマーで はじめる」
+const rangeDeps = (p) => ({ startStep: (item, label) => startTimer(p, { kind: kindForItem(item), subject: item.subject, item, stepLabel: label }, timerDeps) });
+
 // 1つのステップに集中する小さな画面（やったら「できた！」）
 function openStep(p, t, toggle) {
   if (t.kind === 'routine') { openRoutine(p, t, toggle); return; }
@@ -515,7 +520,6 @@ function renderTodo(p) {
     const isTest = i.type === 'test';
     const isGoal = i.type === 'goal';
     const canFinish = isGoal ? days <= 0 : (!isTest || days <= 0);
-    const total = buildSteps(i).length;
     const kind = isTest ? (adult ? '試験' : 'テスト') : isGoal ? '目標' : '宿題';
     return h('li', { class: `item ${isTest ? 'test' : 'homework'} ${days < 0 && !i.done ? 'late' : ''}` },
       h('div', { class: 'item-main' },
@@ -523,7 +527,7 @@ function renderTodo(p) {
         h('span', { class: 'chip soft' }, i.subject),
         h('p', { class: 'item-title' }, i.title),
         i.range ? h('p', { class: 'item-range' }, `はんい: ${i.range}`) : null,
-        !i.done ? h('p', { class: 'item-range' }, `すすみ ${Math.min(i.stepsDone || 0, total)} / ${total}`) : null,
+        !i.done ? itemRangeBar(p, i) : null,
       ),
       h('div', { class: 'item-side' },
         h('span', { class: 'days' }, i.done ? 'おわり' : daysLabel(days)),
