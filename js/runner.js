@@ -110,7 +110,7 @@ export function runQuestions(title, questions, onFinish, opts = {}) {
       ),
       h('div', { class: 'q-box' },
         h('p', { class: 'prompt' }, q.prompt),
-        q.big ? h('p', { class: `big ${kind === 'write' ? 'reading' : ''}` }, q.big) : null,
+        q.big ? h('p', { class: `big ${kind === 'write' ? 'reading' : ''}` }, q.big, isEnglish(q.big) ? sayButton(q.big) : null) : null,
         q.context ? contextLine(q.context, q.big) : null,
         hintArea(q, () => !next.hidden),
       ),
@@ -242,6 +242,39 @@ function numberPad(onSubmit, answer = 0) {
   return h('div', { class: 'number-answer' }, h('div', { class: 'answer-row' }, display, ok), pad);
 }
 
+// 英語の読み上げ（端末の音声。オフラインでも動き、お金はかからない）
+const isEnglish = (s) => typeof s === 'string' && /[A-Za-z]/.test(s) && !/[ぁ-んァ-ン一-龯]/.test(s) && 'speechSynthesis' in window;
+let enVoice;
+function englishVoice() {
+  if (enVoice !== undefined) return enVoice;
+  const vs = speechSynthesis.getVoices();
+  if (!vs.length) return null;   // まだ読みこみ中（つぎに おしたとき えらぶ）
+  enVoice = vs.find((v) => /^en-US/i.test(v.lang) && /samantha|google|natural/i.test(v.name))
+    || vs.find((v) => /^en-US/i.test(v.lang)) || vs.find((v) => /^en/i.test(v.lang)) || null;
+  return enVoice;
+}
+export function sayEnglish(text, slow = false) {
+  try {
+    speechSynthesis.cancel();
+    const u = new SpeechSynthesisUtterance(text);
+    u.lang = 'en-US';
+    const v = englishVoice();
+    if (v) u.voice = v;
+    u.rate = slow ? 0.6 : 0.9;
+    speechSynthesis.speak(u);
+  } catch (e) { /* 読み上げのない端末は なにもしない */ }
+}
+// 1回目はふつう、つづけて おすと ゆっくり
+function sayButton(text) {
+  let last = 0;
+  return h('button', { class: 'say-btn', type: 'button', 'aria-label': 'よみあげ', onclick: (e) => {
+    e.stopPropagation();
+    const slow = Date.now() - last < 2500;
+    last = Date.now();
+    sayEnglish(text, slow);
+  } }, icon('volume-2'));
+}
+
 // れいぶん: 「＿」のところに 問題のことばを 線つきで入れる（例: ふるさとの［きょうど］りょうりを 食べる）
 function contextLine(sentence, word) {
   const [before, after = ''] = sentence.split('＿');
@@ -265,7 +298,7 @@ function hintArea(q, answered) {
       const r = await askAI({ action: 'hint', level: level + 1, subject: q.subject, grade: p ? gradeLabel(p) : '',
         question: [q.prompt, q.big].filter(Boolean).join(' '), context: q.context || '', answer });
       level += 1;
-      text.textContent = r.text;
+      text.textContent = r.text || 'ピヨ先生が うまく こたえられなかった…もういちど おしてね';
     } catch (e) {
       text.textContent = aiErrorText(e);
     }

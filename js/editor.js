@@ -13,9 +13,6 @@ import { SPECIES, SPECIES_KEYS } from './plants.js';
 import { TOOLS, toolById } from './tools.js';
 import { ITEMS, ownedOfKind, isOwned } from './catalog.js';
 import { BRIDGE_MIN } from './structures.js';
-import { openGacha } from './gachaui.js';
-import { grantFree, ticketsOf } from './gacha.js';
-import { toast } from './ui.js';
 import { icon } from './icons.js';
 
 const MAX_OPS = 300;      // 覚えておく操作の数（保存の大きさをおさえる）
@@ -86,20 +83,6 @@ const CSS = `
 .wsp button.txt.on { background: rgba(255, 226, 168, 0.55); }
 .wsp button.on { box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.95), 0 1px 4px rgba(0, 0, 0, 0.3); }
 body.wedit-on #btnDash, body.wedit-on #btnJump { display: none; }   /* 指でなぞっているあいだは、パネルとかさなるので かくす */
-.wedit .gbtn { position: relative; }
-.wedit .gbadge { position: absolute; top: -6px; right: -6px; min-width: 20px; height: 20px; padding: 0 5px; box-sizing: border-box; display: grid; place-items: center; border-radius: 10px;
-  background: #e5604d; color: #fff; border: 2px solid #fff; font-size: 12px; font-weight: 800; font-style: normal; line-height: 1; }
-.wedit .gbadge[hidden] { display: none; }
-.gacha { text-align: center; }
-.gacha-tickets { font-size: 18px; font-weight: 800; }
-.gacha-result { margin: 8px 0; padding: 12px; border: 3px solid; border-radius: 16px; background: #fffaf0; animation: pop-in 0.45s cubic-bezier(0.3, 1.7, 0.5, 1) both; }
-.gacha-result small, .gacha-item small { display: block; font-size: 11px; font-weight: 800; }
-.gacha-result b { display: block; font-size: 24px; color: var(--navy, #5a4636); }
-.gacha-how { font-size: 12px; opacity: 0.7; }
-.gacha-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin: 10px 0; }
-.gacha-item { padding: 8px 4px; border: 2px dashed #d9cdb2; border-radius: 12px; background: #f7f1e3; opacity: 0.7; }
-.gacha-item.have { border-style: solid; background: #fffaf0; opacity: 1; }
-.gacha-item b { font-size: 13px; color: var(--navy, #5a4636); }
 .wedit-msg { position: fixed; left: 50%; top: calc(env(safe-area-inset-top, 0px) + 74px); transform: translateX(-50%); z-index: 6; padding: 8px 14px;
   border-radius: 14px; background: rgba(255, 252, 240, 0.96); color: #6b4a2b; font-weight: 700; font-size: 14px; border: 2px solid #e2d3ad; pointer-events: none; }
 `;
@@ -138,7 +121,6 @@ export function createEditor({ container, scene, cut, wind, pick, rotate, setWal
   root.className = 'wedit';
   root.hidden = true;
   root.innerHTML = `
-    <button type="button" class="fab gbtn" data-a="gacha" aria-label="ガチャ"><span class="gic"></span><span>ガチャ</span><i class="gbadge" hidden></i></button>
     <button type="button" class="fab" data-a="toggle" aria-label="つくる">
       <span class="fab-ic"></span>
       <span>つくる</span>
@@ -153,7 +135,6 @@ export function createEditor({ container, scene, cut, wind, pick, rotate, setWal
       <button type="button" data-a="done">おわり</button>
     </div>`;
   root.querySelector('.fab-ic').replaceWith(icon('sprout'));
-  root.querySelector('.gic').replaceWith(icon('gift'));
   container.appendChild(root);
   // 「はな」のときだけ出る、画面した中央の道具ぶくろ
   const sub = document.createElement('div');
@@ -298,8 +279,6 @@ export function createEditor({ container, scene, cut, wind, pick, rotate, setWal
   function refreshButtons() {
     q('toggle').classList.toggle('on', st.editing);
     toolsEl.hidden = !st.editing;
-    const g = root.querySelector('.gbadge'); const tn = ticketsOf();
-    g.textContent = String(tn); g.hidden = !tn;
     document.body.classList.toggle('wedit-on', st.editing);
     use.hidden = !st.visible || st.editing;   // 指でなぞっているあいだは、足もとの道具をかくす
     root.querySelectorAll('[data-a="tool"]').forEach((b) => b.classList.toggle('on', b.dataset.v === st.tool));
@@ -323,8 +302,7 @@ export function createEditor({ container, scene, cut, wind, pick, rotate, setWal
     const b = e.target.closest('button');
     if (!b || b.disabled) return;
     const a = b.dataset.a;
-    if (a === 'gacha') openGacha(refreshButtons);
-    else if (a === 'toggle') setEditing(!st.editing);
+    if (a === 'toggle') setEditing(!st.editing);
     else if (a === 'done') setEditing(false);
     else if (a === 'tool') { st.tool = b.dataset.v; refreshButtons(); }
     else if (a === 'size') { st.size = (st.size + 1) % BRUSH.length; refreshButtons(); }
@@ -545,15 +523,8 @@ export function createEditor({ container, scene, cut, wind, pick, rotate, setWal
     if (walk.pts.length >= MAX_PTS * 2) { walkCommit(); walk.last = { x, z }; walk.pts = [round(x), round(z)]; }
   }
 
-  // 毎日のログインボーナスと、レベルアップのぶん（きょうだいを切りかえたときも）
-  function freebies() {
-    const r = grantFree();
-    if (r.daily) toast('きょうの ガチャチケット 1まい！');
-    if (r.level) toast(`レベルアップで ガチャチケット ${r.level}まい！`);
-  }
   onChange(() => { sync(); refreshButtons(); });
   sync();
-  freebies();
 
   return {
     tick,
