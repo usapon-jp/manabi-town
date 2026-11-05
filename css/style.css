@@ -1440,3 +1440,8 @@ input.pin { font-size: 26px; letter-spacing: 0.5em; text-align: center; }
 }
 .ask-stop[hidden] { display: none; }
 .ask-stop-sq { width: 12px; height: 12px; border-radius: 2px; background: #fff; display: inline-block; }
+/* 写真の入れかた（カメラ／アルバム） */
+.pick-src { z-index: 40; }
+.pick-src .sheet-card { justify-items: stretch; }
+.pick-src .sheet-title { text-align: center; }
+.pick-src .link { justify-self: center; font-size: 15px; padding: 6px 12px; }
