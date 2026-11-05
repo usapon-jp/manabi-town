@@ -30,6 +30,8 @@ import { openPlanChat, startCheck, summary as planSummary, PLAN_BONUS } from './
 import { startNotify, notifyCard } from './notify.js';
 import { isAdult, todayRoutines, checkRoutine, renderRoutineTab, consultCta, openConsult, ROUTINE_POINTS } from './adult.js';
 import { subjectNames, subjectColor, openSubjectEditor } from './subjects.js';
+import { moreCard } from './more.js';
+import { aiPractice, practiceSubjects } from './challenge.js';
 
 const POINTS_HOMEWORK = 20;
 const POINTS_TEST = 50;
@@ -172,6 +174,13 @@ const bonusDeps = {
   render: () => render(),
   celebrate: () => world?.celebrate(),
   openRecommend: () => openRecommend(currentProfile(), recommendations(currentProfile()), bonusDeps),
+};
+
+// ピヨちゃんと 勉強する（デイリーの あとも つづけて とける）
+const moreDeps = {
+  ...bonusDeps,
+  makeAI: (p, subject, n) => aiPractice(p, subject, n),
+  aiSubjects: (p) => practiceSubjects(p, subjectNames(p)),
 };
 
 function show(next) {
@@ -615,6 +624,7 @@ function renderQuest(p) {
         : null,
       h('button', { class: 'btn primary', onclick: start }, result ? 'もういちど れんしゅう' : 'はじめる'),
     ),
+    moreCard(p, moreDeps),
     h('div', { class: 'card quest' },
       h('h3', {}, icon('message-circle'), ' ピヨ先生に しつもん'),
       h('p', {}, 'わからない問題を 書くか、写真で 見せてね。図で せつめい・英語の 読み上げ・英会話も できるよ'),
