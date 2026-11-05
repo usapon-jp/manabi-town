@@ -20,7 +20,7 @@ import { openBonus, bonusCount, openRecommend, openProgress, startDrill } from '
 import { DRILLS } from './quests.js';
 import { icon } from './icons.js';
 import { openGacha, stones, capsuleIcon, checkFree } from './gacha.js';
-import { askAI, aiLeft, DAY_LIMIT } from './ai.js';
+import { askAI, aiLeft, aiUsedToday, DAY_LIMIT } from './ai.js';
 import { recordResults, dueReview, startReview, reviewStats, REVIEW_PER_CORRECT } from './review.js';
 import { openTestEntry, openWeak, startWeak, testHistory } from './tests.js';
 import { startSync } from './sync.js';
@@ -692,7 +692,7 @@ function planCard(p) {
 }
 
 function aiCard() {
-  const status = h('p', { class: 'ai-status' }, `ヒントは 1日 ${DAY_LIMIT}回まで（のこり ${aiLeft()}回）`);
+  const status = h('p', { class: 'ai-status' }, DAY_LIMIT ? `ヒントは 1日 ${DAY_LIMIT}回まで（のこり ${aiLeft()}回）` : `AI は いま 回数の上限なし（この端末で きょう ${aiUsedToday()}回）`);
   // 今月の AI 料金（Supabase に記録した推定額。Anthropic の残高そのものではない）
   const usage = h('p', { class: 'ai-status' }, '今月の AI 料金: しらべ中…');
   askAI({ action: 'usage' }, { count: false, timeout: 8000 }).then((u) => {
