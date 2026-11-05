@@ -1457,3 +1457,40 @@ input.pin { font-size: 26px; letter-spacing: 0.5em; text-align: center; }
 .pick-src .sheet-card { justify-items: stretch; }
 .pick-src .sheet-title { text-align: center; }
 .pick-src .link { justify-self: center; font-size: 15px; padding: 6px 12px; }
+
+/* まちの ピヨに しつもん: ホームの「きょうやること」の となり（たたんだ ときだけ） */
+.town-ask-btn { display: none; }
+.bubble.mini .town-ask-btn {
+  position: relative; display: inline-grid; place-items: center; vertical-align: top; margin-left: 10px;
+  width: 52px; height: 52px; padding: 0; border-radius: 50%; cursor: pointer;
+  background: rgba(255, 250, 240, 0.94); border: 2px solid #fff; box-shadow: var(--soft);
+  -webkit-tap-highlight-color: transparent; transition: transform 0.12s;
+}
+.bubble.mini .town-ask-btn:active { transform: scale(0.92); }
+.town-ask-btn img { width: 40px; height: 40px; border-radius: 50%; animation: piyo-hop 3.2s ease-in-out infinite; }
+.town-ask-q { position: absolute; right: -4px; top: -4px; width: 22px; height: 22px; border-radius: 50%; display: grid; place-items: center;
+  background: var(--accent); color: #fff; border: 2px solid #fff; font-style: normal; font-size: 13px; font-weight: 800; line-height: 1; }
+.town-ask-tip { position: absolute; left: -6px; top: calc(100% + 8px); white-space: nowrap; pointer-events: none;
+  padding: 5px 10px; border-radius: 12px; background: #fffdf5; color: var(--navy); border: 1.5px solid var(--line); box-shadow: var(--soft);
+  font-size: 13px; font-weight: 700; animation: tip-bob 2.4s ease-in-out infinite; }
+.town-ask-tip::before { content: ''; position: absolute; left: 26px; top: -6px; margin-left: -5px; border: 5px solid transparent; border-top: 0; border-bottom-color: var(--line); }
+@keyframes tip-bob { 50% { transform: translateY(3px); } }
+/* せまい画面（iPhone SE など）は「つくる」と かさならないよう、きょうやることの 下に */
+@media (max-width: 379px) { .bubble.mini .town-ask-btn { display: grid; margin: 10px 0 0; } }
+.chat.town .town-quick { margin-bottom: 8px; flex-wrap: wrap; overflow: visible; }
+.chat.town .town-quick.used { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; }
+.town-here { white-space: nowrap; }
+.chat.town .msg p { margin: 0; white-space: pre-wrap; }
+.town-here { display: inline-flex; align-items: center; gap: 4px; padding: 7px 12px; border-radius: 999px; border: 0; cursor: pointer;
+  background: #ffd66b; color: #5e4a35; font: inherit; font-size: 14px; font-weight: 700; }
+.town-here .ic { width: 18px; height: 18px; }
+/* 「ここだよ」: 光る わっか と 指 */
+.town-point { position: fixed; inset: 0; z-index: 30; pointer-events: none; }
+.town-point-ring { position: fixed; border-radius: 18px; border: 4px solid #ffd66b; box-shadow: 0 0 0 4px rgba(255, 255, 255, 0.8), 0 0 22px rgba(255, 214, 107, 0.9); animation: point-pulse 1s ease-in-out infinite; }
+.town-point-hand { position: fixed; width: 44px; height: 44px; color: #fff; filter: drop-shadow(0 2px 3px rgba(0, 0, 0, 0.55)); animation: point-tap 1s ease-in-out infinite; }
+.town-point-hand .ic { width: 44px; height: 44px; stroke-width: 1.8; }
+.town-point-hand.from-top { transform: rotate(180deg); }
+.town-point-label { position: fixed; text-align: center; padding: 8px 10px; border-radius: 14px; background: #fffdf5; color: var(--navy); border: 2px solid #ffd66b; font-weight: 800; font-size: 15px; box-shadow: var(--soft); }
+@keyframes point-pulse { 50% { transform: scale(1.06); } }
+@keyframes point-tap { 50% { translate: 0 -6px; } }
+@media (prefers-reduced-motion: reduce) { .town-point-ring, .town-point-hand, .town-ask-tip { animation: none; } }

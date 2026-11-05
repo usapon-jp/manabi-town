@@ -58,3 +58,21 @@ export function feedbackCard(p, screen, version) {
     h('p', { class: 'ai-status' }, 'わかりにくい所や、ほしい きのうを おくってね'),
     h('button', { class: 'btn', onclick: () => openFeedback(p, screen, version) }, icon('message-circle'), ' つたえる'));
 }
+
+// アプリが だまって おくる 記録（まちのピヨへの しつもん など）。子どもには 何も 出さない。
+// screen で わける（れい: 'まち:しつもん'）。1台1日 LOG_MAX まで。失敗しても 気にしない
+const LOG_MAX = 40;
+const LOG_KEY = 'manabi-feedback-log-count';
+export async function logFeedback(p, screen, body, version) {
+  try {
+    const c = JSON.parse(localStorage.getItem(LOG_KEY) || '{}');
+    const n = c.day === dayKey() ? c.n : 0;
+    if (n >= LOG_MAX || !navigator.onLine) return;
+    localStorage.setItem(LOG_KEY, JSON.stringify({ day: dayKey(), n: n + 1 }));
+    await fetch(URL_, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', apikey: ANON, Authorization: `Bearer ${ANON}`, Prefer: 'return=minimal' },
+      body: JSON.stringify({ who: String(p?.name || '').slice(0, 20), grade: p ? gradeLabel(p).slice(0, 20) : '', screen: String(screen || '').slice(0, 30), body: String(body || '').slice(0, 1000), app_version: String(version || '').slice(0, 20) }),
+    });
+  } catch { /* 記録できなくても つづける */ }
+}

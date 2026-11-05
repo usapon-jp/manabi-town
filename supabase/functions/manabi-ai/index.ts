@@ -10,6 +10,7 @@
 //   usage … 今月の AI 使用額（推定）。せってい画面に出す。Claude は呼ばない
 //   plan  … ピヨ先生と作戦会議（進め方・得意苦手・理解度チェックする単元を決める）。ここだけ Sonnet
 //   consult … おとなモードの「ピヨと相談」。ルーティーンと目標・試験を会話で決める（Haiku）
+//   town  … まちづくり（3Dの草原）の つかいかたの しつもん。アプリが送る つかいかた（js/townguide.js）を読んで答える（Haiku）
 import { recordUsage, summary } from '../_shared/usage.ts';
 
 const MODEL = 'claude-haiku-5-5';
@@ -298,6 +299,39 @@ Deno.serve(async (req) => {
       const fix = clip(r.fix, 200);
       const say = clip(r.say || (mode === 'zu' && !svg ? 'ごめんね、図が うまく かけなかった。もういちど 聞いてみてね' : ''), 2000);
       return ok({ say, svg, en, fix });
+    }
+    if (body.action === 'town') {
+      // まちづくりの つかいかた。説明書（guide）は アプリが送る（3Dが かわっても デプロイ いらず）
+      const keys = (Array.isArray(body.keys) ? body.keys : []).map((k: unknown) => clip(k, 12)).filter((k: string) => /^[a-z]{2,12}$/.test(k)).slice(0, 40);
+      const system = [
+        'あなたは「ピヨ」。まなびタウン（勉強すると まちが そだつ アプリ）の まちづくり画面の あんない役。子どもの「どうやるの？」に答える。',
+        `子どもは ${clip(body.grade, 20) || '小学生'}。やさしい話し言葉、ひらがな多め（小4までに習う漢字はOK）。`,
+        '答えは 下の「つかいかた」に 書いてある ことだけを もとにする。書いていない 操作や ボタンを 作り話しない。',
+        'まだ できない ことを 聞かれたら「まだ できないけど、ほしいって つたえておくね」と言う。こまっている・うまく いかない ときは、ためせる ことを 1つ 言って「つたえておくね」と言う。',
+        '手じゅんは 1→2→3 の ように みじかく、多くて 4つ。1回の 返事は 150文字くらいまで。ボタンは 形と 場所（右下・左上 など）で 言う。',
+        `とくに 見せたい ボタンが あれば、さいごに <show>キー</show> を 1つだけ つける（なければ つけない）。キー: ${keys.join(' ')}`,
+        'さいごに しつもんの しゅるいを <tag>つかいかた</tag> <tag>ほしい</tag> <tag>こまった</tag> <tag>その他</tag> の どれか 1つで つける。',
+        'マークダウン・JSON は 使わない。',
+        '【つかいかた】',
+        clip(body.guide, 8000),
+      ].join('\n');
+      const msgs: { role: string; content: string }[] = [];
+      for (const m of (Array.isArray(body.messages) ? body.messages : []).slice(-10)) {
+        const role = m?.role === 'assistant' ? 'assistant' : 'user';
+        const content = clip(m?.text, 400);
+        if (!content) continue;
+        const last = msgs[msgs.length - 1];
+        if (last && last.role === role) last.content += `\n${content}`; else msgs.push({ role, content });
+      }
+      if (msgs.length && msgs[0].role !== 'user') msgs.shift();
+      if (!msgs.length || msgs[msgs.length - 1].role !== 'user') return new Response(JSON.stringify({ error: 'no-question' }), { status: 400, headers });
+      let text = await claude(key, [], system, 600, MODEL, msgs);
+      const showM = text.match(/<show>\s*([a-z]+)\s*<\/show>/i);
+      const tagM = text.match(/<tag>\s*([^<]{1,10}?)\s*<\/tag>/);
+      text = text.replace(/<(show|tag)>[\s\S]*?<\/\1>/gi, '').replace(/<[^>]*$/, '').replace(/\*\*/g, '').replace(/\n{3,}/g, '\n\n').trim();
+      const show = showM && keys.includes(showM[1].toLowerCase()) ? showM[1].toLowerCase() : '';
+      const tag = tagM && ['つかいかた', 'ほしい', 'こまった', 'その他'].includes(tagM[1]) ? tagM[1] : '';
+      return ok({ say: clip(text, 800), show, tag });
     }
     if (body.action === 'judge') {
       // まず Haiku。×のときと 自信がないときだけ Sonnet で見なおす（まちがって×にしないため）
