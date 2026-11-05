@@ -1410,3 +1410,13 @@ input.pin { font-size: 26px; letter-spacing: 0.5em; text-align: center; }
 .ask-quick .btn { padding-left: 4px; padding-right: 4px; font-size: 13px; white-space: nowrap; }
 .chat.ask .chat-choices[hidden] { display: none; }
 .chat-input [hidden] { display: none; }
+
+/* スマホへのお知らせ */
+.notify-card h3 { display: flex; align-items: center; gap: 6px; }
+.notify-card h3 svg, .hint svg { display: inline-block; width: 1.05em; height: 1.05em; vertical-align: -2px; }
+.time-row .link { white-space: nowrap; }
+.notify-card .row { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+.notify-card.on { border-left: 4px solid var(--accent); }
+.notify-card .steps { margin: 6px 0 0; padding-left: 1.3em; line-height: 1.7; }
+.time-row { display: flex; gap: 12px; align-items: center; }
+.time-in { font: inherit; font-size: 1.1rem; padding: 8px 10px; border: 1.5px solid var(--line); border-radius: 12px; background: #fff; color: var(--navy); min-width: 8em; }

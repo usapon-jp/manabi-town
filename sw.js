@@ -1,6 +1,6 @@
 // オフラインでも開けるように、アプリの部品を端末にしまっておく。
 // 部品を変えたら VERSION を上げる（古いしまい場所は消える）。
-const VERSION = 'manabi-v52';
+const VERSION = 'manabi-v53';
 const FILES = [
   './',
   'index.html',
@@ -19,7 +19,7 @@ const FILES = [
   'js/ai.js',
   'js/review.js',
   'js/tests.js', 'js/rescue.js', 'js/scan.js', 'js/feedback.js', 'js/ask.js', 'js/coach.js', 'js/adult.js', 'js/subjects.js', 'js/challenge.js', 'js/voice.js', 'js/photos.js',
-  'js/sync.js', 'js/merge.js', 'js/account.js',
+  'js/sync.js', 'js/merge.js', 'js/account.js', 'js/notify.js',
   'js/icons.js', 'js/gacha.js', 'js/data/gacha.js', 'js/catalog.js',
   'js/controls.js',
   'js/cutmask.js',
@@ -81,4 +81,29 @@ self.addEventListener('fetch', (e) => {
       })
       .catch(() => caches.match(req, { ignoreSearch: true }).then((hit) => hit || caches.match('index.html'))),
   );
+});
+
+// スマホへのお知らせ（notify.js / Supabase manabi-push から とどく）
+self.addEventListener('push', (e) => {
+  let d = {};
+  try { d = e.data ? e.data.json() : {}; } catch { d = { body: e.data?.text() }; }
+  e.waitUntil(self.registration.showNotification(d.title || 'まなびタウン', {
+    body: d.body || '',
+    tag: d.tag || 'manabi',
+    icon: 'assets/icons/icon-192.png',
+    badge: 'assets/icons/favicon-48.png',
+    data: { tab: d.url || '' },
+  }));
+});
+
+// お知らせを おしたら アプリをひらく（ひらいていれば そのタブへ）
+self.addEventListener('notificationclick', (e) => {
+  e.notification.close();
+  const tab = /^[a-z]{1,12}$/.test(e.notification.data?.tab || '') ? e.notification.data.tab : '';
+  e.waitUntil((async () => {
+    const list = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
+    const c = list.find((x) => new URL(x.url).origin === location.origin);
+    if (c) { await c.focus(); if (tab) c.postMessage({ type: 'open-tab', tab }); return; }
+    await self.clients.openWindow(tab ? `./?tab=${tab}` : './');
+  })());
 });

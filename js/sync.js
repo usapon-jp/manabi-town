@@ -51,6 +51,12 @@ function keepSession(j) {
   });
 }
 
+// ほかの機能（スマホのお知らせ）が「この家族のアカウント」で サーバーに送るとき用
+export const userId = () => read(AUTH_KEY)?.user?.id || null;
+export async function accessToken() {
+  try { return (await token())?.access_token || null; } catch { return null; }
+}
+
 export function friendlyError(e) {
   const m = String(e?.message || e);
   if (/invalid login credentials/i.test(m)) return 'メールかパスワードが ちがうみたい';
