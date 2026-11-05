@@ -278,8 +278,11 @@ Deno.serve(async (req) => {
         const lastM = msgs[msgs.length - 1];
         lastM.content = [{ type: 'image', source: { type: 'base64', media_type: 'image/jpeg', data: img } }, { type: 'text', text: String(lastM.content) }];
       }
-      // 算数・数学と「図で」は 計算をまちがえないよう Sonnet（考えてから答える）。ほかの しつもんは Haiku が考えてから答える
-      const isMath = /算数|数学/.test(clip(body.subject, 20)) || mode === 'zu';
+      // 計算や図形の しつもんは まちがえないよう Sonnet（考えてから答える）。ほかの しつもんは Haiku が考えてから答える
+      // 教科が算数・数学／「図で」／しつもんの文に 式・計算・図形のことばが あるとき
+      const lastText = String(raw.filter((m: { role: string }) => m.role === 'user').pop()?.content || '');
+      const mathWords = /[0-9０-９]+\s*[+\-−×÷*/=＝＋－]|計算|けいさん|式|方程式|関数|グラフ|面積|体積|割合|わりあい|速さ|比例|反比例|図形|角度|三角形|円周|分数|小数|約分|通分|証明|確率/;
+      const isMath = /算数|数学/.test(clip(body.subject, 20)) || mode === 'zu' || (mode === 'ask' && mathWords.test(lastText));
       const thinkHard = mode === 'ask' || mode === 'zu';
       const text = await claude(key, [], system, thinkHard ? 12000 : mode === 'talk' ? 500 : 1500, isMath ? MODEL_SMART : MODEL, msgs, thinkHard);
       const r = parseReply(text);
