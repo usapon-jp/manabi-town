@@ -6,7 +6,8 @@
 // - ひよこマーク: しつもん・れんしゅう もんだい・20分クイズチャレンジ（js/challenge.js）
 // - 記録はあとから種類・教科・時間を直せる（ポイントも合わせて直る）
 import { h, toast } from './ui.js';
-import { SUBJECTS, today, toISO, save, currentProfile } from './store.js';
+import { today, toISO, save, currentProfile } from './store.js';
+import { subjectNames, subjectColor, editSubjectsLink } from './subjects.js';
 import * as bgm from './bgm.js';
 import { openPiyo, piyoButton } from './challenge.js';
 import { icon } from './icons.js';
@@ -17,9 +18,6 @@ export const KINDS = [
   { id: 'self', label: '自主学習', ic: 'book-open' },
   { id: 'testprep', label: 'テスト勉強', ic: 'target' },
 ];
-export const SUBJECT_COLORS = {
-  '国語': '#d78b9f', '算数・数学': '#7f985e', '理科': '#d8b85a', '社会': '#c98766', '英語': '#7aa6bd', 'その他': '#9aa897',
-};
 const PRESETS = [20, 40, 60];
 const MAX_MIN = 90;
 const BREAK_EVERY = 20;
@@ -30,7 +28,9 @@ const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 
 const mmss = (sec) => `${String(Math.floor(sec / 60)).padStart(2, '0')}:${String(Math.floor(sec % 60)).padStart(2, '0')}`;
 
 function prefs(p) {
-  if (!p.timerPrefs) p.timerPrefs = { kind: 'self', subject: SUBJECTS[0], mode: 'focus', minutes: 25, bgm: true };
+  const names = subjectNames(p);
+  if (!p.timerPrefs) p.timerPrefs = { kind: 'self', subject: names[0], mode: 'focus', minutes: 25, bgm: true };
+  if (!names.includes(p.timerPrefs.subject)) p.timerPrefs.subject = names[0];
   if (!PRESETS.includes(p.timerPrefs.minutes)) p.timerPrefs.minutes = PRESETS.reduce((a, b) => (Math.abs(b - p.timerPrefs.minutes) < Math.abs(a - p.timerPrefs.minutes) ? b : a));
   return p.timerPrefs;
 }
@@ -64,8 +64,8 @@ export function renderTimerTab(panel, p, deps) {
     h('div', { class: 'card setup' },
       h('p', { class: 'label' }, 'なにをする？'),
       h('div', { class: 'picks kinds' }, KINDS.map((k) => chip(pf.kind === k.id, [icon(k.ic), ` ${k.label}`], () => set('kind', k.id)))),
-      h('p', { class: 'label' }, 'きょうか'),
-      h('div', { class: 'picks subjects' }, SUBJECTS.map((s) => chip(pf.subject === s, s, () => set('subject', s), SUBJECT_COLORS[s]))),
+      h('div', { class: 'label-row' }, h('p', { class: 'label' }, p.grade === 'adult' ? 'ジャンル' : 'きょうか'), editSubjectsLink(p, rerender)),
+      h('div', { class: 'picks subjects' }, subjectNames(p).map((s) => chip(pf.subject === s, s, () => set('subject', s), subjectColor(p, s)))),
       h('div', { class: 'seg' },
         h('button', { class: pf.mode === 'focus' ? 'on' : '', onclick: () => set('mode', 'focus') }, '集中'),
         h('button', { class: pf.mode === 'free' ? 'on' : '', onclick: () => set('mode', 'free') }, '計るだけ')),
@@ -104,9 +104,9 @@ function weekChart(p, wk) {
     h('p', { class: 'label' }, '今週の勉強時間'),
     h('div', { class: 'bars' }, per.map((d) => h('div', { class: `col ${d.iso === t ? 'today' : ''}` },
       h('small', { class: 'min' }, d.sum ? `${d.sum}` : ''),
-      h('div', { class: 'bar' }, Object.entries(d.by).map(([sub, m]) => h('i', { style: `height:${(m / max) * 100}%;background:${SUBJECT_COLORS[sub] || '#9aa897'}` }))),
+      h('div', { class: 'bar' }, Object.entries(d.by).map(([sub, m]) => h('i', { style: `height:${(m / max) * 100}%;background:${subjectColor(p, sub)}` }))),
       h('small', {}, d.label)))),
-    h('div', { class: 'legend' }, SUBJECTS.map((s) => h('span', {}, h('i', { style: `background:${SUBJECT_COLORS[s]}` }), s))));
+    h('div', { class: 'legend' }, subjectNames(p).map((s) => h('span', {}, h('i', { style: `background:${subjectColor(p, s)}` }), s))));
 }
 
 function todayList(p, deps, rerender) {
@@ -120,7 +120,7 @@ function todayList(p, deps, rerender) {
 function recordRow(p, s, deps, rerender) {
   const k = kindOf(s.kind);
   const row = h('li', { class: 'rec' },
-    h('i', { class: 'dot', style: `background:${SUBJECT_COLORS[s.subject] || '#9aa897'}` }),
+    h('i', { class: 'dot', style: `background:${subjectColor(p, s.subject)}` }),
     h('span', { class: 'what' }, icon(k.ic), ` ${k.label}・${s.subject}`),
     h('b', {}, `${s.minutes}分`),
     h('button', { class: 'link', onclick: () => row.replaceWith(editRow(p, s, deps, rerender)) }, 'なおす'));
@@ -130,7 +130,7 @@ function recordRow(p, s, deps, rerender) {
 function editRow(p, s, deps, rerender) {
   const kind = h('select', {}, KINDS.map((k) => h('option', { value: k.id }, k.label)));
   kind.value = s.kind;
-  const subject = h('select', {}, SUBJECTS.map((x) => h('option', { value: x }, x)));
+  const subject = h('select', {}, [...new Set([...subjectNames(p), s.subject])].map((x) => h('option', { value: x }, x)));
   subject.value = s.subject;
   const minutes = h('input', { type: 'number', min: 1, max: MAX_MIN, value: s.minutes, inputmode: 'numeric' });
   return h('li', { class: 'rec edit' },
@@ -259,7 +259,7 @@ function openRunning(p, deps) {
   const layer = h('div', { class: 'runner timer-run' },
     h('div', { class: 'runner-card' },
       h('div', { class: 'runner-top' },
-        h('span', { class: 'chip', style: `background:${SUBJECT_COLORS[t.subject] || ''}` }, t.subject),
+        h('span', { class: 'chip', style: `background:${subjectColor(p, t.subject)}` }, t.subject),
         h('span', { class: 'chip soft' }, icon(k.ic), ` ${k.label}`),
         h('span', { class: 'spacer' }),
         askBtn,

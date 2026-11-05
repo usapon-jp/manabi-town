@@ -1,7 +1,8 @@
 // プリントや範囲の写真を、アプリで撮る（または えらぶ）→ ピヨ先生（AI・Haiku）が読み取って → 予定にする。
 // 写真は小さくしてから送る（1280px・JPEG）。送った写真はアプリには残さない。
 import { h, toast } from './ui.js';
-import { today, addItem, gradeLabel, SUBJECTS } from './store.js';
+import { today, addItem, gradeLabel } from './store.js';
+import { subjectNames } from './subjects.js';
 import { askAI, aiErrorText } from './ai.js';
 import { buildSteps } from './planner.js';
 import { icon } from './icons.js';
@@ -56,7 +57,10 @@ export function scanButton(p, deps) {
 // 読み取った予定を見せて、チェックしたものだけ入れる（まちがいは直せる）
 function openConfirm(p, items, note, deps) {
   // 受け口から ちがう教科名が来ても、アプリの教科にそろえる
-  const canon = (s) => (SUBJECTS.includes(s) ? s : /算数|数学/.test(s) ? '算数・数学' : 'その他');
+  const SUBJECTS = subjectNames(p);
+  const other = SUBJECTS.includes('その他') ? 'その他' : SUBJECTS[SUBJECTS.length - 1];
+  const math = SUBJECTS.find((s) => /算数|数学/.test(s));
+  const canon = (s) => (SUBJECTS.includes(s) ? s : math && /算数|数学/.test(s) ? math : other);
   const rows = items.map((it) => ({ ...it, subject: canon(String(it.subject || '')), on: true }));
   const list = h('ul', { class: 'scan-list' });
   const close = () => sheet.remove();
