@@ -1420,3 +1420,8 @@ input.pin { font-size: 26px; letter-spacing: 0.5em; text-align: center; }
 .notify-card .steps { margin: 6px 0 0; padding-left: 1.3em; line-height: 1.7; }
 .time-row { display: flex; gap: 12px; align-items: center; }
 .time-in { font: inherit; font-size: 1.1rem; padding: 8px 10px; border: 1.5px solid var(--line); border-radius: 12px; background: #fff; color: var(--navy); min-width: 8em; }
+/* 写真の入れかた（カメラ／アルバム） */
+.pick-src { z-index: 40; }
+.pick-src .sheet-card { justify-items: stretch; }
+.pick-src .sheet-title { text-align: center; }
+.pick-src .link { justify-self: center; font-size: 15px; padding: 6px 12px; }

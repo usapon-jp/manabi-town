@@ -3,6 +3,7 @@
 // モード: しつもん / 図で おしえて（かならず図つき）/ 英語 よみあげ（英文を声で）/ 英会話（英語で おしゃべり）
 // 声は 端末の読み上げ・音声入力をつかう（お金はかからない）。
 import { h, toast } from './ui.js';
+import { pickPhoto } from './pickphoto.js';
 import { gradeLabel } from './store.js';
 import { askAI, aiErrorText, aiLeft } from './ai.js';
 import { openPhotos } from './photos.js';
@@ -42,12 +43,11 @@ export function openAsk(p, { subject, mode: startMode } = {}) {
   const log = h('div', { class: 'chat-log' });
   const input = h('input', { type: 'text', maxlength: 300, placeholder: MODES[mode].ph, enterkeyhint: 'send' });
   const thumb = h('div', { class: 'ask-thumb', hidden: true });
-  const file = h('input', { type: 'file', accept: 'image/*', capture: 'environment', hidden: true, onchange: async () => {
-    const f = file.files?.[0]; file.value = '';
+  const takePhoto = async (f) => {
     if (!f) return;
     try { photo = await shrink(f); } catch { toast('この写真は ひらけなかった'); return; }
     showThumb();
-  } });
+  };
   function showThumb() {
     thumb.hidden = false;
     thumb.replaceChildren(h('img', { src: photo, alt: '' }), h('button', { type: 'button', 'aria-label': '写真をはずす', onclick: () => { photo = null; thumb.hidden = true; } }, icon('x')));
@@ -82,7 +82,7 @@ export function openAsk(p, { subject, mode: startMode } = {}) {
       },
     });
   }
-  const camBtn = h('button', { type: 'button', class: 'chat-cam', 'aria-label': 'しゃしんを とる', onclick: () => file.click() }, icon('camera'));
+  const camBtn = h('button', { type: 'button', class: 'chat-cam', 'aria-label': 'しゃしんを 入れる', onclick: () => pickPhoto(takePhoto, { title: 'しつもんの 写真' }) }, icon('camera'));
   const libBtn = h('button', { type: 'button', class: 'chat-cam', 'aria-label': 'しりょうから えらぶ', onclick: () => openPhotos(p, { pick: 1, onPick: (urls) => { if (urls[0]) { photo = urls[0]; showThumb(); } } }) }, icon('folder'));
   const form = h('form', { class: 'chat-input', onsubmit: (e) => { e.preventDefault(); voice.unlock(); ask(); } },
     camBtn, libBtn, input, mic, h('button', { class: 'chat-send', type: 'submit', 'aria-label': 'おくる' }, icon('send')));
@@ -100,7 +100,7 @@ export function openAsk(p, { subject, mode: startMode } = {}) {
         speaker,
         h('button', { class: 'chat-close', 'aria-label': 'とじる', onclick: close }, icon('x'))),
       modeRow),
-    log, h('div', { class: 'chat-foot' }, subjRow, thumb, form), file);
+    log, h('div', { class: 'chat-foot' }, subjRow, thumb, form));
   document.body.append(layer);
   document.body.classList.add('running');
 

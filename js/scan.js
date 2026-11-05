@@ -1,6 +1,7 @@
 // プリントや範囲の写真を、アプリで撮る（または えらぶ）→ ピヨ先生（AI・Haiku）が読み取って → 予定にする。
 // 写真は小さくしてから送る（1280px・JPEG）。送った写真はアプリには残さない。
 import { h, toast } from './ui.js';
+import { pickPhoto } from './pickphoto.js';
 import { today, addItem, gradeLabel } from './store.js';
 import { subjectNames } from './subjects.js';
 import { askAI, aiErrorText } from './ai.js';
@@ -31,10 +32,7 @@ let busy = false;
 
 // 「写真から入れる」ボタン。deps.render で画面を直す
 export function scanButton(p, deps) {
-  const input = h('input', { type: 'file', accept: 'image/*', capture: 'environment', hidden: true,
-    onchange: async () => {
-      const file = input.files?.[0];
-      input.value = '';
+  const read = async (file) => {
       if (!file || busy) return;
       busy = true;
       toast('ピヨ先生が 読んでるよ…', 20000);
@@ -47,10 +45,9 @@ export function scanButton(p, deps) {
       } catch (e) {
         toast(e.message === 'image' ? 'この写真は ひらけなかった' : aiErrorText(e).replace('ヒント', '読みとり'), 3500);
       } finally { busy = false; }
-    } });
+    };
   return h('div', { class: 'scan' },
-    input,
-    h('button', { type: 'button', class: 'btn scan-btn', onclick: () => input.click() },
+    h('button', { type: 'button', class: 'btn scan-btn', onclick: () => pickPhoto(read, { title: 'プリント・範囲表を 入れる' }) },
       icon('camera'), h('span', {}, h('b', {}, '写真から入れる'), h('small', {}, 'プリント・範囲表を とる か えらぶ'))));
 }
 
