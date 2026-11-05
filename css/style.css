@@ -1548,3 +1548,36 @@ input.pin { font-size: 26px; letter-spacing: 0.5em; text-align: center; }
 .more-ai .more-subj { flex: 1; min-width: 7em; width: auto; font: inherit; padding: 6px 8px; border-radius: 10px; border: 2px solid var(--line); background: #fff; }
 .result-btns { display: grid; gap: 8px; width: 100%; }
 @media (prefers-reduced-motion: reduce) { .more-card.ready .more-head img { animation: none; } }
+
+/* ---- 勉強タブの 3つの入口（勉強する・進み具合・作戦会議） ---- */
+.study-nav { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 16px; }
+.study-tab {
+  display: grid; justify-items: center; gap: 2px; min-width: 0;
+  font: inherit; color: var(--navy); cursor: pointer;
+  background: #fff; border: 2px solid var(--edge); border-radius: 16px;
+  box-shadow: 0 4px 0 var(--press); padding: 10px 4px 8px;
+  transition: transform 0.06s, box-shadow 0.06s;
+  -webkit-tap-highlight-color: transparent; position: relative;
+}
+.study-tab:active { transform: translateY(3px); box-shadow: 0 1px 0 var(--press); }
+.study-tab .st-ic { width: 40px; height: 40px; border-radius: 50%; display: grid; place-items: center; background: var(--leaf-soft); color: var(--accent-dark); }
+.study-tab .st-ic .ic { width: 22px; height: 22px; }
+.study-tab b { font-size: 15px; font-weight: 700; white-space: nowrap; }
+.study-tab small { font-size: 11px; font-weight: 500; color: var(--ink-soft); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
+.study-tab.on { background: var(--accent); border-color: var(--accent-dark); box-shadow: 0 4px 0 var(--accent-dark); color: #fff; }
+.study-tab.on .st-ic { background: rgba(255, 255, 255, 0.25); color: #fff; }
+.study-tab.on small { color: rgba(255, 255, 255, 0.9); }
+.study-tab.new:not(.on)::after { content: ''; position: absolute; top: 6px; right: 8px; width: 10px; height: 10px; border-radius: 50%; background: var(--ng); }
+.panel > .go { margin-bottom: 14px; }
+.prog-view { display: grid; gap: 12px; }
+.prog-view .q-group h4 { margin: 4px 0 8px; }
+.sched { list-style: none; margin: 0 0 12px; padding: 0; display: grid; gap: 8px; }
+.sched li { display: flex; align-items: center; gap: 8px; background: #fff; border: 2px solid var(--line); border-radius: 14px; padding: 8px 10px; min-width: 0; }
+.sched li.hot { border-color: #e9b4a2; }
+.sched-date { font-weight: 700; font-size: 14px; min-width: 40px; }
+.sched b { flex: 1; min-width: 0; font-size: 14px; font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sched small { flex-shrink: 0; font-size: 12px; font-weight: 700; color: var(--ink-soft); }
+.sched li.hot small { color: var(--ng); }
+@media (max-width: 340px) { .study-tab b { font-size: 13px; } .study-tab .st-ic { width: 34px; height: 34px; } }
+/* iPhone SE（320はば）では しつもんの4つのボタンを 2れつに */
+@media (max-width: 360px) { .ask-quick { grid-template-columns: repeat(2, 1fr); } }
