@@ -1330,3 +1330,9 @@ input.pin { font-size: 26px; letter-spacing: 0.5em; text-align: center; }
 .say-btn { margin-left: 10px; vertical-align: middle; width: 44px; height: 44px; border-radius: 50%; border: 1.5px solid var(--line); background: var(--card); box-shadow: 0 3px 0 var(--press); color: var(--accent-dark); display: inline-grid; place-items: center; cursor: pointer; padding: 0; }
 .say-btn:active { transform: translateY(2px); box-shadow: 0 1px 0 var(--press); }
 .say-btn .ic { width: 22px; height: 22px; vertical-align: 0; }
+/* 音声モード */
+.chat-voice.on { background: #e9f0d8; color: #5c7a3e; }
+.chat-mic.on { background: #c0583f; color: #fff; border-color: #c0583f; animation: mic-pulse 1.1s ease-in-out infinite; }
+@keyframes mic-pulse { 50% { box-shadow: 0 0 0 8px rgba(192, 88, 63, 0.2); } }
+.ask .chat-cam { width: 40px; height: 40px; }
+.ask .chat-input { gap: 6px; }
