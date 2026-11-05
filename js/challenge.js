@@ -35,7 +35,7 @@ export function openPiyo(p, deps, ctx = {}) {
   const sheet = h('div', { class: 'sheet', onclick: (e) => { if (e.target === sheet) close(); } },
     h('div', { class: 'sheet-card piyo-menu' },
       h('div', { class: 'coach' }, h('img', { src: 'assets/icons/icon-192.png', alt: '', width: 40, height: 40 }), h('p', {}, 'ピヨ先生と なにする？')),
-      big('message-circle', 'しつもん', 'わからないことを きく（写真もOK）', () => openAsk(p, { subject: subj })),
+      big('message-circle', 'しつもん', '写真・図・英語の よみあげ・英会話も', () => openAsk(p, { subject: subj })),
       big('pencil', `れんしゅう もんだい（${subj}）`, '5もん やってみる', () => practice(p, deps, subj, !!ctx.fromTimer)),
       ctx.fromTimer || isAdult(p) ? null : big('timer', `クイズチャレンジ（${CHALLENGE_MIN}分）`, '3・5・9教科を まわって 力だめし', () => openChallenge(p, deps)),
       h('button', { class: 'link', type: 'button', onclick: close }, 'とじる')));
