@@ -15,7 +15,7 @@ import { photosCard } from './photos.js';
 import { openAsk } from './ask.js';
 import { townAskButton } from './townask.js';
 import { bindControls } from './controls.js';
-import { levelInfo, totalXp, streak, week } from './progress.js';
+import { levelOf, streak, week } from './progress.js';
 import { renderTimerTab, startTimer, resumeIfRunning, kindForItem, minutesOn } from './timer.js';
 import { openBonus, bonusCount, openRecommend, openProgress, startDrill } from './bonus.js';
 import { DRILLS } from './quests.js';
@@ -131,9 +131,9 @@ menuBtn.addEventListener('click', () => {
 });
 
 function gain(p, n, reason, opts) {
-  const before = levelInfo(totalXp(p)).lv;
+  const before = levelOf(p).lv;
   addPoints(p, n, reason, opts);
-  const after = levelInfo(totalXp(p)).lv;
+  const after = levelOf(p).lv;
   if (after > before) {
     toast(`レベルアップ！ Lv${after}`);
     setTimeout(() => world?.celebrate(), 300);
@@ -194,7 +194,7 @@ function render() {
   if (!p) { askFab.hidden = true; renderWelcome(); return; }
   // むかしの宿題（3ページで1ステップ）をページ単位に
   if (p.items.map(migrateHomework).some(Boolean)) save();
-  const lv = levelInfo(totalXp(p));
+  const lv = levelOf(p);
   const st = streak(p);
   const bonusN = bonusCount(p);
   checkFree(p);   // きょうの ガチャ石・レベルアップの石

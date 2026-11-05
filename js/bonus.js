@@ -12,7 +12,7 @@ import { isAdult } from './adult.js';
 const drillsFor = (p) => (isAdult(p) ? [] : ALL_DRILLS);
 import { runQuestions } from './runner.js';
 import { buildSteps } from './planner.js';
-import { levelInfo, totalXp, streak, week } from './progress.js';
+import { levelOf, streak, week } from './progress.js';
 import { minutesOn, sessions } from './timer.js';
 import { subjectColor } from './subjects.js';
 import { icon } from './icons.js';
@@ -197,7 +197,7 @@ export function openRecommend(p, recs, deps) {
 // ---- すすみ表 ------------------------------------------------------------------------
 
 export function openProgress(p, deps) {
-  const lv = levelInfo(totalXp(p));
+  const lv = levelOf(p);
   const st = streak(p);
   const weekMin = weekDates().reduce((n, d) => n + minutesOn(p, d), 0);
   const allMin = sessions(p).reduce((n, x) => n + x.minutes, 0);

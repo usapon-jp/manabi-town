@@ -8,7 +8,7 @@ import { createMeadow } from './meadow.js';
 import { heightAt } from './terrain.js';
 import { createEditor } from './editor.js';
 import { currentProfile, onChange } from './store.js';
-import { levelInfo, totalXp } from './progress.js';
+import { levelOf } from './progress.js';
 import { loadQuality, saveLowQuality, SLOW_FRAME_SEC, WARMUP_FRAMES, SAMPLE_FRAMES } from './quality.js';
 
 const WALK_RADIUS = 12;   // ひとりで散歩するときのはんい
@@ -50,7 +50,7 @@ export function createWorld(container) {
   let shownLv = 0;
   const refreshTown = () => {
     const p = currentProfile();
-    const lv = p ? levelInfo(totalXp(p)).lv : 1;
+    const lv = p ? levelOf(p).lv : 1;
     if (lv !== shownLv) {
       const fresh = town.setLevel(lv, shownLv > 0);
       shownLv = lv;

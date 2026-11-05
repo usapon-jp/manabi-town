@@ -1,4 +1,4 @@
-// ガチャ。ガチャ石1こで1回ひく。石は「毎日1回のログインボーナス」「レベルアップごと」「ポイント100 と こうかん」で手に入る
+// ガチャ。ガチャ石1こで1回ひく。石は「毎日1回のログインボーナス」「レベルアップごと」「ポイント200 と こうかん」で手に入る
 // （数字は js/data/gacha.js の STONES）。出るのは、まだ持っていないものから めずらしさの重みで1つ（かぶらない）。
 // 中身の表（js/data/gacha.js）は 3Dの箱庭の「もちもの」の台帳もかねる（ownedSet / ownedOfKind / isOwned）。
 //
@@ -10,7 +10,7 @@
 import { h, toast } from './ui.js';
 import { save, spendPoints, today, currentProfile } from './store.js';
 import { icon } from './icons.js';
-import { levelInfo, totalXp } from './progress.js';
+import { levelOf } from './progress.js';
 import { KINDS, RARITY, STONES, ITEMS } from './data/gacha.js';
 
 const byId = new Map(ITEMS.map((i) => [i.id, i]));
@@ -28,7 +28,7 @@ function g(p) {
   if (!Array.isArray(st.got)) st.got = [];
   return st;
 }
-const level = (p) => levelInfo(totalXp(p)).lv;
+const level = (p) => levelOf(p).lv;
 
 // いま もっている石
 export function stones(p) {

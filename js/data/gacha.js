@@ -29,7 +29,7 @@ export const RARITY = {
 export const STONES = {
   daily: 1,       // 毎日1回のログインボーナス
   perLevel: 1,    // レベルが1つ上がるごと
-  price: 100,     // ポイント100 で 石1こ
+  price: 200,     // ポイント200 で 石1こ（2026-11-05 100→200。中身がそろうのが早すぎたため）
 };
 
 const s = (inner) => inner; // 線の絵（24×24、lucide と同じ太さ）
