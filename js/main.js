@@ -20,7 +20,7 @@ import { openBonus, bonusCount, openRecommend, openProgress, startDrill } from '
 import { DRILLS } from './quests.js';
 import { icon } from './icons.js';
 import { openGacha, stones, capsuleIcon, checkFree } from './gacha.js';
-import { askAI, aiLeft, DAY_LIMIT } from './ai.js';
+import { askAI, aiLeft, aiUsedToday, DAY_LIMIT } from './ai.js';
 import { recordResults, dueReview, startReview, reviewStats, REVIEW_PER_CORRECT } from './review.js';
 import { openTestEntry, openWeak, startWeak, testHistory } from './tests.js';
 import { startSync } from './sync.js';
@@ -38,6 +38,10 @@ const stepPoints = (item) => (item?.type === 'homework' && item.perPage ? POINTS
 
 const panel = document.getElementById('panel');
 const hud = document.getElementById('hud');
+// どの勉強の画面からも押せる「ピヨ先生に しつもん」（右下）
+const askFab = h('button', { class: 'ask-fab', type: 'button', hidden: true, 'aria-label': 'ピヨ先生に しつもん', onclick: () => { const p = currentProfile(); if (p) openAsk(p); } },
+  h('img', { src: 'assets/icons/icon-192.png', alt: '', width: 34, height: 34 }), h('span', {}, 'しつもん'));
+document.body.append(askFab);
 const bubble = document.getElementById('bubble');
 const pad = document.getElementById('pad');
 bindControls(pad);
@@ -176,7 +180,7 @@ function show(next) {
 
 function render() {
   const p = currentProfile();
-  if (!p) { renderWelcome(); return; }
+  if (!p) { askFab.hidden = true; renderWelcome(); return; }
   // むかしの宿題（3ページで1ステップ）をページ単位に
   if (p.items.map(migrateHomework).some(Boolean)) save();
   const lv = levelInfo(totalXp(p));
@@ -197,6 +201,7 @@ function render() {
         capsuleIcon(), stones(p) ? h('i', { class: 'badge stone' }, stones(p)) : null)),
   );
   hud.hidden = false;
+  askFab.hidden = tab === 'home';
   document.querySelector('.tabs').hidden = false;
   menuBtn.hidden = false;
   document.body.dataset.tab = tab;
@@ -609,8 +614,12 @@ function renderQuest(p) {
     ),
     h('div', { class: 'card quest' },
       h('h3', {}, icon('message-circle'), ' ピヨ先生に しつもん'),
-      h('p', {}, 'わからない問題を 書くか、しゃしんで みせてね。ずで せつめいも してくれるよ'),
-      h('button', { class: 'btn', onclick: () => openAsk(p) }, icon('camera'), ' しつもんする')),
+      h('p', {}, 'わからない問題を 書くか、しゃしんで みせてね。図で せつめい・英語の よみあげ・英会話も できるよ'),
+      h('div', { class: 'ask-quick' },
+        h('button', { class: 'btn', onclick: () => openAsk(p) }, icon('camera'), ' しつもん'),
+        h('button', { class: 'btn', onclick: () => openAsk(p, { mode: 'zu' }) }, icon('shapes'), ' 図で'),
+        h('button', { class: 'btn', onclick: () => openAsk(p, { mode: 'yomu' }) }, icon('volume-2'), ' よみあげ'),
+        h('button', { class: 'btn', onclick: () => openAsk(p, { mode: 'talk' }) }, icon('languages'), ' 英会話'))),
     reviewCard(p),
     testCard(p),
     h('h3', {}, '小テスト'),
@@ -684,7 +693,7 @@ function planCard(p) {
 }
 
 function aiCard() {
-  const status = h('p', { class: 'ai-status' }, `ヒントは 1日 ${DAY_LIMIT}回まで（のこり ${aiLeft()}回）`);
+  const status = h('p', { class: 'ai-status' }, DAY_LIMIT ? `ヒントは 1日 ${DAY_LIMIT}回まで（のこり ${aiLeft()}回）` : `AI は いま 回数の上限なし（この端末で きょう ${aiUsedToday()}回）`);
   // 今月の AI 料金（Supabase に記録した推定額。Anthropic の残高そのものではない）
   const usage = h('p', { class: 'ai-status' }, '今月の AI 料金: しらべ中…');
   askAI({ action: 'usage' }, { count: false, timeout: 8000 }).then((u) => {
@@ -759,7 +768,7 @@ function renderSettings(p) {
     ),
 
     planCard(p),
-    feedbackCard(p, 'settings', 'v49'),
+    feedbackCard(p, 'settings', 'v52'),
     aiCard(),
     photosCard(p),
     dataCard(),
