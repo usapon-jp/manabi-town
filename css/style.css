@@ -1391,6 +1391,17 @@ input.pin { font-size: 26px; letter-spacing: 0.5em; text-align: center; }
 .ask-modes button svg { width: 22px; height: 22px; color: var(--accent-dark); }
 .ask-modes button.on { background: var(--accent); border-color: var(--accent); color: #fff; }
 .ask-modes button.on svg { color: #fff; }
+.ask-face { position: relative; display: inline-flex; flex-shrink: 0; }
+.ask-face-glasses { position: absolute; inset: 0; display: none; pointer-events: none; }
+.ask-face-glasses svg { display: block; }
+.chat.ask.honki .ask-face-glasses { display: block; }
+.ask-honki {
+  display: inline-flex; align-items: center; gap: 4px; border: 1.5px solid var(--line); background: #fff; color: var(--ink-soft);
+  border-radius: 999px; padding: 5px 10px; font: inherit; font-size: 13px; font-weight: 700; cursor: pointer;
+}
+.ask-honki svg { width: 20px; height: 20px; }
+.ask-honki.on { background: var(--navy); border-color: var(--navy); color: #fff; }
+.ask-honki[hidden] { display: none; }
 .chat.ask .msg { white-space: normal; }
 .chat.ask .msg p { margin: 0; white-space: pre-wrap; }
 .chat.ask .msg > * + * { margin-top: 8px; }
@@ -1420,6 +1431,15 @@ input.pin { font-size: 26px; letter-spacing: 0.5em; text-align: center; }
 .notify-card .steps { margin: 6px 0 0; padding-left: 1.3em; line-height: 1.7; }
 .time-row { display: flex; gap: 12px; align-items: center; }
 .time-in { font: inherit; font-size: 1.1rem; padding: 8px 10px; border: 1.5px solid var(--line); border-radius: 12px; background: #fff; color: var(--navy); min-width: 8em; }
+
+/* 読み上げを とめる（読み上げ中だけ出る） */
+.ask-stop {
+  justify-self: center; display: inline-flex; align-items: center; gap: 8px; padding: 8px 18px;
+  border-radius: 999px; border: 0; background: #c0583f; color: #fff; font: inherit; font-size: 15px; font-weight: 700; cursor: pointer;
+  box-shadow: 0 2px 8px rgba(192, 88, 63, 0.3);
+}
+.ask-stop[hidden] { display: none; }
+.ask-stop-sq { width: 12px; height: 12px; border-radius: 2px; background: #fff; display: inline-block; }
 /* 写真の入れかた（カメラ／アルバム） */
 .pick-src { z-index: 40; }
 .pick-src .sheet-card { justify-items: stretch; }
