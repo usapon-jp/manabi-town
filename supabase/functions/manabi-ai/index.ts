@@ -30,7 +30,9 @@ async function callClaude(action: string, who: string, key: string, content: unk
   const r = await fetch('https://api.anthropic.com/v1/messages', {
     method: 'POST',
     headers: { 'x-api-key': key, 'anthropic-version': '2023-06-01', 'content-type': 'application/json' },
-    body: JSON.stringify({ model, max_tokens: maxTokens, system, messages: history || [{ role: 'user', content }] }),
+    // Haiku 5.5 はなにも書かないと「考える」が入り、短い max_tokens を考えるだけで使いきって 答えが空になる（ヒントが出なかった原因）。
+    // 短い答えでよい Haiku の呼び出しは 考えずに答えさせる（Sonnet 5.5 は disabled を受けつけないので そのまま）
+    body: JSON.stringify({ model, max_tokens: maxTokens, system, messages: history || [{ role: 'user', content }], ...(model === MODEL ? { thinking: { type: 'disabled' } } : {}) }),
   });
   const j = await r.json();
   if (j?.usage) await recordUsage(action, who, model, j.usage);
