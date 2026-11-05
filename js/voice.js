@@ -52,6 +52,7 @@ export function createVoice() {
     // mix は 日本語の中の英語（2文字以上）だけ 英語の声で読む
     speak(text, onEnd, { lang = 'ja-JP', slow = false } = {}) {
       if (!TTS) { onEnd?.(); return; }
+      this.stopListen();   // 聞きとり中に読み上げると、その声を 子どもの声として 送ってしまう
       this.stopSpeak();
       const t = speakable(text);
       if (!t) { onEnd?.(); return; }

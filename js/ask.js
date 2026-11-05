@@ -177,7 +177,8 @@ export function openAsk(p, { subject, mode: startMode } = {}) {
       // 会話の つづきに つかう ことば（英会話は 英語のまま、ほかは 英文も つける）
       const text = mode === 'talk' ? (r.en || r.say || '') : [r.say, r.en].filter(Boolean).join('\n');
       messages.push({ role: 'assistant', text });
-      const same = (a, b) => a.toLowerCase().replace(/[^a-z0-9]/g, '') === b.toLowerCase().replace(/[^a-z0-9]/g, '');
+      const norm = (x) => x.toLowerCase().replace(/’/g, "'").replace(/[^a-z0-9' ]/g, '').replace(/\s+/g, ' ').trim();
+      const same = (a, b) => norm(a) === norm(b);
       if (r.fix && t && same(r.fix, t)) r.fix = '';   // 「.」がないだけ などは なおさない
       piyoBubble(r);
       const again = () => { if (voiceOn && !closed && canListen && my === turn) listen(); };
