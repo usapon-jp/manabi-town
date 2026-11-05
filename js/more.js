@@ -15,6 +15,7 @@ import { icon } from './icons.js';
 export const MORE_PER_CORRECT = 2;
 export const MORE_DAY_CAP = 40;
 const ROUND = 5;
+let pending = false;   // 問題を 作っている とちゅう
 
 function dayLog(p) {
   if (!p.bonus) p.bonus = { days: {}, weeks: {} };
@@ -64,8 +65,12 @@ export function openMore(p, deps) {
   const cleared = !!p.daily?.[today()];
   const start = (title, make) => {
     close();
-    Promise.resolve(make()).then((qs) => {
+    // AI で作っている あいだは ほかを はじめない。できたときに 別の問題を とちゅうなら すてる
+    if (pending) { toast('ピヨ先生が 問題を作り中…ちょっと まってね'); return; }
+    pending = true;
+    Promise.resolve(make()).catch(() => []).finally(() => { pending = false; }).then((qs) => {
       if (!qs || !qs.length) { toast('うまく 問題が 作れなかった…あとで もういちど'); return; }
+      if (document.getElementById('runner')?.hidden === false) return;
       runQuestions(title, qs, (score, total, results) => {
         recordResults(p, results, 'ピヨちゃんと 勉強');
         const msg = practicePoints(p, score, total, `ピヨちゃんと 勉強（${title}）`, deps);
