@@ -52,7 +52,9 @@ export function createWorld(container) {
     const p = currentProfile();
     const lv = p ? levelInfo(totalXp(p)).lv : 1;
     if (lv !== shownLv) {
-      town.setLevel(lv, shownLv > 0); shownLv = lv;
+      const fresh = town.setLevel(lv, shownLv > 0);
+      shownLv = lv;
+      if (fresh.length) editor.announce(lv, fresh);   // あたらしい たてものが出たら、おしらせ
       // レベル3から町に池がある。そこへ溝をつなぐと、水がながれこむ
       meadow.cut.setSources(lv >= 3 ? [{ x: -9.5, z: 3.5, r: 2.7 }] : []);
       meadow.cut.updateWater();
@@ -71,7 +73,15 @@ export function createWorld(container) {
   canvas.style.touchAction = 'none';
   // 「つくる」: 草をかって道をつくるなど、子どもが草原を作りかえる（editor.js）
   const editor = createEditor({
-    container, scene, cut: meadow.cut, wind: meadow.wind,
+    container, scene, cut: meadow.cut, wind: meadow.wind, setWalls: (list) => town.setWalls(list), town,
+    onCelebrate: () => { setTimeout(() => actor.jump(), 400); },
+    toScreen: (x, y, z) => {
+      const v = new THREE.Vector3(x, heightAt(x, z) + y, z).project(camera);
+      if (v.z > 1) return null;
+      const rect = canvas.getBoundingClientRect();
+      const d = camera.position.distanceTo(new THREE.Vector3(x, y, z));
+      return { x: rect.left + ((v.x + 1) / 2) * rect.width, y: rect.top + ((1 - v.y) / 2) * rect.height, scale: (rect.height / 2) / (Math.tan((camera.fov * Math.PI) / 360) * d) };
+    },
     rotate: (d) => { view.angle += d; },
     pick: (e) => {
       const rect = canvas.getBoundingClientRect();
@@ -146,7 +156,8 @@ export function createWorld(container) {
       dash: move.dash,
       jump: takeJump(),
     });
-    editor.tick(dt, actor.position, move.dash);
+    editor.tick(dt, actor.position, move.dash, actor.heading);
+    editor.update(time.value);
     marker.material.opacity = Math.max(0, marker.material.opacity - dt * 1.2);
     town.update(dt, time.value, camera.position);
 
@@ -171,7 +182,7 @@ export function createWorld(container) {
     },
     celebrate() { actor.jump(); },
     quality: () => quality,
-    warp(x, z, angle, dist) { actor.position.set(x, heightAt(x, z), z); view.target.copy(actor.position); if (angle != null) view.angle = angle; if (dist) view.dist = dist; },
+    warp(x, z, angle, dist, face) { actor.position.set(x, heightAt(x, z), z); view.target.copy(actor.position); if (angle != null) view.angle = angle; if (dist) view.dist = dist; if (face != null) actor.face(face); },
   };
 }
 
@@ -227,6 +238,8 @@ function createActor(scene, config, town) {
 
   return {
     position: root.position,
+    get heading() { return root.rotation.y; },
+    face(a) { root.rotation.y = a; },
     walkTo(p) { state.target = p.clone(); },
     jump() { state.jumpT = 0; },
     update(dt, ctl = { x: 0, z: 0, mag: 0, dash: false, jump: false }) {

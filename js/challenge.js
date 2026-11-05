@@ -35,7 +35,7 @@ export function openPiyo(p, deps, ctx = {}) {
   const sheet = h('div', { class: 'sheet', onclick: (e) => { if (e.target === sheet) close(); } },
     h('div', { class: 'sheet-card piyo-menu' },
       h('div', { class: 'coach' }, h('img', { src: 'assets/icons/icon-192.png', alt: '', width: 40, height: 40 }), h('p', {}, 'ピヨ先生と なにする？')),
-      big('message-circle', 'しつもん', 'わからないことを きく（写真もOK）', () => openAsk(p, { subject: subj })),
+      big('message-circle', 'しつもん', '写真・図・英語の よみあげ・英会話も', () => openAsk(p, { subject: subj })),
       big('pencil', `れんしゅう もんだい（${subj}）`, '5もん やってみる', () => practice(p, deps, subj, !!ctx.fromTimer)),
       ctx.fromTimer || isAdult(p) ? null : big('timer', `クイズチャレンジ（${CHALLENGE_MIN}分）`, '3・5・9教科を まわって 力だめし', () => openChallenge(p, deps)),
       h('button', { class: 'link', type: 'button', onclick: close }, 'とじる')));
@@ -60,7 +60,12 @@ async function makeFor(p, subject, n, seed, pics = []) {
     for (let i = 0; i < 6 && reads.length < n; i += 1) reads.push(...buildDrill('kanji', bucket, `${seed}:${i}`).filter((q) => q.kind !== 'write'));
     return shuffle(reads, rand).slice(0, n);
   }
-  if (!pics.length && subject === '英語') return buildDrill('english', bucket, seed, rand).slice(0, n);
+  if (!pics.length && subject === '英語') {
+    // つづり（書く）は ドリルとクエストで。ここは いみ（えらぶ）だけ
+    const picks = [];
+    for (let i = 0; i < 6 && picks.length < n; i += 1) picks.push(...buildDrill('english', bucket, `${seed}:${i}`).filter((q) => q.kind !== 'write'));
+    return shuffle(picks, rand).slice(0, n);
+  }
   if (!pics.length && subject === '算数・数学') return buildDrill('math', bucket, seed, rand).slice(0, n);
   const r = await askAI({ action: 'quiz', subject, grade: gradeLabel(p), topic: topicFor(p, subject), count: Math.min(5, n), images: pics }, { timeout: 40000 });
   return (r.questions || []).filter((q) => q && q.q && Array.isArray(q.options) && q.options.length >= 2 && Number.isInteger(q.answer) && q.answer >= 0 && q.answer < q.options.length)

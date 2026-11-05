@@ -5,7 +5,8 @@ import { currentProfile, gradeLabel } from './store.js';
 const ENDPOINT = 'https://gfuzmxkhhouhdrpjwajn.supabase.co/functions/v1/manabi-ai';
 const ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdmdXpteGtoaG91aGRycGp3YWpuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODY1MTk3NDcsImV4cCI6MjEwMjA5NTc0N30.gW8pyf186tWTMq-sGSHL8_rZjPzl1j1FMyffcY1ruE0';
 // 1台・1日あたりの回数の上限（使いすぎ防止。月の上限は Anthropic 側でも $5 にしてある）
-export const DAY_LIMIT = 40;
+// 0 = 上限なし（2026-11 フミオさん: どのくらい使うか調べたいので しばらく上限なし。もどすときは 40 に）
+export const DAY_LIMIT = 0;
 const COUNT_KEY = 'manabi-ai-count';
 
 function todayKey() { const d = new Date(); return `${d.getFullYear()}-${d.getMonth() + 1}-${d.getDate()}`; }
@@ -13,7 +14,8 @@ function readCount() {
   try { const c = JSON.parse(localStorage.getItem(COUNT_KEY) || '{}'); return c.day === todayKey() ? c.n : 0; } catch { return 0; }
 }
 function bump() { try { localStorage.setItem(COUNT_KEY, JSON.stringify({ day: todayKey(), n: readCount() + 1 })); } catch { /* 保存できなくても続ける */ } }
-export function aiLeft() { return Math.max(0, DAY_LIMIT - readCount()); }
+export function aiLeft() { return DAY_LIMIT ? Math.max(0, DAY_LIMIT - readCount()) : Infinity; }
+export function aiUsedToday() { return readCount(); }
 
 // 料金の記録用に「だれが使ったか」。子どもは学年だけ（名前は送らない）、おとなはハンドルネームも
 function whoLabel() {

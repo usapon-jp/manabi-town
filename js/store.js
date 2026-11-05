@@ -221,6 +221,14 @@ export function addPoints(p, n, reason, { study = true } = {}) {
   save();
 }
 
+// ポイントをつかう（ガチャ石との こうかん など）。けいけんち・レベルは へらさない
+export function spendPoints(p, n, reason) {
+  p.points = Math.max(0, p.points - n);
+  p.log.unshift({ at: Date.now(), n: -n, reason, spend: true });
+  if (p.log.length > 200) p.log.length = 200;
+  save();
+}
+
 export function addItem(p, item) {
   p.items.push({ id: uid(), done: false, createdOn: today(), ...item });
   save();

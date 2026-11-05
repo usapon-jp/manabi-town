@@ -49,6 +49,19 @@ const kanjiRead = (word, options, answer, sentence) => ({
   kind: 'choice', subject: '漢字', prompt: 'よみかたは？', big: word, options, answer, context: sentence,
 });
 
+// 英単語の つづり（いみを見て 英語で書く）。紙に書いて自己採点か、スマホに書いて ピヨ先生が判定
+const englishSpell = ([word, meaning]) => ({
+  kind: 'write', lang: 'en', subject: '英単語', prompt: '英語で 書けるかな？', big: meaning, answerText: word,
+});
+const englishMeaning = (word, options, answer) => ({
+  kind: 'choice', subject: '英単語', prompt: 'いみは？', big: word, options, answer,
+});
+// つづり n もん＋いみ のこり。同じ単語が かさならないようにする
+function englishSet(pairs, rand, total, spells) {
+  const picked = shuffle(pairs, rand);
+  return [...picked.slice(0, spells).map(englishSpell), ...choiceFromPairs(picked.slice(spells), rand, total - spells, englishMeaning)];
+}
+
 export function buildDaily(bucket, seed, rand = seededRandom(seed)) {
   // 漢字は 書き2もん＋読み1もん。書きはノートに書いて、お手本を見て自分で答え合わせ
   const picked = shuffle(KANJI[bucket], rand);
@@ -56,9 +69,7 @@ export function buildDaily(bucket, seed, rand = seededRandom(seed)) {
   const rest = picked.slice(PER_SUBJECT - 1);
   const reads = choiceFromPairs(rest, rand, 1, kanjiRead);
   const kanji = [...writes, ...reads];
-  const english = choiceFromPairs(ENGLISH[bucket], rand, PER_SUBJECT, (word, options, answer) => ({
-    kind: 'choice', subject: '英単語', prompt: 'いみは？', big: word, options, answer,
-  }));
+  const english = englishSet(ENGLISH[bucket], rand, PER_SUBJECT, 1);
   const math = Array.from({ length: PER_SUBJECT }, () => mathQuestion(bucket, rand));
   return [...kanji, ...english, ...math];
 }
@@ -79,9 +90,7 @@ export function buildDrill(id, bucket, seed, rand = seededRandom(`drill:${id}:${
     return [...writes, ...reads];
   }
   if (id === 'english') {
-    return choiceFromPairs(ENGLISH[bucket], rand, DRILL_COUNT, (word, options, answer) => ({
-      kind: 'choice', subject: '英単語', prompt: 'いみは？', big: word, options, answer,
-    }));
+    return englishSet(ENGLISH[bucket], rand, DRILL_COUNT, 2);
   }
   return Array.from({ length: DRILL_COUNT }, () => mathQuestion(bucket, rand));
 }

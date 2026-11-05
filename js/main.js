@@ -1,5 +1,5 @@
 import {
-  GRADES, SUBJECTS, getState, currentProfile, addProfile, switchProfile, updateProfile,
+  GRADES, getState, currentProfile, addProfile, switchProfile, updateProfile,
   addPoints, addItem, removeItem, addQuiz, removeQuiz, gradeBucket, gradeLabel, today, daysUntil, save, exportData, importData,
 } from './store.js';
 import { buildDaily, quizQuestions, POINTS_PER_CORRECT, CLEAR_BONUS } from './quests.js';
@@ -13,19 +13,23 @@ import { scanButton } from './scan.js';
 import { feedbackCard } from './feedback.js';
 import { photosCard } from './photos.js';
 import { openAsk } from './ask.js';
+import { townAskButton } from './townask.js';
 import { bindControls } from './controls.js';
 import { levelInfo, totalXp, streak, week } from './progress.js';
 import { renderTimerTab, startTimer, resumeIfRunning, kindForItem, minutesOn } from './timer.js';
 import { openBonus, bonusCount, openRecommend, openProgress, startDrill } from './bonus.js';
 import { DRILLS } from './quests.js';
 import { icon } from './icons.js';
-import { askAI, aiLeft, DAY_LIMIT } from './ai.js';
+import { openGacha, stones, capsuleIcon, checkFree } from './gacha.js';
+import { askAI, aiLeft, aiUsedToday, DAY_LIMIT } from './ai.js';
 import { recordResults, dueReview, startReview, reviewStats, REVIEW_PER_CORRECT } from './review.js';
 import { openTestEntry, openWeak, startWeak, testHistory } from './tests.js';
 import { startSync } from './sync.js';
 import { syncCard, openLogin, openPicker, askPin, pinField, pinFor } from './account.js';
 import { openPlanChat, startCheck, summary as planSummary, PLAN_BONUS } from './coach.js';
-import { isAdult, todayRoutines, checkRoutine, renderRoutineTab, consultCta, openConsult, ROUTINE_POINTS, ADULT_SUBJECTS } from './adult.js';
+import { startNotify, notifyCard } from './notify.js';
+import { isAdult, todayRoutines, checkRoutine, renderRoutineTab, consultCta, openConsult, ROUTINE_POINTS } from './adult.js';
+import { subjectNames, subjectColor, openSubjectEditor } from './subjects.js';
 
 const POINTS_HOMEWORK = 20;
 const POINTS_TEST = 50;
@@ -36,6 +40,10 @@ const stepPoints = (item) => (item?.type === 'homework' && item.perPage ? POINTS
 
 const panel = document.getElementById('panel');
 const hud = document.getElementById('hud');
+// どの勉強の画面からも押せる「ピヨ先生に しつもん」（右下）
+const askFab = h('button', { class: 'ask-fab', type: 'button', hidden: true, 'aria-label': 'ピヨ先生に しつもん', onclick: () => { const p = currentProfile(); if (p) openAsk(p); } },
+  h('img', { src: 'assets/icons/icon-192.png', alt: '', width: 34, height: 34 }), h('span', {}, 'しつもん'));
+document.body.append(askFab);
 const bubble = document.getElementById('bubble');
 const pad = document.getElementById('pad');
 bindControls(pad);
@@ -162,6 +170,7 @@ const timerDeps = {
 const bonusDeps = {
   gain: (p, n, reason, opts) => { gain(p, n, reason, opts); save(); render(); },
   render: () => render(),
+  celebrate: () => world?.celebrate(),
   openRecommend: () => openRecommend(currentProfile(), recommendations(currentProfile()), bonusDeps),
 };
 
@@ -173,12 +182,13 @@ function show(next) {
 
 function render() {
   const p = currentProfile();
-  if (!p) { renderWelcome(); return; }
+  if (!p) { askFab.hidden = true; renderWelcome(); return; }
   // むかしの宿題（3ページで1ステップ）をページ単位に
   if (p.items.map(migrateHomework).some(Boolean)) save();
   const lv = levelInfo(totalXp(p));
   const st = streak(p);
   const bonusN = bonusCount(p);
+  checkFree(p);   // きょうの ガチャ石・レベルアップの石
   fill(hud,
     h('div', { class: 'who' },
       h('span', { class: 'lv' }, `Lv${lv.lv}`),
@@ -188,9 +198,12 @@ function render() {
       h('span', { class: `fire ${st.doneToday ? 'on' : ''}`, title: 'れんぞく日数' }, icon('flame'), `${st.n}`),
       h('span', { class: 'points' }, icon('sprout'), `${p.points}`),
       h('button', { class: 'bonus-btn', 'aria-label': 'ボーナス', onclick: () => openBonus(p, bonusDeps) },
-        icon('gift'), bonusN ? h('i', { class: 'badge' }, bonusN) : null)),
+        icon('gift'), bonusN ? h('i', { class: 'badge' }, bonusN) : null),
+      h('button', { class: 'bonus-btn gacha-btn', 'aria-label': 'ガチャ', onclick: () => openGacha(p, bonusDeps) },
+        capsuleIcon(), stones(p) ? h('i', { class: 'badge stone' }, stones(p)) : null)),
   );
   hud.hidden = false;
+  askFab.hidden = tab === 'home';
   document.querySelector('.tabs').hidden = false;
   menuBtn.hidden = false;
   document.body.dataset.tab = tab;
@@ -369,6 +382,7 @@ function renderHome(p) {
       icon('book-open'),
       h('span', { class: 'quest-label' }, hot ? 'きょう ていしゅつ！' : left ? 'きょうやること' : 'ぜんぶ できた！'),
       left ? h('span', { class: 'quest-badge' }, String(left)) : null),
+    townAskButton(p),   // まちづくりの つかいかたを ピヨに しつもん（たたんだ ときだけ 見える）
     h('div', { class: 'card-body' },
       bar,
       dueCard(p, urgent),
@@ -518,7 +532,7 @@ function renderTodo(p) {
   const type = adult
     ? h('select', {}, h('option', { value: 'goal' }, '目標'), h('option', { value: 'test' }, '試験'))
     : h('select', {}, h('option', { value: 'test' }, 'テスト'), h('option', { value: 'homework' }, '宿題'), h('option', { value: 'goal' }, '目標'));
-  const subject = h('select', {}, (adult ? ADULT_SUBJECTS : SUBJECTS).map((s) => h('option', { value: s }, s)));
+  const subject = h('select', {}, subjectNames(p).map((s) => h('option', { value: s }, s)));
   const title = h('input', { type: 'text', placeholder: adult ? 'れい: 簿記3級 / 英語のリスニング' : 'れい: 2学期期末テスト', required: true });
   const range = h('input', { type: 'text', placeholder: adult ? 'れい: テキスト p.1〜120（なくてもOK）' : 'れい: p.40〜52（なくてもOK）' });
   const minutes = h('select', {}, [10, 15, 20, 30, 45, 60].map((m) => h('option', { value: m }, `${m}分`)));
@@ -603,8 +617,12 @@ function renderQuest(p) {
     ),
     h('div', { class: 'card quest' },
       h('h3', {}, icon('message-circle'), ' ピヨ先生に しつもん'),
-      h('p', {}, 'わからない問題を 書くか、しゃしんで みせてね。ずで せつめいも してくれるよ'),
-      h('button', { class: 'btn', onclick: () => openAsk(p) }, icon('camera'), ' しつもんする')),
+      h('p', {}, 'わからない問題を 書くか、写真で 見せてね。図で せつめい・英語の 読み上げ・英会話も できるよ'),
+      h('div', { class: 'ask-quick' },
+        h('button', { class: 'btn', onclick: () => openAsk(p) }, icon('camera'), ' しつもん'),
+        h('button', { class: 'btn', onclick: () => openAsk(p, { mode: 'zu' }) }, icon('shapes'), ' 図で'),
+        h('button', { class: 'btn', onclick: () => openAsk(p, { mode: 'yomu' }) }, icon('volume-2'), ' 読み上げ'),
+        h('button', { class: 'btn', onclick: () => openAsk(p, { mode: 'talk' }) }, icon('languages'), ' 英会話'))),
     reviewCard(p),
     testCard(p),
     h('h3', {}, '小テスト'),
@@ -678,7 +696,7 @@ function planCard(p) {
 }
 
 function aiCard() {
-  const status = h('p', { class: 'ai-status' }, `ヒントは 1日 ${DAY_LIMIT}回まで（のこり ${aiLeft()}回）`);
+  const status = h('p', { class: 'ai-status' }, DAY_LIMIT ? `ヒントは 1日 ${DAY_LIMIT}回まで（のこり ${aiLeft()}回）` : `AI は いま 回数の上限なし（この端末で きょう ${aiUsedToday()}回）`);
   // 今月の AI 料金（Supabase に記録した推定額。Anthropic の残高そのものではない）
   const usage = h('p', { class: 'ai-status' }, '今月の AI 料金: しらべ中…');
   askAI({ action: 'usage' }, { count: false, timeout: 8000 }).then((u) => {
@@ -731,7 +749,13 @@ function renderSettings(p) {
     pin.el,
     h('button', { class: 'btn primary', type: 'submit' }, 'ほぞん')),
 
+    h('div', { class: 'card form' },
+      h('h3', {}, isAdult(p) ? 'ジャンル' : 'きょうか'),
+      h('div', { class: 'subj-preview' }, subjectNames(p).map((s) => h('span', { class: 'chip', style: `background:${subjectColor(p, s)}` }, s))),
+      h('button', { class: 'btn', type: 'button', onclick: () => openSubjectEditor(p, render) }, icon('pencil'), ' へんしゅうする')),
+
     syncCard(afterLogin),
+    isAdult(p) ? notifyCard(p, { rerender: () => render() }) : null,
 
     h('div', { class: 'card form' },
       h('h3', {}, 'とりこみ'),
@@ -748,7 +772,7 @@ function renderSettings(p) {
     ),
 
     planCard(p),
-    feedbackCard(p, 'settings', 'v47'),
+    feedbackCard(p, 'settings', 'v52'),
     aiCard(),
     photosCard(p),
     dataCard(),
@@ -772,5 +796,12 @@ function runTutorial(p) {
 }
 
 render();
+startNotify();
+// お知らせを おしてひらいたとき、そのタブへ（ルーティーンなど）
+const TABS = ['home', 'todo', 'quest', 'timer', 'settings'];
+const openTab = (t) => { if (TABS.includes(t) && currentProfile() && !document.querySelector('.who-sheet')) show(t); };
+navigator.serviceWorker?.addEventListener('message', (e) => { if (e.data?.type === 'open-tab') openTab(e.data.tab); });
+const startTab = new URLSearchParams(location.search).get('tab');
+if (startTab) { history.replaceState(null, '', location.pathname); if (getState().profiles.length === 1) openTab(startTab); }
 resumeIfRunning(currentProfile(), timerDeps);
 if (currentProfile() && !currentProfile().tutorialDone) setTimeout(() => runTutorial(currentProfile()), 1200);
