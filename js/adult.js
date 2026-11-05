@@ -357,7 +357,7 @@ export function splitChoices(say, choices) {
   }
   const text = keep.join('\n').replace(/\n{3,}/g, '\n\n').trim();
   const all = [...(Array.isArray(choices) ? choices : []), ...found].map((c) => String(c).trim()).filter(Boolean);
-  return { text: text || String(say || '').trim(), choices: [...new Set(all)].slice(0, 6) };
+  return { text: text || String(say || '').trim(), choices: [...new Set(all)] };
 }
 
 export function openConsult(p, deps) {
