@@ -273,6 +273,8 @@ Deno.serve(async (req) => {
       // ピヨ先生から話しはじめた会話（英会話）は、先頭に「はじめ」を おく
       if (msgs.length && msgs[0].role !== 'user') msgs.unshift({ role: 'user', content: '（はじめよう）' });
       if (!msgs.length || msgs[msgs.length - 1].role !== 'user') return new Response(JSON.stringify({ error: 'no-question' }), { status: 400, headers });
+      // 写真をつけると msgs と raw の中身が 配列に かわるので、その前に しつもんの文を とっておく
+      const lastText = String(raw.filter((m: { role: string }) => m.role === 'user').pop()?.content || '');
       const img = clip(body.image, 1_800_000).replace(/^data:image\/\w+;base64,/, '');
       if (img) {
         const lastM = msgs[msgs.length - 1];
@@ -280,7 +282,6 @@ Deno.serve(async (req) => {
       }
       // 計算や図形の しつもんは まちがえないよう Sonnet（考えてから答える）。ほかの しつもんは Haiku が考えてから答える
       // 教科が算数・数学／「図で」／しつもんの文に 式・計算・図形のことばが あるとき
-      const lastText = String(raw.filter((m: { role: string }) => m.role === 'user').pop()?.content || '');
       const mathWords = /[0-9０-９]+\s*[+\-−×÷*/=＝＋－]|計算|けいさん|式|方程式|関数|グラフ|面積|体積|割合|わりあい|速さ|比例|反比例|図形|角度|三角形|円周|分数|小数|約分|通分|証明|確率/;
       const isMath = /算数|数学/.test(clip(body.subject, 20)) || mode === 'zu' || (mode === 'ask' && mathWords.test(lastText));
       const thinkHard = mode === 'ask' || mode === 'zu';
