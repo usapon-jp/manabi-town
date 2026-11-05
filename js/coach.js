@@ -52,22 +52,30 @@ function cleanProfile(r) {
 }
 
 // ---- デイリーの中身（作戦会議で きめる） ------------------------------------
-// p.coach.daily = { base: ['kanji','english','math'] の一部, extra: [{ subject, topic, until }] }
-// extra は ピヨ先生（Haiku）が 一問一答を まとめて作り（p.coach.pools）、毎日3もんずつ 順番に出す
+// p.coach.daily = { base: ['kanji','english','math'] の一部, extra: [{ subject, topic, until, perDay, size }] }
+// extra は ピヨ先生（Haiku）が 一問一答を size もん作り（p.coach.pools）、毎日 perDay もんずつ 順番に出す（何周も）。
+// 量は 作戦会議で ピヨ先生が「テストに間に合う量」を提案して 子どもと決める。
+// まちがえた問題は つぎの日の デイリーに もういちど出し（review.js）、p.coach.misses に ためて テスト前の「見直しワーク」にする
 export const BASE = [['kanji', '漢字'], ['english', '英単語'], ['math', '算数・数学']];
-const EXTRA_PER_DAY = 3;
-const POOL_SIZE = 15;
+const CHUNK = 15;               // 1回で作る数（受け口の上限）
+const clampN = (v, lo, hi, d) => Math.min(hi, Math.max(lo, Math.round(Number(v)) || d));
 
 function cleanDaily(d) {
   if (!d || typeof d !== 'object') return null;
   const base = (Array.isArray(d.base) ? d.base : []).filter((b) => BASE.some(([id]) => id === b));
-  const extra = (Array.isArray(d.extra) ? d.extra : []).filter((x) => x && x.subject && x.topic).slice(0, 3)
-    .map((x) => ({ subject: String(x.subject).slice(0, 10), topic: String(x.topic).slice(0, 60), until: /^\d{4}-\d{2}-\d{2}$/.test(String(x.until)) ? String(x.until) : '' }));
+  const extra = (Array.isArray(d.extra) ? d.extra : []).filter((x) => x && x.subject && x.topic).slice(0, 4)
+    .map((x) => ({
+      subject: String(x.subject).slice(0, 10), topic: String(x.topic).slice(0, 60),
+      until: /^\d{4}-\d{2}-\d{2}$/.test(String(x.until)) ? String(x.until) : '',
+      perDay: clampN(x.perDay, 1, 30, 5), size: clampN(x.size, 10, 60, 20),
+    }));
   if (!base.length && !extra.length) return null;
   return { base: [...new Set(base)], extra };
 }
 
-const poolKey = (x) => `${x.subject}:${x.topic}`;
+export const poolKey = (x) => `${x.subject}:${x.topic}`;
+const sizeOf = (x) => x.size || CHUNK;
+const perDayOf = (x) => x.perDay || 3;
 
 // いま有効な extra（until をすぎたものは はずす）
 export function activeExtras(p) {
@@ -84,14 +92,34 @@ export function dailyLabel(c) {
   const d = c?.daily;
   if (!d) return '';
   const t = today();
-  return [...d.base.map((b) => BASE.find(([id]) => id === b)[1]),
-    ...d.extra.filter((x) => !x.until || x.until >= t).map((x) => `${x.subject}「${x.topic}」`)].join('・');
+  return [...d.base.map((b) => `${BASE.find(([id]) => id === b)[1]} 3もん`),
+    ...d.extra.filter((x) => !x.until || x.until >= t).map((x) => `${x.subject}「${x.topic}」${perDayOf(x)}もん`)].join('・');
 }
 
-// 一問一答を まだ作っていない extra の分を作る（Haiku、1つにつき1回だけ）
-// 一問一答が まだない extra
+// 一問一答が まだ たりない extra
 export function missingPools(p) {
-  return activeExtras(p).filter((x) => !(p.coach.pools || {})[poolKey(x)]?.length);
+  return activeExtras(p).filter((x) => ((p.coach.pools || {})[poolKey(x)] || []).length < sizeOf(x));
+}
+
+const okQ = (q) => q && q.q && Array.isArray(q.options) && q.options.length >= 2 && Number.isInteger(q.answer) && q.answer >= 0 && q.answer < q.options.length;
+
+// 1つの範囲を size もんまで 作る（15もんずつ。前に作った問題は さけてもらう）
+async function fillPool(p, x) {
+  for (let i = 0; i < 5; i++) {
+    const have = (p.coach.pools || {})[poolKey(x)] || [];
+    const need = sizeOf(x) - have.length;
+    if (need <= 0) return true;
+    const r = await askAI({ action: 'quiz', pool: true, subject: x.subject, grade: gradeLabel(p), topic: x.topic, count: Math.min(CHUNK, need),
+      avoid: have.map((q) => q.q).join('\n').slice(0, 2500) }, { timeout: 60000 });
+    const seen = new Set(have.map((q) => q.q));
+    const qs = (r.questions || []).filter(okQ)
+      .map((q) => ({ q: String(q.q).slice(0, 200), options: q.options.slice(0, 4).map((o) => String(o).slice(0, 60)), answer: q.answer }))
+      .filter((q) => !seen.has(q.q));
+    if (!qs.length) return have.length > 0;
+    p.coach.pools = { ...(p.coach.pools || {}), [poolKey(x)]: [...have, ...qs] };
+    save();
+  }
+  return true;
 }
 
 const making = new Map();   // プロフィールごとに、作っている とちゅうの しごと
@@ -99,30 +127,53 @@ export function ensurePools(p) {
   const need = missingPools(p);
   if (!need.length) return Promise.resolve(true);
   if (making.has(p.id)) return making.get(p.id);
-  const job = Promise.all(need.map((x) => askAI({ action: 'quiz', pool: true, subject: x.subject, grade: gradeLabel(p), topic: x.topic, count: POOL_SIZE }, { timeout: 60000 })
-    .then((r) => {
-      const qs = (r.questions || []).filter((q) => q && q.q && Array.isArray(q.options) && q.options.length >= 2 && Number.isInteger(q.answer) && q.answer >= 0 && q.answer < q.options.length)
-        .map((q) => ({ q: String(q.q).slice(0, 200), options: q.options.slice(0, 4).map((o) => String(o).slice(0, 60)), answer: q.answer }));
-      if (qs.length) { p.coach.pools = { ...(p.coach.pools || {}), [poolKey(x)]: qs }; }
-      return qs.length > 0;
-    })
-    .catch(() => false)))
+  const job = Promise.all(need.map((x) => fillPool(p, x).catch(() => false)))
     .then((oks) => { save(); return oks.every(Boolean); })
     .finally(() => { making.delete(p.id); });
   making.set(p.id, job);
   return job;
 }
 
-// きょうの extra の問題。日にちで 3もんずつ ずらして、ぜんぶ出たら また はじめから（何周も）
+// きょうの extra の問題。日にちで perDay もんずつ ずらして、ぜんぶ出たら また はじめから（何周も）
 export function extraQuestions(p, key = today()) {
   const day = Math.floor(Date.parse(`${key}T00:00:00Z`) / 86400000);
   return activeExtras(p).flatMap((x) => {
     const pool = (p.coach.pools || {})[poolKey(x)] || [];
     if (!pool.length) return [];
-    const start = (day * EXTRA_PER_DAY) % pool.length;
-    return Array.from({ length: Math.min(EXTRA_PER_DAY, pool.length) }, (_, i) => pool[(start + i) % pool.length])
+    const n = Math.min(perDayOf(x), pool.length);
+    const start = (day * n) % pool.length;
+    return Array.from({ length: n }, (_, i) => pool[(start + i) % pool.length])
       .map((q) => ({ kind: 'choice', subject: x.subject, prompt: q.q, options: q.options, answer: q.answer, topic: x.topic }));
   });
+}
+
+// ---- まちがえた問題の ストック → テスト前の 見直しワーク ----------------------
+const missKey = (q) => `${q.topic}|${q.prompt}`;
+
+// デイリーで まちがえた 一問一答を ためる（同じ問題は 回数だけ ふやす）
+export function stockMisses(p, results) {
+  if (!p.coach) return;
+  const keys = new Set(activeExtras(p).map((x) => x.topic));
+  const misses = Array.isArray(p.coach.misses) ? p.coach.misses : (p.coach.misses = []);
+  results.filter((r) => !r.ok && r.q?.topic && keys.has(r.q.topic)).forEach(({ q }) => {
+    const found = misses.find((m) => missKey(m.q) === missKey(q));
+    if (found) { found.n += 1; found.at = today(); }
+    else misses.push({ q: JSON.parse(JSON.stringify(q)), n: 1, at: today() });
+  });
+  if (misses.length > 200) misses.splice(0, misses.length - 200);
+}
+
+// 見直しワークに出す問題（まだ テスト前の 範囲だけ。たくさん まちがえた順）
+export function missWork(p) {
+  const keys = new Set(activeExtras(p).map((x) => x.topic));
+  return (p.coach?.misses || []).filter((m) => keys.has(m.q.topic)).sort((a, b) => b.n - a.n);
+}
+
+// いちばん近い テストの日まで あと何日（見直しワークを 目立たせる）
+export function daysToTest(p) {
+  const t = today();
+  const ds = activeExtras(p).map((x) => x.until).filter(Boolean).sort();
+  return ds.length ? Math.round((Date.parse(ds[0]) - Date.parse(t)) / 86400000) : null;
 }
 
 export function openPlanChat(p, deps) {

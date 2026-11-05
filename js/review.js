@@ -39,6 +39,33 @@ export function dueReview(p) {
   return list(p).filter((i) => i.due <= t);
 }
 
+// デイリーに まぜる やりなおし（作戦会議で足した範囲の 一問一答だけ。きのう まちがえたもの など）
+export function dueForTopics(p, topics) {
+  const set = new Set(topics);
+  return dueReview(p).filter((i) => i.q?.topic && set.has(i.q.topic)).map((i) => i.q);
+}
+
+// やりなおしの結果を すすめる（正解→つぎの だんかい、3回で卒業。まちがい→あしたから やりなおし）。卒業した数を返す
+export function settleReview(p, results) {
+  const t = today();
+  let mastered = 0;
+  results.forEach(({ q, ok }) => {
+    const item = list(p).find((i) => i.key === keyOf(q));
+    if (!item || item.due > t) return;
+    if (ok) {
+      item.stage += 1;
+      if (item.stage >= GAPS.length) { p.review = list(p).filter((i) => i !== item); mastered += 1; }
+      else item.due = addDays(GAPS[item.stage]);
+    } else {
+      item.stage = 0;
+      item.due = addDays(GAPS[0]);
+      item.misses = (item.misses || 1) + 1;
+    }
+  });
+  p.reviewMastered = (p.reviewMastered || 0) + mastered;
+  return mastered;
+}
+
 export function reviewStats(p) {
   const items = list(p);
   return { waiting: items.length, due: dueReview(p).length, mastered: p.reviewMastered || 0 };
@@ -49,21 +76,7 @@ export function startReview(p, deps) {
   const todo = dueReview(p).slice(0, REVIEW_MAX);
   if (!todo.length) return false;
   runQuestions('やりなおしクエスト', todo.map((i) => i.q), (score, total, results) => {
-    let mastered = 0;
-    results.forEach(({ q, ok }) => {
-      const item = list(p).find((i) => i.key === keyOf(q));
-      if (!item) return;
-      if (ok) {
-        item.stage += 1;
-        if (item.stage >= GAPS.length) { p.review = list(p).filter((i) => i !== item); mastered += 1; }
-        else item.due = addDays(GAPS[item.stage]);
-      } else {
-        item.stage = 0;
-        item.due = addDays(GAPS[0]);
-        item.misses = (item.misses || 1) + 1;
-      }
-    });
-    p.reviewMastered = (p.reviewMastered || 0) + mastered;
+    const mastered = settleReview(p, results);
     const pts = score * REVIEW_PER_CORRECT + (score === total ? REVIEW_CLEAR : 0);
     if (pts > 0) deps.gain(p, pts, 'やりなおしクエスト'); else save();
     deps.render();
