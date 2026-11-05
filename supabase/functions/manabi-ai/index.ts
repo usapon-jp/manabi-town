@@ -6,7 +6,7 @@
 //   judge … 手書きの字の画像が、お手本の漢字と同じか判定
 //   quiz  … にがてな単元から、にた問題（3択）を作る
 //   scan  … プリントや範囲の写真から、テスト・宿題の予定（教科・名前・はんい・日にち）を読み取る（Haiku）
-//   ask   … ピヨ先生への質問（チャット・写真つき・図（SVG）つき）。mode: ask / zu（図で）/ yomu（英語よみあげ）/ talk（英会話）。Haiku（算数・数学と図は Sonnet）
+//   ask   … ピヨ先生への質問（チャット・写真つき・図（SVG）つき）。mode: ask / zu（図で）/ yomu（英語よみあげ）/ talk（英会話）。Haiku（算数・数学・理科の計算と図は Sonnet）
 //   usage … 今月の AI 使用額（推定）。せってい画面に出す。Claude は呼ばない
 //   plan  … ピヨ先生と作戦会議（進め方・得意苦手・理解度チェックする単元を決める）。ここだけ Sonnet
 //   consult … おとなモードの「ピヨと相談」。ルーティーンと目標・試験を会話で決める（Haiku）
@@ -283,7 +283,10 @@ Deno.serve(async (req) => {
       // 計算や図形の しつもんは まちがえないよう Sonnet（考えてから答える）。ほかの しつもんは Haiku が考えてから答える
       // 教科が算数・数学／「図で」／しつもんの文に 式・計算・図形のことばが あるとき
       const mathWords = /[0-9０-９]+\s*[+\-−×÷*/=＝＋－]|計算|けいさん|式|方程式|関数|グラフ|面積|体積|割合|わりあい|速さ|比例|反比例|図形|角度|三角形|円周|分数|小数|約分|通分|証明|確率/;
-      const isMath = /算数|数学/.test(clip(body.subject, 20)) || mode === 'zu' || (mode === 'ask' && mathWords.test(lastText));
+      // 理科の計算（密度・電流・圧力・溶解度 など）も まちがえやすいので Sonnet。理科で 数字が出てくる しつもんも
+      const sciWords = /密度|濃度|のうど|電流|電圧|抵抗|オーム|電力|圧力|水圧|浮力|てこ|滑車|かっしゃ|溶解度|質量|化学反応式|熱量|発熱量|湿度|しつど|露点|震源|初期微動|g\/cm|cm3|㎤|[0-9０-９]+\s*(?:g|ｇ|kg|mA|A|V|Ω|W|J|N|Pa|℃|%|％)/;
+      const isSci = /理科/.test(clip(body.subject, 20)) && (/[0-9０-９]/.test(lastText) || sciWords.test(lastText));
+      const isMath = /算数|数学/.test(clip(body.subject, 20)) || mode === 'zu' || isSci || (mode === 'ask' && (mathWords.test(lastText) || sciWords.test(lastText)));
       const thinkHard = mode === 'ask' || mode === 'zu';
       const text = await claude(key, [], system, thinkHard ? 12000 : mode === 'talk' ? 500 : 1500, isMath ? MODEL_SMART : MODEL, msgs, thinkHard);
       const r = parseReply(text);
