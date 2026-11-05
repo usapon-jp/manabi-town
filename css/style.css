@@ -1336,3 +1336,48 @@ input.pin { font-size: 26px; letter-spacing: 0.5em; text-align: center; }
 @keyframes mic-pulse { 50% { box-shadow: 0 0 0 8px rgba(192, 88, 63, 0.2); } }
 .ask .chat-cam { width: 40px; height: 40px; }
 .ask .chat-input { gap: 6px; }
+
+/* ピヨ先生に しつもん: 右下の ボタン（ホーム以外） */
+.ask-fab {
+  position: fixed; z-index: 6; right: max(14px, env(safe-area-inset-right, 0px));
+  bottom: calc(var(--tabs-h) + env(safe-area-inset-bottom) + 14px);
+  display: grid; justify-items: center; gap: 0; padding: 6px 8px 5px; min-width: 64px;
+  border-radius: 22px; border: 2px solid var(--line); background: #fffdf5; box-shadow: var(--soft);
+  font: inherit; font-size: 11px; font-weight: 700; color: var(--accent-dark); cursor: pointer;
+}
+.ask-fab img { border-radius: 50%; animation: piyo-hop 3.2s ease-in-out infinite; }
+.ask-fab:active { transform: scale(0.94); }
+.ask-fab[hidden], body.running .ask-fab, body:has(.timer-run) .ask-fab, body:has(.sheet) .ask-fab, body.touring .ask-fab { display: none; }
+@media (orientation: landscape) and (max-height: 540px) { .ask-fab { bottom: calc(env(safe-area-inset-bottom) + 14px); } }
+.panel { padding-bottom: calc(env(safe-area-inset-bottom) + 96px); }
+
+/* ピヨ先生: モード（しつもん・図で・よみあげ・英会話） */
+.ask-head { display: grid; background: var(--card); border-bottom: 1.5px solid var(--line); }
+.ask-head .chat-top { border-bottom: 0; padding-bottom: 6px; }
+.ask-modes { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; padding: 0 12px 10px; }
+.ask-modes button {
+  display: grid; justify-items: center; gap: 2px; padding: 7px 2px 6px; border-radius: 14px;
+  border: 1.5px solid var(--line); background: #fff; color: var(--ink); font: inherit; font-size: 12px; font-weight: 700; cursor: pointer;
+}
+.ask-modes button svg { width: 22px; height: 22px; color: var(--accent-dark); }
+.ask-modes button.on { background: var(--accent); border-color: var(--accent); color: #fff; }
+.ask-modes button.on svg { color: #fff; }
+.chat.ask .msg { white-space: normal; }
+.chat.ask .msg p { margin: 0; white-space: pre-wrap; }
+.chat.ask .msg > * + * { margin-top: 8px; }
+.ask-en { display: flex; align-items: flex-start; gap: 8px; background: #eef4e2; border-radius: 12px; padding: 8px 8px 8px 12px; }
+.ask-en p { flex: 1; font-size: 18px; line-height: 1.5; font-weight: 600; color: var(--navy); font-family: system-ui, -apple-system, 'Segoe UI', sans-serif; }
+.ask-ja { color: var(--ink-soft); font-size: 14px; }
+.ask-fix { background: #fff4dc; border-radius: 12px; padding: 6px 10px; display: grid; grid-template-columns: 1fr auto; align-items: center; column-gap: 8px; }
+.ask-fix small { grid-column: 1 / -1; color: #9a6b1f; font-size: 12px; }
+.ask-fix p { font-weight: 600; }
+.ask-say {
+  display: inline-flex; align-items: center; gap: 4px; flex-shrink: 0; border: 1.5px solid var(--line); background: #fff;
+  color: var(--accent-dark); border-radius: 999px; padding: 5px 10px; font: inherit; font-size: 13px; font-weight: 700; cursor: pointer;
+}
+.ask-say svg { width: 18px; height: 18px; }
+.ask-foot { display: flex; justify-content: flex-end; }
+.ask-quick { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
+.ask-quick .btn { padding-left: 4px; padding-right: 4px; font-size: 13px; white-space: nowrap; }
+.chat.ask .chat-choices[hidden] { display: none; }
+.chat-input [hidden] { display: none; }
