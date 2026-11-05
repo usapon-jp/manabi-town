@@ -3,13 +3,14 @@
 // action:
 //   ping  … キーが置かれているかだけ確認（Claude は呼ばない）
 //   hint  … 問題のヒント（答えは言わない。level 1→3 で少しずつ近づく）
-//   judge … 手書きの字の画像が、お手本の漢字と同じか判定
+//   judge … 手書きの字の画像が、お手本の漢字（lang:'en' なら英単語のつづり）と同じか判定。Haiku → ×・自信なしだけ Sonnet
 //   quiz  … にがてな単元から、にた問題（3択）を作る
 //   scan  … プリントや範囲の写真から、テスト・宿題の予定（教科・名前・はんい・日にち）を読み取る（Haiku）
 //   ask   … ピヨ先生への質問（チャット・写真つき・図（SVG）つき）。mode: ask / zu（図で）/ yomu（英語よみあげ）/ talk（英会話）。Haiku（算数・数学・理科の計算と図は Sonnet）
 //   usage … 今月の AI 使用額（推定）。せってい画面に出す。Claude は呼ばない
 //   plan  … ピヨ先生と作戦会議（進め方・得意苦手・理解度チェックする単元を決める）。ここだけ Sonnet
 //   consult … おとなモードの「ピヨと相談」。ルーティーンと目標・試験を会話で決める（Haiku）
+//   town  … まちづくり（3Dの草原）の つかいかたの しつもん。アプリが送る つかいかた（js/townguide.js）を読んで答える（Haiku）
 import { recordUsage, summary } from '../_shared/usage.ts';
 
 const MODEL = 'claude-haiku-5-5';
@@ -329,16 +330,65 @@ Deno.serve(async (req) => {
       const say = clip(r.say || (mode === 'zu' && !svg ? 'ごめんね、図が うまく かけなかった。もういちど 聞いてみてね' : ''), 2000);
       return ok({ say, svg, en, fix });
     }
+    if (body.action === 'town') {
+      // まちづくりの つかいかた。説明書（guide）は アプリが送る（3Dが かわっても デプロイ いらず）
+      const keys = (Array.isArray(body.keys) ? body.keys : []).map((k: unknown) => clip(k, 12)).filter((k: string) => /^[a-z]{2,12}$/.test(k)).slice(0, 40);
+      const system = [
+        'あなたは「ピヨ」。まなびタウン（勉強すると まちが そだつ アプリ）の まちづくり画面の あんない役。子どもの「どうやるの？」に答える。',
+        `子どもは ${clip(body.grade, 20) || '小学生'}。やさしい話し言葉、ひらがな多め（小4までに習う漢字はOK）。`,
+        '答えは 下の「つかいかた」に 書いてある ことだけを もとにする。書いていない 操作や ボタンを 作り話しない。',
+        'まだ できない ことを 聞かれたら「まだ できないけど、ほしいって つたえておくね」と言う。こまっている・うまく いかない ときは、ためせる ことを 1つ 言って「つたえておくね」と言う。',
+        '手じゅんは 1→2→3 の ように みじかく、多くて 4つ。1回の 返事は 150文字くらいまで。ボタンは 形と 場所（右下・左上 など）で 言う。',
+        `とくに 見せたい ボタンが あれば、さいごに <show>キー</show> を 1つだけ つける（なければ つけない）。キー: ${keys.join(' ')}`,
+        'さいごに しつもんの しゅるいを <tag>つかいかた</tag> <tag>ほしい</tag> <tag>こまった</tag> <tag>その他</tag> の どれか 1つで つける。',
+        'マークダウン・JSON は 使わない。',
+        '【つかいかた】',
+        clip(body.guide, 8000),
+      ].join('\n');
+      const msgs: { role: string; content: string }[] = [];
+      for (const m of (Array.isArray(body.messages) ? body.messages : []).slice(-10)) {
+        const role = m?.role === 'assistant' ? 'assistant' : 'user';
+        const content = clip(m?.text, 400);
+        if (!content) continue;
+        const last = msgs[msgs.length - 1];
+        if (last && last.role === role) last.content += `\n${content}`; else msgs.push({ role, content });
+      }
+      if (msgs.length && msgs[0].role !== 'user') msgs.shift();
+      if (!msgs.length || msgs[msgs.length - 1].role !== 'user') return new Response(JSON.stringify({ error: 'no-question' }), { status: 400, headers });
+      let text = await claude(key, [], system, 600, MODEL, msgs);
+      const showM = text.match(/<show>\s*([a-z]+)\s*<\/show>/i);
+      const tagM = text.match(/<tag>\s*([^<]{1,10}?)\s*<\/tag>/);
+      text = text.replace(/<(show|tag)>[\s\S]*?<\/\1>/gi, '').replace(/<[^>]*$/, '').replace(/\*\*/g, '').replace(/\n{3,}/g, '\n\n').trim();
+      const show = showM && keys.includes(showM[1].toLowerCase()) ? showM[1].toLowerCase() : '';
+      const tag = tagM && ['つかいかた', 'ほしい', 'こまった', 'その他'].includes(tagM[1]) ? tagM[1] : '';
+      return ok({ say: clip(text, 800), show, tag });
+    }
     if (body.action === 'judge') {
+      // まず Haiku。×のときと 自信がないときだけ Sonnet で見なおす（まちがって×にしないため）
       const img = clip(body.image, 400_000).replace(/^data:image\/\w+;base64,/, '');
-      const expected = clip(body.expected, 20);
-      const system = '子どもが手書きした漢字を採点する先生。字のきれいさではなく、正しい字か（とめ・はね・画の数・形のちがい）を見る。返事は JSON だけ: {"ok":true/false,"comment":"ひらがな多めで30文字以内のひとこと"}';
-      const text = await claude(key, [
+      const expected = clip(body.expected, 30);
+      const en = body.lang === 'en';
+      const form = '返事は JSON だけ: {"ok":true/false,"sure":true/false,"comment":"ひらがな多めで30文字以内のひとこと（×なら どこがちがうか）"}';
+      const system = en
+        ? `子どもが手書きした英単語のつづりを採点する先生。字のきれいさではなく、つづりが正しいか（文字のぬけ・入れかわり・b/d や m/n のちがい）を見る。大文字・小文字のちがいは まちがいにしない。${form}`
+        : `子どもが手書きした漢字を採点する先生。字のきれいさではなく、正しい字か（とめ・はね・画の数・形のちがい）を見る。${form}`;
+      const ask = en
+        ? `お手本: 「${expected}」（いみ: ${clip(body.reading, 30)}）。この手書きは「${expected}」と正しく書けている？`
+        : `お手本: 「${expected}」（よみ: ${clip(body.reading, 30)}）。この手書きは「${expected}」と正しく書けている？`;
+      const content = [
         { type: 'image', source: { type: 'base64', media_type: 'image/png', data: img } },
-        { type: 'text', text: `お手本: 「${expected}」（よみ: ${clip(body.reading, 30)}）。この手書きは「${expected}」と正しく書けている？` },
-      ], system, 120);
-      const m = text.match(/\{[\s\S]*\}/);
-      const r = m ? JSON.parse(m[0]) : { ok: false, comment: text.slice(0, 40) };
+        { type: 'text', text: ask },
+      ];
+      // 読めない返事は null（×とはちがう。アプリは 自分で ○× にする）
+      const read = (text: string) => {
+        const m = text.match(/\{[\s\S]*\}/);
+        try { const o = m ? JSON.parse(m[0]) : null; return o && typeof o.ok === 'boolean' ? o : null; } catch { return null; }
+      };
+      let r = read(await claude(key, content, system, 160));
+      if (!r || !r.ok || r.sure === false) {
+        try { r = read(await claude(key, content, system, 1500, MODEL_SMART)) || r; } catch { /* Sonnet が だめなら Haiku の答えのまま */ }
+      }
+      if (!r) throw new Error('judge-unreadable');
       return ok({ ok: !!r.ok, comment: clip(r.comment, 60) });
     }
     return new Response(JSON.stringify({ error: 'unknown action' }), { status: 400, headers });
