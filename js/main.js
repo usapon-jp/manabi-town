@@ -1,5 +1,5 @@
 import {
-  GRADES, SUBJECTS, getState, currentProfile, addProfile, switchProfile, updateProfile,
+  GRADES, getState, currentProfile, addProfile, switchProfile, updateProfile,
   addPoints, addItem, removeItem, addQuiz, removeQuiz, gradeBucket, gradeLabel, today, daysUntil, save, exportData, importData,
 } from './store.js';
 import { buildDaily, quizQuestions, POINTS_PER_CORRECT, CLEAR_BONUS } from './quests.js';
@@ -27,7 +27,8 @@ import { startSync } from './sync.js';
 import { syncCard, openLogin, openPicker, askPin, pinField, pinFor } from './account.js';
 import { openPlanChat, startCheck, summary as planSummary, PLAN_BONUS } from './coach.js';
 import { startNotify, notifyCard } from './notify.js';
-import { isAdult, todayRoutines, checkRoutine, renderRoutineTab, consultCta, openConsult, ROUTINE_POINTS, ADULT_SUBJECTS } from './adult.js';
+import { isAdult, todayRoutines, checkRoutine, renderRoutineTab, consultCta, openConsult, ROUTINE_POINTS } from './adult.js';
+import { subjectNames, subjectColor, openSubjectEditor } from './subjects.js';
 
 const POINTS_HOMEWORK = 20;
 const POINTS_TEST = 50;
@@ -529,7 +530,7 @@ function renderTodo(p) {
   const type = adult
     ? h('select', {}, h('option', { value: 'goal' }, '目標'), h('option', { value: 'test' }, '試験'))
     : h('select', {}, h('option', { value: 'test' }, 'テスト'), h('option', { value: 'homework' }, '宿題'), h('option', { value: 'goal' }, '目標'));
-  const subject = h('select', {}, (adult ? ADULT_SUBJECTS : SUBJECTS).map((s) => h('option', { value: s }, s)));
+  const subject = h('select', {}, subjectNames(p).map((s) => h('option', { value: s }, s)));
   const title = h('input', { type: 'text', placeholder: adult ? 'れい: 簿記3級 / 英語のリスニング' : 'れい: 2学期期末テスト', required: true });
   const range = h('input', { type: 'text', placeholder: adult ? 'れい: テキスト p.1〜120（なくてもOK）' : 'れい: p.40〜52（なくてもOK）' });
   const minutes = h('select', {}, [10, 15, 20, 30, 45, 60].map((m) => h('option', { value: m }, `${m}分`)));
@@ -746,6 +747,11 @@ function renderSettings(p) {
     pin.el,
     h('button', { class: 'btn primary', type: 'submit' }, 'ほぞん')),
 
+    h('div', { class: 'card form' },
+      h('h3', {}, isAdult(p) ? 'ジャンル' : 'きょうか'),
+      h('div', { class: 'subj-preview' }, subjectNames(p).map((s) => h('span', { class: 'chip', style: `background:${subjectColor(p, s)}` }, s))),
+      h('button', { class: 'btn', type: 'button', onclick: () => openSubjectEditor(p, render) }, icon('pencil'), ' へんしゅうする')),
+
     syncCard(afterLogin),
     isAdult(p) ? notifyCard(p, { rerender: () => render() }) : null,
 
@@ -764,7 +770,7 @@ function renderSettings(p) {
     ),
 
     planCard(p),
-    feedbackCard(p, 'settings', 'v47'),
+    feedbackCard(p, 'settings', 'v52'),
     aiCard(),
     photosCard(p),
     dataCard(),
