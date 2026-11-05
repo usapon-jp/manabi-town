@@ -573,6 +573,9 @@ async function startDaily(p) {
   if (missingPools(p).length) {
     toast('ピヨ先生が 問題を作り中…', 8000);
     await ensurePools(p);
+    // 1もんも 作れなかった範囲が あるときは はじめない（足した一問一答なしで クリアに ならないように）
+    const empty = activeExtras(p).filter((x) => !extraQuestions(p, key).some((q) => q.topic === x.topic));
+    if (empty.length) { toast(`${empty.map((x) => x.subject).join('・')}の 問題が まだ 作れなかった…インターネットを たしかめて もういちど おしてね`, 5000); return; }
   }
   // きのうまでに まちがえた 一問一答は、さいしょに もういちど
   const again = dueForTopics(p, activeExtras(p).map((x) => x.topic));

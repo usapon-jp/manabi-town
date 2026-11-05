@@ -261,7 +261,7 @@ export function openPlanChat(p, deps) {
   function finish(profile) {
     const first = !p.coach;
     // デイリーの話をしなかったときは 前の きまりを そのまま。作った一問一答も のこす
-    p.coach = { ...profile, daily: profile.daily || p.coach?.daily || null, pools: p.coach?.pools || {}, checks: p.coach?.checks || [], at: new Date().toISOString().slice(0, 10) };
+    p.coach = { ...profile, daily: profile.daily || p.coach?.daily || null, pools: p.coach?.pools || {}, misses: p.coach?.misses || [], checks: p.coach?.checks || [], at: new Date().toISOString().slice(0, 10) };
     if (activeExtras(p).length) ensurePools(p, images).then((ok) => toast(ok ? 'デイリーの 問題が できたよ！' : 'デイリーの 問題が うまく作れなかった…クエストを ひらくと もういちど 作るよ'));
     if (first) deps.gain(p, PLAN_BONUS, '作戦会議'); else save();
     form.remove();
