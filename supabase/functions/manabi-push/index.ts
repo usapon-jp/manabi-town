@@ -1,11 +1,14 @@
 // スマホへのお知らせ（Web プッシュ）。
-// - アプリが「この端末に、何時に、なにを知らせるか」の一覧（reminders）を送ってくる。中身はタイトルと時刻だけ
+// - アプリが 人（プロフィール）ごとの お知らせ一覧を送ってくる（push_profiles）。中身はタイトルと時刻だけ
+//   ログインしていれば 家族のアカウント（owner = ユーザーid）の分としてしまうので、どの端末でチェック・なおしても
+//   通知を受ける端末（push_subs.profiles）に そのまま反映される。ログインなしの端末は その端末だけ（owner = dev:端末）
 // - pg_cron が毎分 action:tick で呼ぶ → 時刻になった分を その端末へ送る（アプリを閉じていても届く）
 // - VAPID の鍵は はじめて使うときに ここで作って app_secret にしまう（外には出さない。公開鍵だけ返す）
 // - いまはおとなのルーティーン。あとで 宿題・勉強のお知らせも同じ reminders に入れれば届く（kind で見分ける）
 import webpush from 'npm:web-push@3.6.7';
 
 const URL_ = Deno.env.get('SUPABASE_URL')!;
+const ANON = Deno.env.get('SUPABASE_ANON_KEY')!;
 const KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 const CORS = {
   'Access-Control-Allow-Origin': '*',
@@ -29,6 +32,17 @@ async function sha(s: string) {
   const b = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(s));
   return [...new Uint8Array(b)].map((x) => x.toString(16).padStart(2, '0')).join('');
 }
+
+// ログインの鍵から 家族のアカウントの id を出す（だめなら null）
+async function userOf(token: unknown) {
+  if (typeof token !== 'string' || !token || token.length > 4000) return null;
+  const r = await fetch(`${URL_}/auth/v1/user`, { headers: { apikey: ANON, Authorization: `Bearer ${token}` } });
+  if (!r.ok) return null;
+  const j = await r.json().catch(() => ({}));
+  return typeof j?.id === 'string' ? j.id : null;
+}
+const PID = /^[\w-]{1,40}$/;
+const cleanIds = (a: unknown) => (Array.isArray(a) ? a.map(String).filter((x) => PID.test(x)).slice(0, 12) : []);
 
 let vapid: { publicKey: string; privateKey: string } | null = null;
 async function keys() {
@@ -101,13 +115,19 @@ async function findDevice(device: string, sec: string) {
 }
 
 async function tick() {
-  const r = await rest('push_subs?select=device,sub,tz,reminders,sent');
+  const r = await rest('push_subs?select=device,sub,tz,owner,profiles,sent');
   const rows = r.ok ? await r.json() : [];
+  if (!rows.length) return { rows: 0, sent: 0 };
+  const owners = [...new Set(rows.map((x: any) => x.owner))];
+  const pr = await rest(`push_profiles?select=owner,profile,reminders&owner=in.(${encodeURIComponent(owners.map((o) => `"${String(o).replace(/"/g, '')}"`).join(','))})`);
+  const lists = new Map<string, Reminder[]>();
+  (pr.ok ? await pr.json() : []).forEach((x: any) => lists.set(`${x.owner}|${x.profile}`, x.reminders || []));
   let sent = 0;
   for (const row of rows) {
     const t = localNow(row.tz || 'Asia/Tokyo');
     const done: Record<string, string> = { ...(row.sent || {}) };
-    const due = (row.reminders as Reminder[] || []).filter((x) => {
+    const all = (row.profiles || []).flatMap((pid: string) => lists.get(`${row.owner}|${pid}`) || []) as Reminder[];
+    const due = all.filter((x) => {
       if (done[x.id] === t.date) return false;
       if (x.days?.length && !x.days.includes(t.dow)) return false;
       if (x.skipUntil && t.date < x.skipUntil) return false;
@@ -148,6 +168,28 @@ Deno.serve(async (req) => {
     }
     if (b.action === 'key') return json({ publicKey: (await keys()).publicKey });
 
+    // 人ごとの お知らせ一覧。ログインの鍵があれば 家族のアカウントの分、なければ 端末の合言葉で その端末の分
+    if (b.action === 'reminders') {
+      let owner: string | null = null;
+      if (b.token) owner = await userOf(b.token);
+      else {
+        const dev = clip(b.device, 64); const sec = String(b.secret || '');
+        if (/^[\w-]{16,64}$/.test(dev) && sec.length >= 20 && sec.length <= 100) {
+          const f = await findDevice(dev, sec);
+          if (f.ok) owner = `dev:${dev}`;
+        }
+      }
+      if (!owner) return json({ error: 'forbidden' }, 403);
+      const map = (b.profiles && typeof b.profiles === 'object' && !Array.isArray(b.profiles)) ? b.profiles : {};
+      const rows = Object.entries(map).filter(([pid]) => PID.test(pid)).slice(0, 12)
+        .map(([profile, list]) => ({ owner, profile, reminders: cleanReminders(list), updated_at: new Date().toISOString() }));
+      if (rows.length) {
+        const r = await rest('push_profiles?on_conflict=owner,profile', { method: 'POST', headers: { Prefer: 'resolution=merge-duplicates,return=minimal' }, body: JSON.stringify(rows) });
+        if (!r.ok) return json({ error: `reminders ${r.status} ${(await r.text()).slice(0, 120)}` }, 500);
+      }
+      return json({ ok: true, count: rows.length });
+    }
+
     const device = clip(b.device, 64); const sec = String(b.secret || '');
     if (!/^[\w-]{16,64}$/.test(device) || sec.length < 20 || sec.length > 100) return json({ error: 'bad device' }, 400);
     const found = await findDevice(device, sec);
@@ -156,16 +198,18 @@ Deno.serve(async (req) => {
     if (b.action === 'save') {
       const sub = cleanSub(b.sub);
       if (!sub) return json({ error: 'bad sub' }, 400);
-      const reminders = cleanReminders(b.reminders);
-      const row = { device, sub, secret_hash: await sha(sec), tz: okTz(b.tz), reminders, updated_at: new Date().toISOString() };
+      let owner = `dev:${device}`;
+      if (b.token) { const u = await userOf(b.token); if (!u) return json({ error: 'forbidden' }, 403); owner = u; }
+      const row = { device, sub, endpoint: sub.endpoint, secret_hash: await sha(sec), tz: okTz(b.tz), owner, profiles: cleanIds(b.profiles), updated_at: new Date().toISOString() };
       // 同じ endpoint の古い行（端末の記録を消した時など）はかたづける
       await rest(`push_subs?endpoint=eq.${encodeURIComponent(sub.endpoint)}&device=neq.${encodeURIComponent(device)}`, { method: 'DELETE' });
-      const r = await rest('push_subs?on_conflict=device', { method: 'POST', headers: { Prefer: 'resolution=merge-duplicates,return=minimal' }, body: JSON.stringify({ ...row, endpoint: sub.endpoint }) });
+      const r = await rest('push_subs?on_conflict=device', { method: 'POST', headers: { Prefer: 'resolution=merge-duplicates,return=minimal' }, body: JSON.stringify(row) });
       if (!r.ok) return json({ error: `save ${r.status} ${(await r.text()).slice(0, 120)}` }, 500);
-      return json({ ok: true, count: reminders.length });
+      return json({ ok: true });
     }
     if (b.action === 'off') {
       if (found.row) await rest(`push_subs?device=eq.${encodeURIComponent(device)}`, { method: 'DELETE' });
+      await rest(`push_profiles?owner=eq.${encodeURIComponent(`dev:${device}`)}`, { method: 'DELETE' });
       return json({ ok: true });
     }
     if (b.action === 'test') {
