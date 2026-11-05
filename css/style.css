@@ -1458,6 +1458,8 @@ input.pin { font-size: 26px; letter-spacing: 0.5em; text-align: center; }
 .pick-src .sheet-title { text-align: center; }
 .pick-src .link { justify-self: center; font-size: 15px; padding: 6px 12px; }
 
+/* テスト前の 見直しワーク（3日前から 目立たせる） */
+.card.quest.due-soon { border: 2px solid #e2a35d; background: #fff6e9; }
 /* まちの ピヨに しつもん: ホームの「きょうやること」の となり（たたんだ ときだけ） */
 .town-ask-btn { display: none; }
 .bubble.mini .town-ask-btn {

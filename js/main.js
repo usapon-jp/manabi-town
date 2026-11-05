@@ -23,11 +23,11 @@ import { DRILLS } from './quests.js';
 import { icon } from './icons.js';
 import { openGacha, stones, capsuleIcon, checkFree } from './gacha.js';
 import { askAI, aiLeft, aiUsedToday, DAY_LIMIT } from './ai.js';
-import { recordResults, dueReview, startReview, reviewStats, REVIEW_PER_CORRECT } from './review.js';
+import { recordResults, dueReview, startReview, reviewStats, REVIEW_PER_CORRECT, dueForTopics, settleReview } from './review.js';
 import { openTestEntry, openWeak, startWeak, testHistory } from './tests.js';
 import { startSync } from './sync.js';
 import { syncCard, openLogin, openPicker, askPin, pinField, pinFor } from './account.js';
-import { openPlanChat, startCheck, summary as planSummary, PLAN_BONUS } from './coach.js';
+import { openPlanChat, startCheck, summary as planSummary, PLAN_BONUS, dailyBase, extraQuestions, missingPools, ensurePools, dailyLabel, activeExtras, stockMisses, missWork, daysToTest } from './coach.js';
 import { startNotify, notifyCard } from './notify.js';
 import { isAdult, todayRoutines, checkRoutine, renderRoutineTab, consultCta, openConsult, ROUTINE_POINTS } from './adult.js';
 import { subjectNames, subjectColor, openSubjectEditor } from './subjects.js';
@@ -275,7 +275,7 @@ function profileForm(message, label) {
 // きょうやることを1列に（クエストが先頭）
 function homeTasks(p) {
   const adult = isAdult(p);
-  const daily = { kind: 'daily', label: '漢字・英単語・算数クエスト', tag: 'まいにち', done: !!p.daily[today()] };
+  const daily = { kind: 'daily', label: p.coach?.daily ? 'きょうのクエスト' : '漢字・英単語・算数クエスト', tag: 'まいにち', done: !!p.daily[today()] };
   const steps = [];
   todayTasks(p.items).forEach(({ item, steps: list }) => list.forEach((st) => steps.push({
     kind: 'step', item, st, label: st.label, done: st.done,
@@ -580,10 +580,26 @@ function renderTodo(p) {
 
 // ---- クエスト ----------------------------------------------------------------
 
-function startDaily(p) {
+async function startDaily(p) {
   const key = today();
-  runQuestions('きょうのクエスト', buildDaily(gradeBucket(p), `${p.id}:${key}`), (score, total, results) => {
-    recordResults(p, results, 'きょうのクエスト');
+  // 作戦会議で足した 一問一答が まだ できていなければ、ここで作る
+  if (missingPools(p).length) {
+    toast('ピヨ先生が 問題を作り中…', 8000);
+    await ensurePools(p);
+    // 1もんも 作れなかった範囲が あるときは はじめない（足した一問一答なしで クリアに ならないように）
+    const empty = activeExtras(p).filter((x) => !extraQuestions(p, key).some((q) => q.topic === x.topic));
+    if (empty.length) { toast(`${empty.map((x) => x.subject).join('・')}の 問題が まだ 作れなかった…インターネットを たしかめて もういちど おしてね`, 5000); return; }
+  }
+  // きのうまでに まちがえた 一問一答は、さいしょに もういちど
+  const again = dueForTopics(p, activeExtras(p).map((x) => x.topic));
+  const againSet = new Set(again);
+  const fresh = extraQuestions(p, key).filter((q) => !again.some((a) => a.prompt === q.prompt && a.topic === q.topic));
+  const qs = [...again, ...buildDaily(gradeBucket(p), `${p.id}:${key}`, dailyBase(p)), ...fresh];
+  if (!qs.length) { toast('デイリーの 問題が まだ ないよ。作戦会議で きめてね'); return; }
+  runQuestions('きょうのクエスト', qs, (score, total, results) => {
+    settleReview(p, results.filter((r) => againSet.has(r.q)));
+    recordResults(p, results.filter((r) => !againSet.has(r.q)), 'きょうのクエスト');
+    stockMisses(p, results);
     if (p.daily[key]) return 'れんしゅうなので ポイントはないよ';
     p.daily[key] = { score, total };
     const pts = score * POINTS_PER_CORRECT + (score === total ? CLEAR_BONUS : 0);
@@ -591,6 +607,25 @@ function startDaily(p) {
     render();
     return `+${pts} ポイント！`;
   });
+}
+
+// テスト前の 見直しワーク: デイリーで まちがえた 一問一答を まとめて もういちど（テスト3日前から 目立たせる）
+function missCard(p) {
+  const work = missWork(p);
+  if (!work.length) return null;
+  const d = daysToTest(p);
+  const soon = d != null && d <= 3;
+  const topics = [...new Set(work.map((m) => m.q.topic))];
+  return h('div', { class: `card quest${soon ? ' due-soon' : ''}` },
+    h('h3', {}, icon('notebook-pen'), soon ? ` テスト${d <= 0 ? 'の日' : `まで あと${d}日`}！見直しワーク` : ' 見直しワーク'),
+    h('p', {}, `デイリーで まちがえた ${work.length}もん（${topics.join('・')}）を まとめて 見直すよ。`),
+    h('button', { class: soon ? 'btn primary' : 'btn', onclick: () => runQuestions('見直しワーク', work.map((m) => m.q), (score, total, results) => {
+      results.forEach(({ q, ok }) => { const m = work.find((w) => w.q === q); if (m) m.ok = ok ? (m.ok || 0) + 1 : 0; });
+      const pts = score * 5;
+      if (pts > 0) gain(p, pts, '見直しワーク'); else save();
+      render();
+      return `${score} / ${total} せいかい！ +${pts} ポイント`;
+    }) }, soon ? 'いますぐ 見直す' : '見直す'));
 }
 
 function renderQuest(p) {
@@ -622,12 +657,14 @@ function renderQuest(p) {
     h('h2', {}, 'クエスト'),
     h('div', { class: 'card quest' },
       h('h3', {}, 'きょうのクエスト'),
-      h('p', {}, '漢字・英単語・算数を 3もんずつ。せいかい1もん10ポイント、ぜんもんせいかいで +30！'),
+      h('p', {}, p.coach?.daily ? `${dailyLabel(p.coach)}。きのう まちがえた問題も もういちど出るよ。せいかい1もん10ポイント、ぜんもんせいかいで +30！` : '漢字・英単語・算数を 3もんずつ。せいかい1もん10ポイント、ぜんもんせいかいで +30！'),
+      isAdult(p) ? null : h('button', { class: 'link', onclick: () => openPlanChat(p, bonusDeps) }, '中身を かえる（ピヨ先生と 作戦会議）'),
       result
         ? h('p', { class: 'cleared' }, `きょうは クリアずみ（${result.score} / ${result.total}）`)
         : null,
       h('button', { class: 'btn primary', onclick: start }, result ? 'もういちど れんしゅう' : 'はじめる'),
     ),
+    missCard(p),
     moreCard(p, moreDeps),
     h('div', { class: 'card quest' },
       h('h3', {}, icon('message-circle'), ' ピヨ先生に しつもん'),

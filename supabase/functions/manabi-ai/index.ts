@@ -27,14 +27,15 @@ function cors(origin: string | null) {
 }
 
 // 呼び出しごとに使用量を ai_usage に記録する（action・モデル・トークン数・推定料金だけ）
-async function callClaude(action: string, who: string, key: string, content: unknown[], system: string, maxTokens = 200, model = MODEL, history?: unknown[], think = false) {
+async function callClaude(action: string, who: string, key: string, content: unknown[], system: string, maxTokens = 200, model = MODEL, history?: unknown[], think = false, effort?: string) {
   const r = await fetch('https://api.anthropic.com/v1/messages', {
     method: 'POST',
     headers: { 'x-api-key': key, 'anthropic-version': '2023-06-01', 'content-type': 'application/json' },
     // Haiku 5.5 はなにも書かないと「考える」が入り、短い max_tokens を考えるだけで使いきって 答えが空になる（ヒントが出なかった原因）。
     // 短い答えでよい Haiku の呼び出しは 考えずに答えさせる（Sonnet 5.5 は disabled を受けつけないので そのまま）
     // think=true（しつもん・図）は 考えてから答える（計算まちがいを へらす）。そのぶん max_tokens を大きく
-    body: JSON.stringify({ model, max_tokens: maxTokens, system, messages: history || [{ role: 'user', content }], ...(model === MODEL && !think ? { thinking: { type: 'disabled' } } : {}) }),
+    // effort（low など）で Sonnet の「考える」量を へらせる。作戦会議は 考えるだけで 700 を使いきって 返事が空になっていた
+    body: JSON.stringify({ model, max_tokens: maxTokens, system, messages: history || [{ role: 'user', content }], ...(model === MODEL && !think ? { thinking: { type: 'disabled' } } : {}), ...(effort ? { output_config: { effort } } : {}) }),
   });
   const j = await r.json();
   if (j?.usage) await recordUsage(action, who, model, j.usage);
@@ -43,6 +44,23 @@ async function callClaude(action: string, who: string, key: string, content: unk
 }
 
 const clip = (s: unknown, n: number) => String(s ?? '').slice(0, n);
+
+// 作戦会議・相談の返事（JSON）を読む。とちゅうで切れた JSON でも、"say" の文だけは ひろう。
+// JSON のかけら（,{"subject":… など）を そのまま吹き出しに出さない
+export function readChatJson(text: string): Record<string, unknown> {
+  const t = String(text || '').replace(/```(?:json)?/gi, '');
+  const m = t.match(/\{[\s\S]*\}/);
+  if (m) {
+    try {
+      const o = JSON.parse(m[0]);
+      if (o && typeof o === 'object') return { ...o, say: typeof o.say === 'string' ? o.say.trim() : '' };
+    } catch { /* 下で ひろう */ }
+  }
+  const sayM = t.match(/"say"\s*:\s*"((?:[^"\\]|\\.)*)"/);
+  if (sayM) return { say: sayM[1].replace(/\\n/g, '\n').replace(/\\"/g, '"').trim() };
+  // JSON の形が まったくないときは 文章として使う
+  return { say: /[{}"\[\]]/.test(t) ? '' : t.trim() };
+}
 
 // ピヨ先生の返事を { say, svg, en, fix } にする。JSON でも、文章＋<svg>＋<en> でも、```でかこまれていても読める
 export function parseReply(text: string) {
@@ -107,7 +125,8 @@ Deno.serve(async (req) => {
       return ok({ text: answer && text.includes(answer) ? 'もういちど 問題を よく読んでみよう。' : text });
     }
     if (body.action === 'quiz') {
-      const count = Math.min(5, Math.max(1, Number(body.count) || 3));
+      // pool=true は デイリー用に まとめて作る（さいだい15もん。1回作って 使い回す）
+      const count = Math.min(body.pool ? 15 : 5, Math.max(1, Number(body.count) || 3));
       const system = [
         '日本の小学生・中学生向けの問題を作る先生。学年の教科書の範囲で、正確な問題だけを作る。',
         `3択の問題を ${count}もん作る。正解は1つだけ。答えがあいまいな問題・ひっかけ問題は作らない。`,
@@ -118,9 +137,12 @@ Deno.serve(async (req) => {
       const pics = (Array.isArray(body.images) ? body.images : []).slice(0, 3)
         .map((x: unknown) => clip(x, 1_500_000).replace(/^data:image\/\w+;base64,/, '')).filter(Boolean)
         .map((data: string) => ({ type: 'image', source: { type: 'base64', media_type: 'image/jpeg', data } }));
-      const sys2 = pics.length ? system + '\n写真に教科書やプリントが写っている。その内容にそった問題だけを作る。読めない所は問題にしない。' : system;
+      let sys2 = pics.length ? system + '\n写真に教科書やプリントが写っている。その内容にそった問題だけを作る。読めない所は問題にしない。' +
+        (body.pool ? 'ほかの教科の写真が まざっていたら、この教科・範囲に関係する写真だけを使う。' : '') : system;
+      // 2回目からは 前に作った問題と かぶらないように（同じ範囲の ちがう所を 聞く）
+      if (body.avoid) sys2 += `\nもう作ってある問題（これと同じことは 聞かない。範囲の ほかの所から 作る）:\n${clip(body.avoid, 2500)}`;
       const text = await claude(key, [...pics, { type: 'text', text:
-        `教科: ${clip(body.subject, 20)}\n学年: ${clip(body.grade, 20)}\nにがてなところ: ${clip(body.topic, 80)}` }], sys2, 900);
+        `教科: ${clip(body.subject, 20)}\n学年: ${clip(body.grade, 20)}\n${body.pool ? 'テスト範囲（一問一答で 大事な用語・できごと・しくみを まんべんなく。同じことを 何度も聞かない）' : 'にがてなところ'}: ${clip(body.topic, 80)}` }], sys2, Math.max(900, count * 220));
       const m = text.match(/\{[\s\S]*\}/);
       const r = m ? JSON.parse(m[0]) : { questions: [] };
       return ok({ questions: Array.isArray(r.questions) ? r.questions.slice(0, count) : [] });
@@ -134,27 +156,51 @@ Deno.serve(async (req) => {
         '(3)いまの宿題やテストの進め方（にがては少しずつ、覚える教科は何周するか など。予定がわかっていれば具体的に）',
         '(4)さいごに「理解度チェック」する教科と単元を2〜3こ、子どもといっしょに決める。',
         '8〜12往復くらいで終える。子どもが「おわり」と言ったら すぐまとめる。',
+        '「理解度チェック」「判定テスト」を すぐやりたいと言われたら、単元を決めて すぐまとめる（チェックは まとめのあとに アプリが出す）。',
+        'デイリー（毎日のクエスト）の中身も 子どもと決められる。ふだんは 漢字・英単語・算数(数学)が 3もんずつ。',
+        '入れる/はずすを えらべる（base）。さらに テスト範囲などの 一問一答を 4つまで 足せる（extra: 教科と範囲。例 理科「化学変化と原子・分子」、社会「地理 世界の諸地域」、漢字「教科書p.156〜219の新出漢字」）。',
+        '範囲（単元名・ページ・内容）が わからないときは、かってに決めずに「範囲を教えて」と はっきり聞く（プリントやワークの目次を見て、単元名やページを書いてね、など）。わかるまで extra を決めない。',
+        'extra の量は「テストに間に合う量」を ピヨ先生が提案する。size=範囲をカバーする問題数（10〜60。広い範囲ほど多く）、perDay=1日の問題数（1〜30）。',
+        'テストの日までの日数で、テストまでに 少なくとも3周できるように perDay を計算する（perDay ≒ size×3 ÷ 日数、切り上げ）。多くなってもいい。3もんに しばらない。',
+        '「1日○もん、テストまでに○周できるよ」と伝えて、それで いいか 聞く。きびしければ 子どもと 量を相談して決める。',
+        'まちがえた問題は つぎの日の デイリーに もういちど出て、テスト前に「見直しワーク」にまとまる（アプリが やる）。このことも 1回つたえる。',
+        'extra は テストの日がわかれば until にその日を入れる（すぎたら 自動で はずれる）。テストの日も わからなければ 聞く。',
+        'デイリーを かえたいと言われたら、やさしく内容を たしかめて、ほかに決めることが なければ すぐまとめる。前の作戦会議のメモがあれば、決まっていたことは まとめに そのまま入れる。',
+        'できないことを たのまれたら、できることを 1つ提案する。だまらない。',
+        '子どもが 写真（テスト範囲のプリント・ワークや教科書の目次 など）を見せたら、読みとって 教科・範囲・テストの日に使う。読めない所は 読めないと言って 聞く。範囲を聞くときは「写真でもいいよ」と そえる。',
         '返事は JSON だけ。会話中: {"say":"…","choices":["…"],"done":false}',
-        'まとめ: {"say":"まとめのひとこと","done":true,"profile":{"style":"進め方を1文","when":"やる時間","focusMin":集中できる分(数),"strong":["教科"],"weak":["教科"],"plans":[{"subject":"教科","how":"進め方を1文"}],"check":[{"subject":"教科","topic":"単元"}],"memo":"先生が覚えておくこと1〜2文"}}',
+        'まとめ: {"say":"まとめのひとこと","done":true,"profile":{"style":"進め方を1文","when":"やる時間","focusMin":集中できる分(数),"strong":["教科"],"weak":["教科"],"plans":[{"subject":"教科","how":"進め方を1文"}],"check":[{"subject":"教科","topic":"単元"}],"daily":{"base":["kanji","english","math"],"extra":[{"subject":"教科","topic":"範囲","until":"YYYY-MM-DD か空","perDay":1日の数,"size":全部の数}]},"memo":"先生が覚えておくこと1〜2文"}}',
+        'daily は デイリーの話をしたときだけ入れる（話していなければ daily は書かない）。check は 0〜3こ。',
       ].join('\n');
-      const ctx = `名前: ${clip(body.name, 20)}\n学年: ${clip(body.grade, 20)}\nいまの予定:\n${clip(body.items, 1500) || '（まだない）'}\n` +
+      const ctx = `今日: ${clip(body.today, 10)}\n名前: ${clip(body.name, 20)}\n学年: ${clip(body.grade, 20)}\nいまの予定:\n${clip(body.items, 1500) || '（まだない）'}\n` +
         (body.profile ? `前の作戦会議のメモ: ${clip(body.profile, 1200)}\n` : '');
+      // 写真（範囲のプリント・ワークの目次 など。さいだい3まい）は、送ったときの ことばに つける
+      const pics = (Array.isArray(body.images) ? body.images : []).slice(0, 3)
+        .map((x: unknown) => clip(x, 1_500_000).replace(/^data:image\/\w+;base64,/, ''));
+      type Part = { type: string; text?: string; source?: unknown };
+      const asParts = (c: string | Part[]): Part[] => (typeof c === 'string' ? [{ type: 'text', text: c }] : c);
       const log = (Array.isArray(body.messages) ? body.messages : []).slice(-30)
-        .map((m: { role?: string; text?: string }) => ({ role: m?.role === 'assistant' ? 'assistant' : 'user', content: clip(m?.text, 500) }))
-        .filter((m: { content: string }) => m.content);
+        .map((m: { role?: string; text?: string; photo?: number }) => {
+          const role = m?.role === 'assistant' ? 'assistant' : 'user';
+          const text = clip(m?.text, 500);
+          const img = role === 'user' && Number.isInteger(m?.photo) ? pics[m.photo as number] : '';
+          return { role, content: img ? [{ type: 'image', source: { type: 'base64', media_type: 'image/jpeg', data: img } }, { type: 'text', text: text || '（写真）' }] as Part[] : text };
+        })
+        .filter((m: { content: string | Part[] }) => m.content.length);
       // 最初は user から。同じ役が続かないように まとめる
-      const history: { role: string; content: string }[] = [{ role: 'user', content: `${ctx}\n（作戦会議をはじめてください）` }];
+      const history: { role: string; content: string | Part[] }[] = [{ role: 'user', content: `${ctx}\n（作戦会議をはじめてください）` }];
       for (const m of log) {
         const last = history[history.length - 1];
-        if (last.role === m.role) last.content += `\n${m.content}`; else history.push(m);
+        if (last.role !== m.role) history.push(m);
+        else if (typeof last.content === 'string' && typeof m.content === 'string') last.content += `\n${m.content}`;
+        else last.content = [...asParts(last.content), ...asParts(m.content)];
       }
       if (history[history.length - 1].role !== 'user') history.push({ role: 'user', content: '（つづけて）' });
-      const text = await claude(key, [], system, 700, MODEL_SMART, history);
-      const m = text.match(/\{[\s\S]*\}/);
-      let r: Record<string, unknown> = {};
-      try { r = m ? JSON.parse(m[0]) : {}; } catch { r = {}; }
+      // 考える量は low。まとめの JSON は長いので max_tokens に よゆうを もたせる
+      const text = await claude(key, [], system, 4000, MODEL_SMART, history, false, 'low');
+      const r = readChatJson(text);
       return ok({
-        say: clip(r.say || text.replace(/\{[\s\S]*\}/, ''), 300),
+        say: clip(r.say, 300) || 'ごめんね、うまく まとまらなかった。もういちど 送ってみてね',
         choices: Array.isArray(r.choices) ? r.choices.slice(0, 4).map((c) => clip(c, 40)) : [],
         done: !!r.done,
         profile: r.done && r.profile && typeof r.profile === 'object' ? r.profile : null,
@@ -184,12 +230,10 @@ Deno.serve(async (req) => {
         if (last.role === m.role) last.content += `\n${m.content}`; else history.push(m);
       }
       if (history[history.length - 1].role !== 'user') history.push({ role: 'user', content: '（つづけて）' });
-      const text = await claude(key, [], system, 900, MODEL, history);
-      const m = text.match(/\{[\s\S]*\}/);
-      let r: Record<string, unknown> = {};
-      try { r = m ? JSON.parse(m[0]) : {}; } catch { r = {}; }
+      const text = await claude(key, [], system, 1500, MODEL, history);
+      const r = readChatJson(text);
       return ok({
-        say: clip(r.say || text.replace(/\{[\s\S]*\}/, ''), 300),
+        say: clip(r.say, 300) || 'ごめんね、うまく まとまらなかった。もういちど 送ってみてね',
         choices: Array.isArray(r.choices) ? r.choices.slice(0, 4).map((c) => clip(c, 40)) : [],
         done: !!r.done,
         plan: r.done && r.plan && typeof r.plan === 'object' ? r.plan : null,
