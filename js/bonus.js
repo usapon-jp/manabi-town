@@ -196,7 +196,8 @@ export function openRecommend(p, recs, deps) {
 
 // ---- すすみ表 ------------------------------------------------------------------------
 
-export function openProgress(p, deps) {
+// すすみ表の中身（勉強タブの「進み具合」でも そのまま使う）
+export function progressParts(p) {
   const lv = levelOf(p);
   const st = streak(p);
   const weekMin = weekDates().reduce((n, d) => n + minutesOn(p, d), 0);
@@ -209,8 +210,7 @@ export function openProgress(p, deps) {
   const subjects = Object.entries(bySubject).sort((a, b) => b[1] - a[1]);
   const maxSub = Math.max(1, ...subjects.map(([, m]) => m));
 
-  sheet('prog-card',
-    h('p', { class: 'sheet-title' }, icon('chart-column'), ' すすみ表'),
+  return [
     h('div', { class: 'prog-lv' },
       h('span', { class: 'lv' }, `Lv${lv.lv}`),
       h('span', { class: 'q-main' }, bar(lv.into, lv.need), h('small', {}, `あと ${lv.left} で Lv${lv.lv + 1}`))),
@@ -238,6 +238,13 @@ export function openProgress(p, deps) {
         h('span', { class: 'sub-name' }, sub),
         h('span', { class: 'gbar' }, h('i', { style: `width:${Math.round((m / maxSub) * 100)}%;background:${subjectColor(p, sub)}` })),
         h('small', {}, `${m}分`))))) : null,
-  );
+  ].filter(Boolean);
+}
+
+export function openProgress(p, deps) {
+  sheet('prog-card', h('p', { class: 'sheet-title' }, icon('chart-column'), ' すすみ表'), ...progressParts(p));
   lookReward(p, 'lookProg', deps);
 }
+
+// 勉強タブで「進み具合」を見たときも、すすみ表と同じ 見るだけポイント
+export function lookProgress(p, deps) { lookReward(p, 'lookProg', deps); }
