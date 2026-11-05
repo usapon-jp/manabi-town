@@ -25,7 +25,7 @@ import { recordResults, dueReview, startReview, reviewStats, REVIEW_PER_CORRECT 
 import { openTestEntry, openWeak, startWeak, testHistory } from './tests.js';
 import { startSync } from './sync.js';
 import { syncCard, openLogin, openPicker, askPin, pinField, pinFor } from './account.js';
-import { openPlanChat, startCheck, summary as planSummary, PLAN_BONUS } from './coach.js';
+import { openPlanChat, startCheck, summary as planSummary, PLAN_BONUS, dailyBase, extraQuestions, activeExtras, ensurePools, dailyLabel } from './coach.js';
 import { startNotify, notifyCard } from './notify.js';
 import { isAdult, todayRoutines, checkRoutine, renderRoutineTab, consultCta, openConsult, ROUTINE_POINTS } from './adult.js';
 import { subjectNames, subjectColor, openSubjectEditor } from './subjects.js';
@@ -264,7 +264,7 @@ function profileForm(message, label) {
 // きょうやることを1列に（クエストが先頭）
 function homeTasks(p) {
   const adult = isAdult(p);
-  const daily = { kind: 'daily', label: '漢字・英単語・算数クエスト', tag: 'まいにち', done: !!p.daily[today()] };
+  const daily = { kind: 'daily', label: p.coach?.daily ? 'きょうのクエスト' : '漢字・英単語・算数クエスト', tag: 'まいにち', done: !!p.daily[today()] };
   const steps = [];
   todayTasks(p.items).forEach(({ item, steps: list }) => list.forEach((st) => steps.push({
     kind: 'step', item, st, label: st.label, done: st.done,
@@ -565,9 +565,16 @@ function renderTodo(p) {
 
 // ---- クエスト ----------------------------------------------------------------
 
-function startDaily(p) {
+async function startDaily(p) {
   const key = today();
-  runQuestions('きょうのクエスト', buildDaily(gradeBucket(p), `${p.id}:${key}`), (score, total, results) => {
+  // 作戦会議で足した 一問一答が まだ できていなければ、ここで作る
+  if (activeExtras(p).length && !extraQuestions(p, key).length) {
+    toast('ピヨ先生が 問題を作り中…', 8000);
+    await ensurePools(p);
+  }
+  const qs = [...buildDaily(gradeBucket(p), `${p.id}:${key}`, dailyBase(p)), ...extraQuestions(p, key)];
+  if (!qs.length) { toast('デイリーの 問題が まだ ないよ。作戦会議で きめてね'); return; }
+  runQuestions('きょうのクエスト', qs, (score, total, results) => {
     recordResults(p, results, 'きょうのクエスト');
     if (p.daily[key]) return 'れんしゅうなので ポイントはないよ';
     p.daily[key] = { score, total };
@@ -607,7 +614,8 @@ function renderQuest(p) {
     h('h2', {}, 'クエスト'),
     h('div', { class: 'card quest' },
       h('h3', {}, 'きょうのクエスト'),
-      h('p', {}, '漢字・英単語・算数を 3もんずつ。せいかい1もん10ポイント、ぜんもんせいかいで +30！'),
+      h('p', {}, `${p.coach?.daily ? dailyLabel(p.coach) : '漢字・英単語・算数'}を 3もんずつ。せいかい1もん10ポイント、ぜんもんせいかいで +30！`),
+      isAdult(p) ? null : h('button', { class: 'link', onclick: () => openPlanChat(p, bonusDeps) }, '中身を かえる（ピヨ先生と 作戦会議）'),
       result
         ? h('p', { class: 'cleared' }, `きょうは クリアずみ（${result.score} / ${result.total}）`)
         : null,

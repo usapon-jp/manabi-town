@@ -4,7 +4,7 @@
 // - 決まったことは p.coach に保存して、あとの計画に使う
 // 会話だけ Sonnet（受け口の action: plan）。問題づくりは Haiku（action: quiz）。
 import { h, toast, daysLabel } from './ui.js';
-import { save, gradeLabel, daysUntil } from './store.js';
+import { save, gradeLabel, daysUntil, today } from './store.js';
 import { askAI, aiErrorText } from './ai.js';
 import { runQuestions } from './runner.js';
 import { recordResults } from './review.js';
@@ -29,6 +29,7 @@ export function coachText(c) {
     c.strong?.length && `とくい: ${c.strong.join('、')}`, c.weak?.length && `にがて: ${c.weak.join('、')}`,
     ...(c.plans || []).map((x) => `${x.subject}: ${x.how}`),
     ...(c.checks || []).map((x) => `チェック ${x.subject} ${x.topic} ${x.score}/${x.total}`),
+    c.daily && `デイリー: ${dailyLabel(c)}`,
     c.memo && `メモ: ${c.memo}`,
   ].filter(Boolean).join('\n');
 }
@@ -45,8 +46,77 @@ function cleanProfile(r) {
       .map((x) => ({ subject: String(x.subject).slice(0, 10), how: String(x.how).slice(0, 80) })),
     check: (Array.isArray(r.check) ? r.check : []).filter((x) => x && x.subject && x.topic).slice(0, 3)
       .map((x) => ({ subject: String(x.subject).slice(0, 10), topic: String(x.topic).slice(0, 40) })),
+    daily: cleanDaily(r.daily),
     memo: String(r.memo || '').slice(0, 160),
   };
+}
+
+// ---- デイリーの中身（作戦会議で きめる） ------------------------------------
+// p.coach.daily = { base: ['kanji','english','math'] の一部, extra: [{ subject, topic, until }] }
+// extra は ピヨ先生（Haiku）が 一問一答を まとめて作り（p.coach.pools）、毎日3もんずつ 順番に出す
+export const BASE = [['kanji', '漢字'], ['english', '英単語'], ['math', '算数・数学']];
+const EXTRA_PER_DAY = 3;
+const POOL_SIZE = 15;
+
+function cleanDaily(d) {
+  if (!d || typeof d !== 'object') return null;
+  const base = (Array.isArray(d.base) ? d.base : []).filter((b) => BASE.some(([id]) => id === b));
+  const extra = (Array.isArray(d.extra) ? d.extra : []).filter((x) => x && x.subject && x.topic).slice(0, 3)
+    .map((x) => ({ subject: String(x.subject).slice(0, 10), topic: String(x.topic).slice(0, 60), until: /^\d{4}-\d{2}-\d{2}$/.test(String(x.until)) ? String(x.until) : '' }));
+  if (!base.length && !extra.length) return null;
+  return { base: [...new Set(base)], extra };
+}
+
+const poolKey = (x) => `${x.subject}:${x.topic}`;
+
+// いま有効な extra（until をすぎたものは はずす）
+export function activeExtras(p) {
+  const t = today();
+  return (p.coach?.daily?.extra || []).filter((x) => !x.until || x.until >= t);
+}
+
+// デイリーに入れる 決まった教科（作戦会議で決めていなければ 3つとも）
+export function dailyBase(p) {
+  return p.coach?.daily ? p.coach.daily.base : BASE.map(([id]) => id);
+}
+
+export function dailyLabel(c) {
+  const d = c?.daily;
+  if (!d) return '';
+  const t = today();
+  return [...d.base.map((b) => BASE.find(([id]) => id === b)[1]),
+    ...d.extra.filter((x) => !x.until || x.until >= t).map((x) => `${x.subject}「${x.topic}」`)].join('・');
+}
+
+// 一問一答を まだ作っていない extra の分を作る（Haiku、1つにつき1回だけ）
+let making = null;
+export function ensurePools(p) {
+  const need = activeExtras(p).filter((x) => !(p.coach.pools || {})[poolKey(x)]?.length);
+  if (!need.length) return Promise.resolve(true);
+  if (making) return making;
+  making = Promise.all(need.map((x) => askAI({ action: 'quiz', pool: true, subject: x.subject, grade: gradeLabel(p), topic: x.topic, count: POOL_SIZE }, { timeout: 60000 })
+    .then((r) => {
+      const qs = (r.questions || []).filter((q) => q && q.q && Array.isArray(q.options) && q.options.length >= 2 && Number.isInteger(q.answer) && q.answer >= 0 && q.answer < q.options.length)
+        .map((q) => ({ q: String(q.q).slice(0, 200), options: q.options.slice(0, 4).map((o) => String(o).slice(0, 60)), answer: q.answer }));
+      if (qs.length) { p.coach.pools = { ...(p.coach.pools || {}), [poolKey(x)]: qs }; }
+      return qs.length > 0;
+    })
+    .catch(() => false)))
+    .then((oks) => { save(); return oks.every(Boolean); })
+    .finally(() => { making = null; });
+  return making;
+}
+
+// きょうの extra の問題。日にちで 3もんずつ ずらして、ぜんぶ出たら また はじめから（何周も）
+export function extraQuestions(p, key = today()) {
+  const day = Math.floor(Date.parse(`${key}T00:00:00Z`) / 86400000);
+  return activeExtras(p).flatMap((x) => {
+    const pool = (p.coach.pools || {})[poolKey(x)] || [];
+    if (!pool.length) return [];
+    const start = (day * EXTRA_PER_DAY) % pool.length;
+    return Array.from({ length: Math.min(EXTRA_PER_DAY, pool.length) }, (_, i) => pool[(start + i) % pool.length])
+      .map((q) => ({ kind: 'choice', subject: x.subject, prompt: q.q, options: q.options, answer: q.answer, topic: x.topic }));
+  });
 }
 
 export function openPlanChat(p, deps) {
@@ -79,8 +149,9 @@ export function openPlanChat(p, deps) {
     choices.replaceChildren();
     const wait = bubble('assistant thinking', 'かんがえ中…');
     try {
-      const r = await askAI({ action: 'plan', name: p.name, grade: gradeLabel(p), items: itemsText(p), profile: coachText(p.coach), messages }, { timeout: 45000 });
+      const r = await askAI({ action: 'plan', today: today(), name: p.name, grade: gradeLabel(p), items: itemsText(p), profile: coachText(p.coach), messages }, { timeout: 45000 });
       wait.remove();
+      if (!r.say && !(r.done && r.profile)) throw new Error('empty');
       if (r.say) { messages.push({ role: 'assistant', text: r.say }); bubble('assistant', r.say); }
       if (r.done && r.profile) { finish(cleanProfile(r.profile)); return; }
       choices.replaceChildren(...(r.choices || []).map((c) => h('button', { type: 'button', class: 'pick', onclick: () => say(c) }, c)));
@@ -104,15 +175,18 @@ export function openPlanChat(p, deps) {
 
   function finish(profile) {
     const first = !p.coach;
-    p.coach = { ...profile, checks: p.coach?.checks || [], at: new Date().toISOString().slice(0, 10) };
+    // デイリーの話をしなかったときは 前の きまりを そのまま。作った一問一答も のこす
+    p.coach = { ...profile, daily: profile.daily || p.coach?.daily || null, pools: p.coach?.pools || {}, checks: p.coach?.checks || [], at: new Date().toISOString().slice(0, 10) };
+    if (activeExtras(p).length) ensurePools(p).then((ok) => toast(ok ? 'デイリーの 問題が できたよ！' : 'デイリーの 問題が うまく作れなかった…クエストを ひらくと もういちど 作るよ'));
     if (first) deps.gain(p, PLAN_BONUS, '作戦会議'); else save();
     form.remove();
-    choices.replaceChildren(
+    choices.replaceChildren(...[
       summary(p.coach),
       profile.check.length
         ? h('button', { type: 'button', class: 'btn primary', onclick: (e) => { close(); startCheck(p, deps, e.currentTarget); } }, icon('target'), ' 理解度チェックを する（3もんずつ）')
         : null,
-      h('button', { type: 'button', class: 'link', onclick: () => { close(); deps.render(); } }, 'あとで'));
+      h('button', { type: 'button', class: 'link', onclick: () => { close(); deps.render(); } }, 'あとで'),
+    ].filter(Boolean));
     if (first) toast(`作戦会議 できた！ +${PLAN_BONUS}`);
     busy = false;
   }
@@ -128,6 +202,7 @@ export function summary(c) {
     row('とくい', (c.strong || []).join('、')),
     row('にがて', (c.weak || []).join('、')),
     ...(c.plans || []).map((x) => row(x.subject, x.how)),
+    row('デイリー', dailyLabel(c)),
     (c.checks || []).length ? row('チェック', c.checks.map((x) => `${x.topic} ${x.score}/${x.total}`).join('、')) : null);
 }
 

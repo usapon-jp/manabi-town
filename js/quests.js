@@ -49,7 +49,8 @@ const kanjiRead = (word, options, answer, sentence) => ({
   kind: 'choice', subject: '漢字', prompt: 'よみかたは？', big: word, options, answer, context: sentence,
 });
 
-export function buildDaily(bucket, seed, rand = seededRandom(seed)) {
+// base: 入れる教科（作戦会議で きめる）。乱数の順番を かえないよう、作ってから えらぶ
+export function buildDaily(bucket, seed, base = ['kanji', 'english', 'math'], rand = seededRandom(seed)) {
   // 漢字は 書き2もん＋読み1もん。書きはノートに書いて、お手本を見て自分で答え合わせ
   const picked = shuffle(KANJI[bucket], rand);
   const writes = picked.slice(0, PER_SUBJECT - 1).map(kanjiWrite);
@@ -60,7 +61,7 @@ export function buildDaily(bucket, seed, rand = seededRandom(seed)) {
     kind: 'choice', subject: '英単語', prompt: 'いみは？', big: word, options, answer,
   }));
   const math = Array.from({ length: PER_SUBJECT }, () => mathQuestion(bucket, rand));
-  return [...kanji, ...english, ...math];
+  return [...(base.includes('kanji') ? kanji : []), ...(base.includes('english') ? english : []), ...(base.includes('math') ? math : [])];
 }
 
 // ボーナスのドリル（1教科だけ5もん）。毎日のクエストとは別の問題になるよう、たねを変える
