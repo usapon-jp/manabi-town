@@ -143,7 +143,11 @@ export function runQuestions(title, questions, onFinish, opts = {}) {
         h('p', { class: 'prompt' }, perfect ? 'ピヨ先生「かんぺき！あしたもいっしょにがんばろう」' : 'ピヨ先生「まちがえたところは、またやってみようね」'),
         extra ? h('p', { class: 'reward' }, extra) : null,
       ),
-      h('button', { class: 'btn primary next', onclick: close }, 'もどる'),
+      opts.again
+        ? h('div', { class: 'result-btns' },
+          h('button', { class: 'btn primary next', onclick: () => { close(); opts.again.onClick(); } }, opts.again.label || 'もう1回'),
+          h('button', { class: 'btn next', onclick: close }, 'もどる'))
+        : h('button', { class: 'btn primary next', onclick: close }, 'もどる'),
     ));
   }
 

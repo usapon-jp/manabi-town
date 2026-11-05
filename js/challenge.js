@@ -13,6 +13,7 @@ import { openPhotos } from './photos.js';
 import { isAdult } from './adult.js';
 import { sessions } from './timer.js';
 import { icon } from './icons.js';
+import { practicePoints } from './more.js';
 
 export const CHALLENGE_MIN = 20;
 const CORE = ['国語', '算数・数学', '理科', '社会', '英語'];
@@ -72,6 +73,21 @@ async function makeFor(p, subject, n, seed, pics = []) {
     .slice(0, n).map((q) => ({ kind: 'choice', subject, prompt: String(q.q), options: q.options.map(String), answer: q.answer }));
 }
 
+// ピヨちゃんと 勉強する の「ピヨ先生が 作る」: どの教科も テスト範囲をヒントに AI が作る
+export async function aiPractice(p, subject, n = 5) {
+  if (aiLeft() <= 0) { toast('きょうの AI の回数は おしまい。あしたまた つくるね'); return []; }
+  const r = await askAI({ action: 'quiz', subject, grade: gradeLabel(p), topic: topicFor(p, subject), count: Math.min(5, n) }, { timeout: 40000 })
+    .catch((e) => { toast(aiErrorText(e)); return {}; });
+  return (r.questions || []).filter((q) => q && q.q && Array.isArray(q.options) && q.options.length >= 2 && Number.isInteger(q.answer) && q.answer >= 0 && q.answer < q.options.length)
+    .slice(0, n).map((q) => ({ kind: 'choice', subject, prompt: String(q.q), options: q.options.map(String), answer: q.answer }));
+}
+
+// テストが近い教科を 先に
+export function practiceSubjects(p, all) {
+  const soon = p.items.filter((i) => i.type === 'test' && !i.done && i.date >= today()).sort((a, b) => a.date.localeCompare(b.date)).map((i) => i.subject);
+  return [...new Set([...soon.filter((s) => all.includes(s)), ...all])];
+}
+
 // 教科ごとの問題を ひとつずつ まぜる（時間で切れても 教科がかたよらない）
 function interleave(lists) {
   const out = [];
@@ -100,9 +116,8 @@ async function practice(p, deps, subject, over) {
   document.getElementById('runner')?.classList.toggle('over', over);
   runQuestions(`${subject} れんしゅう`, qs, (score, total, results) => {
     recordResults(p, results, 'れんしゅう');
-    const pts = score * POINTS_PER_CORRECT;
-    if (pts > 0) deps.gain(p, pts, `れんしゅう（${subject}）`); else save();
-    return `+${pts} ポイント！`;
+    // 何回でも できるので、ポイントは「ピヨちゃんと 勉強する」と同じく ひかえめ・1日の上限つき
+    return practicePoints(p, score, total, `れんしゅう（${subject}）`, deps);
   });
 }
 
