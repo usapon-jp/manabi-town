@@ -1494,3 +1494,22 @@ input.pin { font-size: 26px; letter-spacing: 0.5em; text-align: center; }
 @keyframes point-pulse { 50% { transform: scale(1.06); } }
 @keyframes point-tap { 50% { translate: 0 -6px; } }
 @media (prefers-reduced-motion: reduce) { .town-point-ring, .town-point-hand, .town-ask-tip { animation: none; } }
+
+/* ピヨちゃんと 勉強する */
+.more-card .more-head { display: flex; gap: 12px; align-items: center; }
+.more-card .more-head h3 { margin: 0 0 2px; }
+.more-card .more-head p { margin: 0; }
+.more-card.ready { border: 2px solid #f4c84a; background: linear-gradient(160deg, #fffbe8, #fff); }
+.more-card.ready .more-head img { animation: more-hop 1.6s ease-in-out infinite; }
+@keyframes more-hop { 0%, 70%, 100% { transform: translateY(0); } 80% { transform: translateY(-6px); } }
+.more-meter { font-size: 14px; opacity: 0.8; margin: 4px 0; }
+.more-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.more-grid .piyo-opt { grid-template-columns: 1fr; grid-template-rows: auto auto auto; justify-items: center; text-align: center; padding: 12px 6px; row-gap: 4px; }
+.more-grid .piyo-opt .piyo-ic { grid-row: auto; }
+.more-sheet .piyo-opt { width: 100%; box-sizing: border-box; }
+.more-card .more-head img { border-radius: 14px; flex: none; }
+.more-ai .more-ai-row { grid-column: 2; display: flex; gap: 8px; margin-top: 6px; align-items: center; }
+.more-ai .more-ai-row .btn { flex: none; width: auto; }
+.more-ai .more-subj { flex: 1; min-width: 7em; width: auto; font: inherit; padding: 6px 8px; border-radius: 10px; border: 2px solid var(--line); background: #fff; }
+.result-btns { display: grid; gap: 8px; width: 100%; }
+@media (prefers-reduced-motion: reduce) { .more-card.ready .more-head img { animation: none; } }
