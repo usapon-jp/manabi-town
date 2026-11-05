@@ -13,9 +13,9 @@ export const CURVES = {
   j3: { from: 10, step: 0.25 },
 };
 
-const curveOf = (p) => (p && CURVES[p.grade]) || null;
-export function needFor(lv, p) {
-  const c = curveOf(p);
+// grade は学年の id（p.grade）
+export function needFor(lv, grade) {
+  const c = CURVES[grade];
   const k = c && lv >= c.from ? 1 + (lv - c.from + 1) * c.step : 1;
   return Math.round((baseNeed(lv) * k) / 10) * 10;
 }
@@ -26,19 +26,25 @@ function walk(lv, rest, need) {
 }
 
 // p をわたすと、その学年の曲線で数える。
-// いまのレベルが下がらないように、はじめて数えたときのレベルと そのレベルの はじまりの けいけんちを
-// p.lvKeep に とっておき、そこから先だけ 新しい曲線で数える。
+// いまのレベルが下がらないように、そのレベルと はじまりの けいけんち・学年を p.lvKeep に とっておき、
+// そこから先だけ 学年の曲線で数える。学年をかえたときも、その時点のレベルを とっておいて から先だけ かえる。
+function fromKeep(xp, k) {
+  if (xp < k.base) return walk(1, xp, baseNeed); // とりけしで へったとき
+  return walk(k.lv, xp - k.base, (lv) => needFor(lv, k.g));
+}
+
 export function levelInfo(xp, p) {
   xp = Math.max(0, xp || 0);
   if (!p) return walk(1, xp, baseNeed);
   let k = p.lvKeep;
   if (!k || typeof k.lv !== 'number' || typeof k.base !== 'number') {
     const old = walk(1, xp, baseNeed);
-    k = p.lvKeep = { lv: old.lv, base: xp - old.into };
+    k = p.lvKeep = { lv: old.lv, base: xp - old.into, g: p.grade };
+  } else if (k.g !== p.grade) {
+    const now = fromKeep(xp, k);
+    k = p.lvKeep = { lv: now.lv, base: xp - now.into, g: p.grade };
   }
-  const need = (lv) => needFor(lv, p);
-  if (xp < k.base) return walk(1, xp, baseNeed); // とりけしで へったとき
-  return walk(k.lv, xp - k.base, need);
+  return fromKeep(xp, k);
 }
 
 export const levelOf = (p) => levelInfo(totalXp(p), p);
