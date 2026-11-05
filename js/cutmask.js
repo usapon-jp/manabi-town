@@ -61,7 +61,7 @@ export function createCutMask() {
   function stamp(x, z, r, ch) {
     const px = toPx(x); const py = toPx(z); const pr = (r / (2 * CUT_R)) * N;
     if (ch === 'f') {
-      // うめる: なぞった所の「かくていした掘り」を、1回ぶん へらす。1回のなぞりの中では、へらすのは1回だけ
+      // うめる: なぞった所の「かくていした掘り」を、1回のなぞりで ぜんぶ もどす
       eachCell(px, py, pr, (i, d) => {
         const f = d <= 0.72 ? 1 : 1 - (d - 0.72) / 0.28;
         if (f > fillMark[i]) { if (fillMark[i] === 0) fillTouched.push(i); fillMark[i] = f; }
@@ -123,13 +123,14 @@ export function createCutMask() {
     for (const i of touched) { dig[i] = disp[i]; sm[i] = 0; }
     touched = []; digging = false;
   }
-  // うめる1回ぶん。なぞった所（fillMark>0）の dig を 1/PASS だけへらす（0より下には いかない）
+  // うめる1回ぶん。なぞった所（fillMark>0）の dig を、一気に 0 へ（ふちは なめらかに）
   const fillMark = new Float32Array(N * N);
   let fillTouched = [];
   function fillEnd() {
     for (const i of fillTouched) {
-      dig[i] = Math.max(0, dig[i] - (fillMark[i] * 1) / PASS);
-      if (dig[i] < 0.02) dig[i] = 0;
+      // 1回なぞれば、その所はぜんぶ平らにもどる（ふちは、なぞりの強さにあわせてなめらかに）
+      dig[i] = Math.max(0, dig[i] * (1 - fillMark[i]));
+      if (dig[i] < 0.03) dig[i] = 0;
       disp[i] = dig[i]; sm[i] = 0; u8[i] = Math.round(disp[i] * 255);
       fillMark[i] = 0;
     }
@@ -154,7 +155,7 @@ export function createCutMask() {
     },
     // ほる1回ぶん（保存した操作を、はじめから作りなおすときに使う）
     digStroke(pts, r) { api.stroke(pts, r, 'b'); digEnd(); },
-    // うめる1回ぶん（なぞった所の掘りを、1回ぶん へらす）
+    // うめる1回ぶん（なぞった所の掘りを、ぜんぶ平らにもどす）
     fillStroke(pts, r) { api.stroke(pts, r, 'f'); fillEnd(); digTex.needsUpdate = true; },
     digEnd,
     // 花だんの中（とじた形）を土にする
