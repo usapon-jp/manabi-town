@@ -26,6 +26,7 @@ import { openTestEntry, openWeak, startWeak, testHistory } from './tests.js';
 import { startSync } from './sync.js';
 import { syncCard, openLogin, openPicker, askPin, pinField, pinFor } from './account.js';
 import { openPlanChat, startCheck, summary as planSummary, PLAN_BONUS } from './coach.js';
+import { startNotify, notifyCard } from './notify.js';
 import { isAdult, todayRoutines, checkRoutine, renderRoutineTab, consultCta, openConsult, ROUTINE_POINTS, ADULT_SUBJECTS } from './adult.js';
 
 const POINTS_HOMEWORK = 20;
@@ -737,6 +738,7 @@ function renderSettings(p) {
     h('button', { class: 'btn primary', type: 'submit' }, 'ほぞん')),
 
     syncCard(afterLogin),
+    isAdult(p) ? notifyCard(p, { rerender: () => render() }) : null,
 
     h('div', { class: 'card form' },
       h('h3', {}, 'とりこみ'),
@@ -777,5 +779,12 @@ function runTutorial(p) {
 }
 
 render();
+startNotify();
+// お知らせを おしてひらいたとき、そのタブへ（ルーティーンなど）
+const TABS = ['home', 'todo', 'quest', 'timer', 'settings'];
+const openTab = (t) => { if (TABS.includes(t) && currentProfile() && !document.querySelector('.who-sheet')) show(t); };
+navigator.serviceWorker?.addEventListener('message', (e) => { if (e.data?.type === 'open-tab') openTab(e.data.tab); });
+const startTab = new URLSearchParams(location.search).get('tab');
+if (startTab) { history.replaceState(null, '', location.pathname); if (getState().profiles.length === 1) openTab(startTab); }
 resumeIfRunning(currentProfile(), timerDeps);
 if (currentProfile() && !currentProfile().tutorialDone) setTimeout(() => runTutorial(currentProfile()), 1200);
