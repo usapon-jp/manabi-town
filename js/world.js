@@ -52,7 +52,9 @@ export function createWorld(container) {
     const p = currentProfile();
     const lv = p ? levelInfo(totalXp(p)).lv : 1;
     if (lv !== shownLv) {
-      town.setLevel(lv, shownLv > 0); shownLv = lv;
+      const fresh = town.setLevel(lv, shownLv > 0);
+      shownLv = lv;
+      if (fresh.length) editor.announce(lv, fresh);   // あたらしい たてものが出たら、おしらせ
       // レベル3から町に池がある。そこへ溝をつなぐと、水がながれこむ
       meadow.cut.setSources(lv >= 3 ? [{ x: -9.5, z: 3.5, r: 2.7 }] : []);
       meadow.cut.updateWater();
@@ -71,7 +73,15 @@ export function createWorld(container) {
   canvas.style.touchAction = 'none';
   // 「つくる」: 草をかって道をつくるなど、子どもが草原を作りかえる（editor.js）
   const editor = createEditor({
-    container, scene, cut: meadow.cut, wind: meadow.wind, setWalls: (list) => town.setWalls(list),
+    container, scene, cut: meadow.cut, wind: meadow.wind, setWalls: (list) => town.setWalls(list), town,
+    onCelebrate: () => { setTimeout(() => actor.jump(), 400); },
+    toScreen: (x, y, z) => {
+      const v = new THREE.Vector3(x, heightAt(x, z) + y, z).project(camera);
+      if (v.z > 1) return null;
+      const rect = canvas.getBoundingClientRect();
+      const d = camera.position.distanceTo(new THREE.Vector3(x, y, z));
+      return { x: rect.left + ((v.x + 1) / 2) * rect.width, y: rect.top + ((1 - v.y) / 2) * rect.height, scale: (rect.height / 2) / (Math.tan((camera.fov * Math.PI) / 360) * d) };
+    },
     rotate: (d) => { view.angle += d; },
     pick: (e) => {
       const rect = canvas.getBoundingClientRect();

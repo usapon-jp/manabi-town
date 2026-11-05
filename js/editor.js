@@ -13,7 +13,8 @@ import { SPECIES, SPECIES_KEYS } from './plants.js';
 import { TOOLS, toolById } from './tools.js';
 import { ITEMS, ownedOfKind, isOwned } from './catalog.js';
 import { HOUSES, houseParts } from './pieces.js';
-import { foldParts } from './builds.js';
+import { foldParts, foldAll } from './builds.js';
+import { buildingArt } from './townart.js';
 import { BRIDGE_MIN } from './structures.js';
 import { icon } from './icons.js';
 
@@ -95,17 +96,39 @@ body.wedit-on #btnDash, body.wedit-on #btnJump { display: none; }   /* 指でな
 .wparts button { all: unset; cursor: pointer; padding: 7px 11px; border-radius: 12px; font-size: 13px; font-weight: 700; background: #f1e7cf; border: 2px solid #e2d3ad; -webkit-tap-highlight-color: transparent; }
 .wparts button.on { background: #8aa66a; color: #fff; border-color: #6f8c52; }
 .wparts .pclose { display: block; margin: 8px auto 0; background: #fff; }
+.wlevel { position: fixed; inset: 0; z-index: 30; display: grid; place-items: center; background: rgba(70, 52, 32, 0.35); padding: 16px; overflow: hidden; }
+.wlevel .rays { position: absolute; left: 50%; top: 50%; width: 220vmax; height: 220vmax; margin: -110vmax 0 0 -110vmax; pointer-events: none; opacity: 0.55;
+  background: repeating-conic-gradient(from 0deg, rgba(255, 236, 160, 0.55) 0deg 8deg, rgba(255, 236, 160, 0) 8deg 20deg); animation: wspin 24s linear infinite;
+  -webkit-mask-image: radial-gradient(circle, #000 0, transparent 45%); mask-image: radial-gradient(circle, #000 0, transparent 45%); }
+@keyframes wspin { to { transform: rotate(360deg); } }
+.wlevel .confetti { position: absolute; inset: 0; pointer-events: none; }
+.wlevel .confetti i { position: absolute; top: -14px; width: 9px; height: 15px; border-radius: 2px; opacity: 0; animation: wfall 3s ease-in infinite; }
+@keyframes wfall { 0% { transform: translate(0, 0) rotate(0); opacity: 1; } 100% { transform: translate(var(--dx), 105vh) rotate(720deg); opacity: 0.9; } }
+.wlevel .lcard { position: relative; width: min(360px, 100%); padding: 18px 16px 16px; text-align: center; background: #fffaf0; border-radius: 24px; box-shadow: 0 10px 40px rgba(60, 40, 20, 0.45), 0 0 0 4px #ffe9a8; color: #5a4636; animation: wpop 0.6s cubic-bezier(0.3, 1.7, 0.5, 1) both; }
+@keyframes wpop { 0% { transform: scale(0.4) rotate(-4deg); opacity: 0; } 100% { transform: scale(1) rotate(0); opacity: 1; } }
+.wlevel .lt { margin: 0; font-size: 28px; font-weight: 800; color: #e0902b; letter-spacing: 0.06em; text-shadow: 0 2px 0 #fff, 0 0 12px #ffe9a8; animation: wbounce 1.2s ease-in-out infinite; }
+@keyframes wbounce { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.08); } }
+.wlevel .lpic { position: relative; width: 220px; height: 220px; margin: 4px auto 0; border-radius: 28px; overflow: hidden; background: #fff6dc; box-shadow: inset 0 0 0 3px #ffe9a8; }
+.wlevel .lpic svg { width: 100%; height: 100%; animation: wfloat 2.6s ease-in-out infinite, wpop 0.8s 0.15s cubic-bezier(0.3, 1.7, 0.5, 1) both; }
+@keyframes wfloat { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-7px); } }
+.wlevel .spark { position: absolute; color: #ffd84a; font-size: 24px; animation: wtwinkle 1.4s ease-in-out infinite; text-shadow: 0 0 8px #fff; }
+.wlevel .s1 { left: 6%; top: 14%; } .wlevel .s2 { right: 4%; top: 30%; animation-delay: 0.4s; font-size: 18px; } .wlevel .s3 { left: 20%; bottom: 8%; animation-delay: 0.8s; font-size: 20px; }
+@keyframes wtwinkle { 0%, 100% { transform: scale(0.4) rotate(0); opacity: 0.3; } 50% { transform: scale(1.2) rotate(30deg); opacity: 1; } }
+.wlevel .ln { margin: 4px 0 2px; font-size: 22px; font-weight: 800; }
+.wlevel .ls { margin: 0 0 6px; font-size: 13px; font-weight: 700; }
+.wlevel .lh { margin: 6px 0 12px; font-size: 13px; font-weight: 700; opacity: 0.75; }
+.wlevel button { all: unset; cursor: pointer; padding: 11px 30px; border-radius: 18px; background: #8aa66a; color: #fff; font-weight: 800; box-shadow: 0 3px 0 #6f8c52; }
 .wedit-msg { position: fixed; left: 50%; top: calc(env(safe-area-inset-top, 0px) + 74px); transform: translateX(-50%); z-index: 6; padding: 8px 14px;
   border-radius: 14px; background: rgba(255, 252, 240, 0.96); color: #6b4a2b; font-weight: 700; font-size: 14px; border: 2px solid #e2d3ad; pointer-events: none; }
 `;
 
-export function createEditor({ container, scene, cut, wind, pick, rotate, setWalls }) {
+export function createEditor({ container, scene, cut, wind, pick, rotate, setWalls, town, toScreen, onCelebrate }) {
   const st = {
     editing: false, tool: 'path', size: 1, stroke: null, loadedId: null, visible: false,
     bedMode: 'plant', species: 'tulip', border: 'log', riverMode: 'line',
     fenceStyle: 'fence:wood', piece: 'piece:raisedbed',
   };
-  const builds = createBuilds({ scene, wind, cut, setWalls });
+  const builds = createBuilds({ scene, wind, cut, setWalls, setTown: (m) => town?.setOverrides(m) });
 
   // ---- 保存（プロフィールごと） ----
   const ops = () => {
@@ -114,7 +137,7 @@ export function createEditor({ container, scene, cut, wind, pick, rotate, setWal
     if (!p.world || !Array.isArray(p.world.ops)) p.world = { v: 1, ops: [] };
     return p.world.ops;
   };
-  const replay = () => builds.rebuild(ops() || []);
+  const replay = () => { builds.rebuild(ops() || []); refreshHand?.(); };
   // プロフィールが変わったら、そのこの草原にきりかえる
   function sync() {
     const p = currentProfile();
@@ -142,6 +165,7 @@ export function createEditor({ container, scene, cut, wind, pick, rotate, setWal
       <button type="button" data-a="tool" data-v="bed">はな</button>
       <button type="button" data-a="tool" data-v="river">かわ</button>
       <button type="button" data-a="tool" data-v="parts">パーツ</button>
+      <button type="button" data-a="tool" data-v="move">うごかす</button>
       <button type="button" class="size" data-a="size"></button>
       <div class="row2"><button type="button" data-a="left" aria-label="左をむく">◀</button><button type="button" data-a="right" aria-label="右をむく">▶</button></div>
       <button type="button" data-a="undo">もどす</button>
@@ -188,9 +212,12 @@ export function createEditor({ container, scene, cut, wind, pick, rotate, setWal
     const kind = hand.id === 'fence' ? 'fence' : hand.id === 'piece' ? 'piece' : null;
     if (kind) {
       const ids = ownedOfKind(kind);
+      const bag = kind === 'piece' ? bagItems() : [];
+      const labelOf = (id) => ITEMS[id]?.label || bag.find((b) => b.key === id)?.label || id;
+      const all = [...ids, ...bag.map((b) => b.key)];
       const cur = kind === 'fence' ? st.fenceStyle : st.piece;
-      if (!ids.includes(cur)) { if (kind === 'fence') st.fenceStyle = ids[0]; else st.piece = ids[0]; }
-      spEl.innerHTML = ids.map((id) => `<button type="button" class="txt" data-id="${id}" aria-label="${ITEMS[id].label}">${ITEMS[id].label}</button>`).join('');
+      if (!all.includes(cur)) { if (kind === 'fence') st.fenceStyle = all[0]; else st.piece = all[0]; }
+      spEl.innerHTML = all.map((id) => `<button type="button" class="txt" data-id="${id}" aria-label="${labelOf(id)}">${id.startsWith('bag:') ? 'バッグ: ' : ''}${labelOf(id)}</button>`).join('');
       spEl.querySelectorAll('button').forEach((b) => b.classList.toggle('on', b.dataset.id === (kind === 'fence' ? st.fenceStyle : st.piece)));
       spEl.hidden = false;
     } else if (hand.id === 'flower') {
@@ -259,8 +286,21 @@ export function createEditor({ container, scene, cut, wind, pick, rotate, setWal
       if (pts.length < 4 || Math.hypot(pts[2] - pts[0], pts[3] - pts[1]) < BRIDGE_MIN - 0.4) { say('橋は、岸から むこう岸まで あるいてね'); return; }
       op = { t: 'bridge', seed, x0: pts[0], z0: pts[1], x1: pts[2], z1: pts[3] };
     } else if (t.op === 'place') {
-      if (!isOwned(st.piece)) { say('それは まだ もっていないよ'); return; }
-      op = { t: 'place', k: st.piece, seed, x: pts[0], z: pts[1], rot: pts[2] };
+      const bag = bagItems().find((b) => b.key === st.piece);
+      if (bag) {                       // バッグから出す（しまっていた建物・おきもの）
+        if (town && !town.canPlace(pts[0], pts[1], bag.r, bag.kind === 'town' ? bag.id : null)) { say('ほかの たてものと かさなってるよ'); return; }
+        if (cut.isWater(pts[0], pts[1])) { say('水の上には おけないよ'); return; }
+        op = bag.kind === 'town'
+          ? { t: 'town', id: bag.id, x: pts[0], z: pts[1], rot: pts[2], stored: false }
+          : { t: 'pmove', hx: bag.h.ox, hz: bag.h.oz, x: pts[0], z: pts[1], rot: pts[2], stored: false };
+      } else {
+        if (!isOwned(st.piece)) { say('それは まだ もっていないよ'); return; }
+        // ガチャで出た物は、1こずつ（さいしょから持っている物は、なんこでも）
+        if (!ITEMS[st.piece]?.own && foldAll(ops() || []).eff.some((o) => o.t === 'place' && o.k === st.piece)) { say('もう ならべてるよ。うごかすなら「うごかす」を つかってね'); return; }
+        if (town && !town.canPlace(pts[0], pts[1], PIECE_R[st.piece] || 0.9)) { say('ほかの たてものと かさなってるよ'); return; }
+        if (cut.isWater(pts[0], pts[1])) { say('水の上には おけないよ'); return; }
+        op = { t: 'place', k: st.piece, seed, x: pts[0], z: pts[1], rot: pts[2] };
+      }
     }
     if (op && commit(op)) builds.apply(op);
     clearTrail();
@@ -409,6 +449,128 @@ export function createEditor({ container, scene, cut, wind, pick, rotate, setWal
   }
 
   // world.js の pointer から呼ばれる（editing のあいだだけ）
+  // ---- バッグ: しまう・うごかす（置いた物と、町の建物） ----
+  const PIECE_R = { 'piece:hill': 2.6, 'piece:raisedbed': 1.2, 'piece:awning': 1.4 };
+  const moving = { target: null };
+  // (x,z) のちかくで、うごかせる物 → { kind:'town'|'piece', id, label, x, z, r, rot, h? }
+  function movableAt(x, z, e) {
+    let best = null; let bd = 1e9;
+    // まず、画面で見えている位置（建物のまんなかの上あたり）がタップに近いものを選ぶ。地面をうしろまでつきぬけるのを防ぐ
+    if (e && toScreen) {
+      let sb = 1e9; let pick2 = null;
+      const cands = [];
+      for (const o of foldAll(ops() || []).eff) if (o.t === 'place') cands.push({ kind: 'piece', id: `${o.ox},${o.oz}`, label: ITEMS[o.k]?.label || 'おきもの', x: o.x, z: o.z, r: PIECE_R[o.k] || 0.9, rot: o.rot || 0, h: o });
+      for (const t of town?.movables() || []) cands.push({ kind: 'town', id: t.id, label: t.label, x: t.x, z: t.z, r: t.r, rot: t.rot });
+      for (const c of cands) {
+        const sp = toScreen(c.x, 0.9 + c.r * 0.3, c.z);
+        if (!sp) continue;
+        const dist = Math.hypot(e.clientX - sp.x, e.clientY - sp.y);
+        const lim = Math.max(46, sp.scale * (c.r * 0.9 + 0.8));
+        if (dist < lim && dist / lim < sb) { sb = dist / lim; pick2 = c; }
+      }
+      if (pick2) return pick2;
+    }
+    for (const o of foldAll(ops() || []).eff) {
+      if (o.t !== 'place') continue;
+      const r = PIECE_R[o.k] || 0.9;
+      const d = Math.hypot(x - o.x, z - o.z) - r;
+      if (d < 1.0 && d < bd) { bd = d; best = { kind: 'piece', id: `${o.ox},${o.oz}`, label: ITEMS[o.k]?.label || 'おきもの', x: o.x, z: o.z, r, rot: o.rot || 0, h: o }; }
+    }
+    const t = town?.itemAt(x, z);
+    if (t) {
+      const d = Math.hypot(x - t.x, z - t.z) - Math.max(t.r, 0.8);
+      if (d < bd) best = { kind: 'town', id: t.id, label: t.label, x: t.x, z: t.z, r: t.r, rot: t.rot };
+    }
+    return best;
+  }
+  const moveOp = (m, fields) => (m.kind === 'town' ? { t: 'town', id: m.id, ...fields } : { t: 'pmove', hx: m.h.ox, hz: m.h.oz, ...fields });
+  function moveTap(p, e) {
+    if (!p) return;
+    if (moving.target) {          // うごかす先をタップ
+      const m = moving.target;
+      const q = { x: p.x, z: p.z };
+      const r = Math.hypot(q.x, q.z); if (r > ROAM) { q.x *= ROAM / r; q.z *= ROAM / r; }
+      if (cut.isWater(q.x, q.z)) { say('水の上には おけないよ'); return; }
+      if (town && !town.canPlace(q.x, q.z, m.r, m.kind === 'town' ? m.id : null)) { say('ほかの たてものと かさなってるよ'); return; }
+      moving.target = null;
+      if (commit(moveOp(m, { x: round(q.x), z: round(q.z) }))) replay();
+      return;
+    }
+    const m = movableAt(p.x, p.z, e);
+    if (!m) { say('うごかしたい たてものや おきものを タップしてね'); return; }
+    openMove(m);
+  }
+  function openMove(m) {
+    closeParts();
+    partsSheet = document.createElement('div');
+    partsSheet.className = 'wparts';
+    partsSheet.innerHTML = `<div class="pcard"><p class="ptitle">${m.label}</p><div class="popts" style="justify-content:center">
+      <button type="button" data-m="move">うごかす</button><button type="button" data-m="left">◀ まわす</button><button type="button" data-m="right">まわす ▶</button>
+      <button type="button" data-m="store">バッグに しまう</button></div><button type="button" class="pclose">とじる</button></div>`;
+    partsSheet.addEventListener('click', (e) => {
+      if (e.target === partsSheet || e.target.closest('.pclose')) { closeParts(); return; }
+      const b = e.target.closest('button'); if (!b) return;
+      const a = b.dataset.m;
+      if (a === 'move') { moving.target = m; closeParts(); say('おきたい 場所を タップしてね'); return; }
+      if (a === 'store') { closeParts(); if (commit(moveOp(m, { stored: true }))) { replay(); say(`${m.label} を バッグに しまったよ`); } return; }
+      const rot = m.rot + (a === 'left' ? -Math.PI / 4 : Math.PI / 4);
+      m.rot = rot;
+      if (commit(moveOp(m, { rot: Math.round(rot * 100) / 100 }))) replay();
+    });
+    document.body.appendChild(partsSheet);
+  }
+  // バッグにしまってある物（町の建物と、おきもの）
+  function bagItems() {
+    const list = (town?.stored() || []).map((s) => ({ key: `bag:town:${s.id}`, label: s.label, kind: 'town', id: s.id, r: s.r }));
+    for (const h of foldAll(ops() || []).stored) list.push({ key: `bag:piece:${h.ox},${h.oz}`, label: ITEMS[h.k]?.label || 'おきもの', kind: 'piece', h, r: PIECE_R[h.k] || 0.9 });
+    return list;
+  }
+
+  // ---- レベルアップのおしらせ（あたらしい たてものが出たとき。1レベルに1つずつ、順番に） ----
+  const levelQueue = [];
+  let levelShowing = false;
+  function announce(_lv, items) {
+    for (const it of items) if (!levelQueue.some((q) => q.lv === it.lv && q.label === it.label)) levelQueue.push({ lv: it.lv, label: it.label, id: it.main });
+    levelQueue.sort((x, y) => x.lv - y.lv);
+    if (st.visible) showLevel();
+  }
+  function chime() {
+    try {
+      const Ctx = window.AudioContext || window.webkitAudioContext; if (!Ctx) return;
+      const ac = new Ctx(); const t0 = ac.currentTime;
+      [523.25, 659.25, 783.99, 1046.5].forEach((f, i) => {
+        const o = ac.createOscillator(); const g = ac.createGain();
+        o.type = 'sine'; o.frequency.value = f;
+        g.gain.setValueAtTime(0, t0 + i * 0.11); g.gain.linearRampToValueAtTime(0.12, t0 + i * 0.11 + 0.02); g.gain.exponentialRampToValueAtTime(0.001, t0 + i * 0.11 + 0.5);
+        o.connect(g); g.connect(ac.destination); o.start(t0 + i * 0.11); o.stop(t0 + i * 0.11 + 0.55);
+      });
+      setTimeout(() => ac.close?.(), 1500);
+    } catch (_) { /* 音が出せなくても続ける */ }
+  }
+  // 建物ごとに、言いかたを変える（「池が建った」は変なので）
+  const VERB = { '看板と花だん': 'できたよ！', '池': 'できたよ！', '虹': 'かかったよ！', '噴水': 'できたよ！' };
+  const announceText = (name) => `${name}が ${VERB[name] || '建ったよ！'}`;
+  function showLevel() {
+    if (levelShowing || !levelQueue.length) return;
+    const q = levelQueue.shift();
+    levelShowing = true;
+    const art = buildingArt(q.label);
+    const el = document.createElement('div');
+    el.className = 'wlevel';
+    const colors = ['#ff7a8a', '#ffd84a', '#8fd6f2', '#9fe0a0', '#c7a6ff', '#ffb27a'];
+    const confetti = Array.from({ length: 44 }, (_, i) => `<i style="left:${(i * 37) % 100}%;background:${colors[i % colors.length]};animation-delay:${(i % 11) * 0.09}s;animation-duration:${2.2 + (i % 5) * 0.35}s;--dx:${((i * 53) % 61) - 30}px"></i>`).join('');
+    el.innerHTML = `<div class="rays"></div><div class="confetti">${confetti}</div>
+      <div class="lcard"><p class="lt">レベル ${q.lv}！！</p>
+      <p class="ln">${announceText(q.label)}</p>
+      <div class="lpic">${art}<span class="spark s1">✦</span><span class="spark s2">✦</span><span class="spark s3">✦</span></div>
+      <p class="lh">つくる → うごかす で ならべかえ</p><button type="button">やったね！</button></div>`;
+    const done = () => { el.remove(); levelShowing = false; setTimeout(showLevel, 350); };
+    el.addEventListener('click', (e) => { if (e.target === el || e.target.closest('button')) done(); });
+    document.body.appendChild(el);
+    chime();
+    onCelebrate?.();
+  }
+
   // ---- 家のパーツ（扉・窓・ひさし・花箱）の付けかえ ----
   const SOCKET_NAME = { door: 'とびら', doorDeco: 'とびらの かざり', winL: 'まど（左）', winR: 'まど（右）', overDoor: 'とびらの ひさし', sillL: 'はこ（左）', sillR: 'はこ（右）', overL: 'ひさし（左）', overR: 'ひさし（右）' };
   function houses() { return foldParts(ops() || []).filter((o) => o.t === 'place' && HOUSES[o.k]); }
@@ -422,7 +584,7 @@ export function createEditor({ container, scene, cut, wind, pick, rotate, setWal
   function openParts(h) {
     closeParts();
     const draw = () => {
-      const cur = houses().find((o) => o.x === h.x && o.z === h.z);
+      const cur = houses().find((o) => o.ox === h.ox && o.oz === h.oz);
       if (!cur) { closeParts(); return; }
       const parts = houseParts(cur);
       const sockets = HOUSES[cur.k].sockets;
@@ -443,10 +605,10 @@ export function createEditor({ container, scene, cut, wind, pick, rotate, setWal
       if (e.target === partsSheet || e.target.closest('.pclose')) { closeParts(); return; }
       const b = e.target.closest('button'); if (!b) return;
       if (b.dataset.s !== undefined) {
-        const op = { t: 'parts', hx: h.x, hz: h.z, socket: b.dataset.s, part: b.dataset.p || null };
+        const op = { t: 'parts', hx: h.ox, hz: h.oz, socket: b.dataset.s, part: b.dataset.p || null };
         if (commit(op)) replay();
       } else if (b.dataset.fs !== undefined) {
-        const op = { t: 'parts', hx: h.x, hz: h.z, socket: b.dataset.fs, flower: b.dataset.f || null };
+        const op = { t: 'parts', hx: h.ox, hz: h.oz, socket: b.dataset.fs, flower: b.dataset.f || null };
         if (commit(op)) replay();
       }
       draw();
@@ -463,7 +625,8 @@ export function createEditor({ container, scene, cut, wind, pick, rotate, setWal
       if (h) openParts(h); else say('パーツを つけたい 家を タップしてね');
       return;
     }
-    if (st.tool === 'parts') return;
+    if (type === 'down' && st.tool === 'move') { moveTap(pick(e), e); return; }
+    if (st.tool === 'parts' || st.tool === 'move') return;
     if (type === 'down') {
       const p = pick(e);
       if (!p) return;
@@ -605,6 +768,8 @@ export function createEditor({ container, scene, cut, wind, pick, rotate, setWal
       root.hidden = !on;
       if (!on) { setEditing(false); walkEnd(null); }
       refreshButtons();
+      if (on) showLevel();
     },
+    announce,
   };
 }

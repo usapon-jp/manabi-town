@@ -60,27 +60,43 @@ function buildRing(op) {
   return b.mesh();
 }
 
-// 付けかえ（{t:'parts', hx, hz, socket, part, flower}）を、その家の置いた操作に重ねたものにする。
-// 保存は「前から順の操作」のままなので、「もどす」は最後の1つをすてるだけで前の見た目にもどる。
-export function foldParts(ops) {
-  const houses = [];
+// 保存した操作を、前から順に重ねて「いまの形」にする。
+//   place   … おきものを置く（最初の場所を ox,oz として覚える。あとの操作は ox,oz で呼ぶ）
+//   parts   … 家のパーツの付けかえ {hx,hz(=ox,oz), socket, part|flower}
+//   pmove   … おきものを動かす・しまう {hx,hz, x?, z?, rot?, stored?}
+//   town    … 町の建物（レベルで出る）を動かす・しまう {id, x?, z?, rot?, stored?}
+// 「もどす」は最後の操作をすてるだけで、前の形にもどる。
+export function foldAll(ops) {
+  const places = [];
   const out = [];
+  const town = new Map();
   for (const op of ops) {
-    if (op.t === 'place') { const c = { ...op, parts: { ...(op.parts || {}) }, flowers: { ...(op.flowers || {}) } }; houses.push(c); out.push(c); continue; }
-    if (op.t === 'parts') {
-      const h = houses.find((x) => x.x === op.hx && x.z === op.hz);
-      if (h) {
+    if (op.t === 'place') { const c = { ...op, ox: op.x, oz: op.z, parts: { ...(op.parts || {}) }, flowers: { ...(op.flowers || {}) }, stored: false }; places.push(c); out.push(c); continue; }
+    if (op.t === 'parts' || op.t === 'pmove') {
+      const h = places.find((x) => x.ox === op.hx && x.oz === op.hz);
+      if (!h) continue;
+      if (op.t === 'parts') {
         if ('part' in op) h.parts[op.socket] = op.part;       // null = はずす
         if ('flower' in op) h.flowers[op.socket] = op.flower; // 花箱の花（null = いろいろ）
+      } else {
+        if (op.x != null) { h.x = op.x; h.z = op.z; }
+        if (op.rot != null) h.rot = op.rot;
+        if ('stored' in op) h.stored = !!op.stored;
       }
+      continue;
+    }
+    if (op.t === 'town') {
+      const { t, id, ...rest } = op;
+      town.set(id, { ...(town.get(id) || {}), ...rest });
       continue;
     }
     out.push(op);
   }
-  return out;
+  return { eff: out.filter((o) => !(o.t === 'place' && o.stored)), stored: places.filter((x) => x.stored), town };
 }
+export const foldParts = (ops) => foldAll(ops).eff;
 
-export function createBuilds({ scene, wind, cut, setWalls }) {
+export function createBuilds({ scene, wind, cut, setWalls, setTown }) {
   const layer = createPlantLayer(wind);
   scene.add(layer.group);
   const rings = new THREE.Group();
@@ -121,7 +137,8 @@ export function createBuilds({ scene, wind, cut, setWalls }) {
     rebuild(ops) {
       cut.clear(); layer.clear(); disposeRings();
       batching = true;
-      const eff = foldParts(ops);
+      const { eff, town } = foldAll(ops);
+      setTown?.(town);
       for (const op of eff) if (op.t === 'dig' || op.t === 'pond') apply(op);   // 高さが決まってから、花やかこみを置く
       for (const op of eff) if (op.t !== 'dig' && op.t !== 'pond') apply(op);
       batching = false;

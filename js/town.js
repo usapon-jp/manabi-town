@@ -415,7 +415,7 @@ const PLAN = [
   { lv: 2, x: -4, z: -4.5, r: 0, avoid: 2, make: () => bed('log', 1.45, 11) },
   { lv: 3, x: -9.5, z: 3.5, r: 2.4, avoid: 3.2, make: pond },
   { lv: 4, x: 8, z: -7.5, r: 1.6, avoid: 3.4, rot: 0.15, make: () => cottage({ roof: 0xa9d95f }) },
-  { lv: 5, x: 8, z: -2.2, r: 0, avoid: 4, make: () => fence(7) },
+  { lv: 4, x: 8, z: -2.2, r: 0, avoid: 4, make: () => fence(7) },
   { lv: 5, x: -10, z: -9, r: 1.55, avoid: 3.4, rot: -0.25, make: () => mushroomHouse() },
   { lv: 6, x: 14, z: 3, r: 1.1, avoid: 2.2, rot: -0.5, make: windmill },
   { lv: 7, x: 0, z: -14, r: 3.2, avoid: 4.2, make: school },
@@ -426,6 +426,17 @@ const PLAN = [
     lv: 11 + i, x, z, r: 1.3, avoid: 2.2, rot, make: () => (i % 2 ? mushroomHouse({ cap: roof, size: 0.8, withBed: false }) : cottage({ roof, size: 0.8, withBed: false })),
   })),
 ];
+
+// 名前と、動かせるか。id は「PLAN の何番目か」なので、足すときは かならず うしろに足す（保存した操作が id で呼ぶ）
+const NAMES = ['看板', '花だん', '池', 'コテージ', '柵', 'きのこの家', '風車', '学校', '噴水', '虹', '塔'];
+// レベルアップのおしらせに出す名前（同じ名前は、ひとつにまとめる）。1レベルに1つになるようにそろえてある
+const UNLOCK = { 0: '看板と花だん', 1: '看板と花だん', 3: 'コテージと柵', 4: 'コテージと柵' };
+PLAN.forEach((p, i) => {
+  p.id = `town:${i}`;
+  p.label = NAMES[i] || (i % 2 ? '小さなきのこの家' : '小さなコテージ');
+  p.unlock = UNLOCK[i] || p.label;
+  p.movable = !['池', '柵', '虹'].includes(p.label);   // 池・柵・虹は、うごかさない
+});
 
 // 草や木をよけるための判定（建物が出る前から場所をあけておく）
 export function isTownSpot(x, z, pad = 0) {
@@ -439,28 +450,67 @@ export function createTown(scene) {
     group.rotation.y = p.rot || 0;
     group.visible = false;
     scene.add(group);
-    return { ...p, group, shown: false, pop: 1 };
+    return { ...p, x0: p.x, z0: p.z, rot0: p.rot || 0, group, shown: false, stored: false, pop: 1 };
   });
+  const vis = (it) => { it.group.visible = it.shown && !it.stored; };
   const walls = items.filter((it) => it.r > 0);
   let extraWalls = [];
   let lastLv = 0;
 
   return {
     // pop: false のときは最初から出ておく。true なら、ふえた分だけポンッと出る
+    // あたらしく出た建物の [{id,label}] をかえす（レベルアップのおしらせに使う）
     setLevel(lv, pop = true) {
+      const fresh = [];
       for (const it of items) {
         const on = lv >= it.lv;
         if (on && !it.shown) {
           it.shown = true;
-          it.group.visible = true;
+          vis(it);
           it.pop = pop && lastLv > 0 ? 0 : 1;
           it.group.scale.setScalar(it.pop === 0 ? 0.001 : 1);
+          if (pop && lastLv > 0) fresh.push({ id: it.id, label: it.unlock, lv: it.lv, main: it.id });
         } else if (!on && it.shown) {
           it.shown = false;
-          it.group.visible = false;
+          vis(it);
         }
       }
       lastLv = lv;
+      return fresh;
+    },
+    // 子どもがしまった・うごかした分を重ねる。map = { id: { x, z, rot, stored } }。ないものは、もとの場所にもどる
+    setOverrides(map) {
+      for (const it of items) {
+        const o = map?.get ? map.get(it.id) : map?.[it.id];
+        it.stored = !!o?.stored;
+        it.x = o?.x ?? it.x0; it.z = o?.z ?? it.z0;
+        const rot = o?.rot ?? it.rot0;
+        it.group.position.set(it.x, heightAt(it.x, it.z), it.z);
+        it.group.rotation.y = rot;
+        vis(it);
+      }
+    },
+    // いま出ていて、うごかせる建物（しまってあるもの以外）
+    movables() { return items.filter((it) => it.movable && it.shown && !it.stored).map((it) => ({ id: it.id, label: it.label, x: it.x, z: it.z, r: it.r, rot: it.group.rotation.y })); },
+    // バッグにしまってある建物
+    stored() { return items.filter((it) => it.movable && it.shown && it.stored).map((it) => ({ id: it.id, label: it.label, r: it.r })); },
+    // (x,z) のちかくの、うごかせる建物
+    itemAt(x, z) {
+      let best = null; let bd = 1e9;
+      for (const it of items) {
+        if (!it.movable || !it.shown || it.stored) continue;
+        const d = Math.hypot(x - it.x, z - it.z) - Math.max(it.r, 0.8);
+        if (d < 1.4 && d < bd) { bd = d; best = it; }
+      }
+      return best ? { id: best.id, label: best.label, x: best.x, z: best.z, r: best.r, rot: best.group.rotation.y } : null;
+    },
+    // ここに置けるか（ほかの建物と かさならない）。r = 置くものの半径。じぶん（selfId）は のぞく
+    canPlace(x, z, r, selfId) {
+      for (const it of items) {
+        if (it.id === selfId || !it.shown || it.stored || it.r <= 0) continue;
+        if (Math.hypot(x - it.x, z - it.z) < it.r + r + 0.3) return false;
+      }
+      return true;
     },
     update(dt, t, camPos) {
       for (const it of items) {
@@ -491,7 +541,7 @@ export function createTown(scene) {
         }
       }
       for (const it of walls) {
-        if (!it.shown || it.pop < 0.6) continue;
+        if (!it.shown || it.stored || it.pop < 0.6) continue;
         const dx = pos.x - it.x;
         const dz = pos.z - it.z;
         const d = Math.hypot(dx, dz);
