@@ -6,7 +6,7 @@
 //   judge … 手書きの字の画像が、お手本の漢字と同じか判定
 //   quiz  … にがてな単元から、にた問題（3択）を作る
 //   scan  … プリントや範囲の写真から、テスト・宿題の予定（教科・名前・はんい・日にち）を読み取る（Haiku）
-//   ask   … ピヨ先生への質問（チャット・写真つき・図（SVG）つき）。mode: ask / zu（図で）/ yomu（英語よみあげ）/ talk（英会話）。Haiku
+//   ask   … ピヨ先生への質問（チャット・写真つき・図（SVG）つき）。mode: ask / zu（図で）/ yomu（英語よみあげ）/ talk（英会話）。Haiku（算数・数学と図は Sonnet）
 //   usage … 今月の AI 使用額（推定）。せってい画面に出す。Claude は呼ばない
 //   plan  … ピヨ先生と作戦会議（進め方・得意苦手・理解度チェックする単元を決める）。ここだけ Sonnet
 //   consult … おとなモードの「ピヨと相談」。ルーティーンと目標・試験を会話で決める（Haiku）
@@ -278,8 +278,10 @@ Deno.serve(async (req) => {
         const lastM = msgs[msgs.length - 1];
         lastM.content = [{ type: 'image', source: { type: 'base64', media_type: 'image/jpeg', data: img } }, { type: 'text', text: String(lastM.content) }];
       }
+      // 算数・数学と「図で」は 計算をまちがえないよう Sonnet（考えてから答える）。ほかの しつもんは Haiku が考えてから答える
+      const isMath = /算数|数学/.test(clip(body.subject, 20)) || mode === 'zu';
       const thinkHard = mode === 'ask' || mode === 'zu';
-      const text = await claude(key, [], system, thinkHard ? 12000 : mode === 'talk' ? 500 : 1500, MODEL, msgs, thinkHard);
+      const text = await claude(key, [], system, thinkHard ? 12000 : mode === 'talk' ? 500 : 1500, isMath ? MODEL_SMART : MODEL, msgs, thinkHard);
       const r = parseReply(text);
       let svg = r.svg;
       if (!/^<svg[\s>]/.test(svg) || svg.length > 20000 || /<script|<foreignObject|<image|\son\w+\s*=|href\s*=\s*["']?(https?:|javascript:|data:)/i.test(svg)) svg = '';
