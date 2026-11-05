@@ -137,7 +137,8 @@ Deno.serve(async (req) => {
       const pics = (Array.isArray(body.images) ? body.images : []).slice(0, 3)
         .map((x: unknown) => clip(x, 1_500_000).replace(/^data:image\/\w+;base64,/, '')).filter(Boolean)
         .map((data: string) => ({ type: 'image', source: { type: 'base64', media_type: 'image/jpeg', data } }));
-      let sys2 = pics.length ? system + '\n写真に教科書やプリントが写っている。その内容にそった問題だけを作る。読めない所は問題にしない。' : system;
+      let sys2 = pics.length ? system + '\n写真に教科書やプリントが写っている。その内容にそった問題だけを作る。読めない所は問題にしない。' +
+        (body.pool ? 'ほかの教科の写真が まざっていたら、この教科・範囲に関係する写真だけを使う。' : '') : system;
       // 2回目からは 前に作った問題と かぶらないように（同じ範囲の ちがう所を 聞く）
       if (body.avoid) sys2 += `\nもう作ってある問題（これと同じことは 聞かない。範囲の ほかの所から 作る）:\n${clip(body.avoid, 2500)}`;
       const text = await claude(key, [...pics, { type: 'text', text:
@@ -166,20 +167,33 @@ Deno.serve(async (req) => {
         'extra は テストの日がわかれば until にその日を入れる（すぎたら 自動で はずれる）。テストの日も わからなければ 聞く。',
         'デイリーを かえたいと言われたら、やさしく内容を たしかめて、ほかに決めることが なければ すぐまとめる。前の作戦会議のメモがあれば、決まっていたことは まとめに そのまま入れる。',
         'できないことを たのまれたら、できることを 1つ提案する。だまらない。',
+        '子どもが 写真（テスト範囲のプリント・ワークや教科書の目次 など）を見せたら、読みとって 教科・範囲・テストの日に使う。読めない所は 読めないと言って 聞く。範囲を聞くときは「写真でもいいよ」と そえる。',
         '返事は JSON だけ。会話中: {"say":"…","choices":["…"],"done":false}',
         'まとめ: {"say":"まとめのひとこと","done":true,"profile":{"style":"進め方を1文","when":"やる時間","focusMin":集中できる分(数),"strong":["教科"],"weak":["教科"],"plans":[{"subject":"教科","how":"進め方を1文"}],"check":[{"subject":"教科","topic":"単元"}],"daily":{"base":["kanji","english","math"],"extra":[{"subject":"教科","topic":"範囲","until":"YYYY-MM-DD か空","perDay":1日の数,"size":全部の数}]},"memo":"先生が覚えておくこと1〜2文"}}',
         'daily は デイリーの話をしたときだけ入れる（話していなければ daily は書かない）。check は 0〜3こ。',
       ].join('\n');
       const ctx = `今日: ${clip(body.today, 10)}\n名前: ${clip(body.name, 20)}\n学年: ${clip(body.grade, 20)}\nいまの予定:\n${clip(body.items, 1500) || '（まだない）'}\n` +
         (body.profile ? `前の作戦会議のメモ: ${clip(body.profile, 1200)}\n` : '');
+      // 写真（範囲のプリント・ワークの目次 など。さいだい3まい）は、送ったときの ことばに つける
+      const pics = (Array.isArray(body.images) ? body.images : []).slice(0, 3)
+        .map((x: unknown) => clip(x, 1_500_000).replace(/^data:image\/\w+;base64,/, ''));
+      type Part = { type: string; text?: string; source?: unknown };
+      const asParts = (c: string | Part[]): Part[] => (typeof c === 'string' ? [{ type: 'text', text: c }] : c);
       const log = (Array.isArray(body.messages) ? body.messages : []).slice(-30)
-        .map((m: { role?: string; text?: string }) => ({ role: m?.role === 'assistant' ? 'assistant' : 'user', content: clip(m?.text, 500) }))
-        .filter((m: { content: string }) => m.content);
+        .map((m: { role?: string; text?: string; photo?: number }) => {
+          const role = m?.role === 'assistant' ? 'assistant' : 'user';
+          const text = clip(m?.text, 500);
+          const img = role === 'user' && Number.isInteger(m?.photo) ? pics[m.photo as number] : '';
+          return { role, content: img ? [{ type: 'image', source: { type: 'base64', media_type: 'image/jpeg', data: img } }, { type: 'text', text: text || '（写真）' }] as Part[] : text };
+        })
+        .filter((m: { content: string | Part[] }) => m.content.length);
       // 最初は user から。同じ役が続かないように まとめる
-      const history: { role: string; content: string }[] = [{ role: 'user', content: `${ctx}\n（作戦会議をはじめてください）` }];
+      const history: { role: string; content: string | Part[] }[] = [{ role: 'user', content: `${ctx}\n（作戦会議をはじめてください）` }];
       for (const m of log) {
         const last = history[history.length - 1];
-        if (last.role === m.role) last.content += `\n${m.content}`; else history.push(m);
+        if (last.role !== m.role) history.push(m);
+        else if (typeof last.content === 'string' && typeof m.content === 'string') last.content += `\n${m.content}`;
+        else last.content = [...asParts(last.content), ...asParts(m.content)];
       }
       if (history[history.length - 1].role !== 'user') history.push({ role: 'user', content: '（つづけて）' });
       // 考える量は low。まとめの JSON は長いので max_tokens に よゆうを もたせる

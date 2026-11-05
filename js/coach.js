@@ -10,6 +10,9 @@ import { runQuestions } from './runner.js';
 import { recordResults } from './review.js';
 import { weakList } from './tests.js';
 import { icon } from './icons.js';
+import { pickPhoto } from './pickphoto.js';
+import { shrink } from './scan.js';
+import { openPhotos } from './photos.js';
 
 export const PLAN_BONUS = 50;     // 作戦会議をさいごまでやった
 const CHECK_PER_CORRECT = 5;
@@ -104,13 +107,13 @@ export function missingPools(p) {
 const okQ = (q) => q && q.q && Array.isArray(q.options) && q.options.length >= 2 && Number.isInteger(q.answer) && q.answer >= 0 && q.answer < q.options.length;
 
 // 1つの範囲を size もんまで 作る（15もんずつ。前に作った問題は さけてもらう）
-async function fillPool(p, x) {
+async function fillPool(p, x, images = []) {
   for (let i = 0; i < 5; i++) {
     const have = (p.coach.pools || {})[poolKey(x)] || [];
     const need = sizeOf(x) - have.length;
     if (need <= 0) return true;
     const r = await askAI({ action: 'quiz', pool: true, subject: x.subject, grade: gradeLabel(p), topic: x.topic, count: Math.min(CHUNK, need),
-      avoid: have.map((q) => q.q).join('\n').slice(0, 2500) }, { timeout: 60000 });
+      avoid: have.map((q) => q.q).join('\n').slice(0, 2500), ...(images.length ? { images: images.slice(0, 3) } : {}) }, { timeout: 90000 });
     const seen = new Set(have.map((q) => q.q));
     const qs = (r.questions || []).filter(okQ)
       .map((q) => ({ q: String(q.q).slice(0, 200), options: q.options.slice(0, 4).map((o) => String(o).slice(0, 60)), answer: q.answer }))
@@ -123,11 +126,12 @@ async function fillPool(p, x) {
 }
 
 const making = new Map();   // プロフィールごとに、作っている とちゅうの しごと
-export function ensurePools(p) {
+// images: 作戦会議で見せた 範囲の写真（あれば その中身から 作る）
+export function ensurePools(p, images = []) {
   const need = missingPools(p);
   if (!need.length) return Promise.resolve(true);
   if (making.has(p.id)) return making.get(p.id);
-  const job = Promise.all(need.map((x) => fillPool(p, x).catch(() => false)))
+  const job = Promise.all(need.map((x) => fillPool(p, x, images).catch(() => false)))
     .then((oks) => { save(); return oks.every(Boolean); })
     .finally(() => { making.delete(p.id); });
   making.set(p.id, job);
@@ -177,25 +181,45 @@ export function daysToTest(p) {
 }
 
 export function openPlanChat(p, deps) {
-  const messages = [];          // { role: 'assistant'|'user', text }
+  const messages = [];          // { role: 'assistant'|'user', text, photo?: images の番号 }
+  const images = [];            // 送った写真（範囲のプリント・ワークの目次 など。さいだい3まい）
+  let photo = null;             // まだ送っていない写真
   let busy = false;
   const log = h('div', { class: 'chat-log' });
   const choices = h('div', { class: 'chat-choices' });
   const input = h('input', { type: 'text', maxlength: 120, placeholder: 'じぶんの ことばで 書いてもOK', enterkeyhint: 'send' });
   const send = h('button', { class: 'chat-send', type: 'submit', 'aria-label': 'おくる' }, icon('send'));
-  const form = h('form', { class: 'chat-input', onsubmit: (e) => { e.preventDefault(); say(input.value); } }, input, send);
+  const thumb = h('div', { class: 'ask-thumb', hidden: true });
+  const showThumb = () => {
+    thumb.hidden = !photo;
+    thumb.replaceChildren(...(photo ? [h('img', { src: photo, alt: '' }), h('button', { type: 'button', 'aria-label': '写真をはずす', onclick: () => { photo = null; showThumb(); } }, icon('x'))] : []));
+  };
+  const takePhoto = async (f) => {
+    if (!f) return;
+    try { photo = await shrink(f); } catch { toast('この写真は 開けなかった'); return; }
+    showThumb();
+  };
+  const camBtn = h('button', { type: 'button', class: 'chat-cam', 'aria-label': '写真を 入れる', onclick: () => {
+    if (images.length >= 3) { toast('写真は 3まいまで だよ'); return; }
+    pickPhoto(takePhoto, { title: '範囲の プリントや ワークの 写真' });
+  } }, icon('camera'));
+  const libBtn = h('button', { type: 'button', class: 'chat-cam', 'aria-label': 'しりょうから えらぶ', onclick: () => {
+    if (images.length >= 3) { toast('写真は 3まいまで だよ'); return; }
+    openPhotos(p, { pick: 1, onPick: (urls) => { if (urls[0]) { photo = urls[0]; showThumb(); } } });
+  } }, icon('folder'));
+  const form = h('form', { class: 'chat-input', onsubmit: (e) => { e.preventDefault(); say(input.value); } }, camBtn, libBtn, input, send);
   const close = () => { layer.remove(); document.body.classList.remove('running'); };
   const layer = h('div', { class: 'chat' },
     h('div', { class: 'chat-top' },
       h('img', { src: 'assets/icons/icon-192.png', alt: '', width: 36, height: 36 }),
       h('b', {}, 'ピヨ先生と 作戦会議'),
       h('button', { class: 'chat-close', 'aria-label': 'とじる', onclick: close }, icon('x'))),
-    log, h('div', { class: 'chat-foot' }, choices, form));
+    log, h('div', { class: 'chat-foot' }, choices, thumb, form));
   document.body.append(layer);
   document.body.classList.add('running');   // 3Dを休ませる
 
-  function bubble(role, text) {
-    const b = h('div', { class: `msg ${role}` }, text);
+  function bubble(role, text, img) {
+    const b = h('div', { class: `msg ${role}` }, img ? h('img', { class: 'ask-photo', src: img, alt: '' }) : null, text);
     log.append(b);
     log.scrollTop = log.scrollHeight;
     return b;
@@ -206,7 +230,7 @@ export function openPlanChat(p, deps) {
     choices.replaceChildren();
     const wait = bubble('assistant thinking', 'かんがえ中…');
     try {
-      const r = await askAI({ action: 'plan', today: today(), name: p.name, grade: gradeLabel(p), items: itemsText(p), profile: coachText(p.coach), messages }, { timeout: 45000 });
+      const r = await askAI({ action: 'plan', today: today(), name: p.name, grade: gradeLabel(p), items: itemsText(p), profile: coachText(p.coach), messages, images }, { timeout: images.length ? 90000 : 45000 });
       wait.remove();
       if (!r.say && !(r.done && r.profile)) throw new Error('empty');
       if (r.say) { messages.push({ role: 'assistant', text: r.say }); bubble('assistant', r.say); }
@@ -223,10 +247,14 @@ export function openPlanChat(p, deps) {
 
   function say(text) {
     const t = String(text || '').trim();
-    if (!t || busy) return;
+    if ((!t && !photo) || busy) return;
     input.value = '';
-    messages.push({ role: 'user', text: t });
-    bubble('user', t);
+    const img = photo;
+    photo = null; showThumb();
+    const m = { role: 'user', text: t || '（写真を 見て）' };
+    if (img) { images.push(img); m.photo = images.length - 1; }
+    messages.push(m);
+    bubble('user', t, img);
     turn();
   }
 
@@ -234,7 +262,7 @@ export function openPlanChat(p, deps) {
     const first = !p.coach;
     // デイリーの話をしなかったときは 前の きまりを そのまま。作った一問一答も のこす
     p.coach = { ...profile, daily: profile.daily || p.coach?.daily || null, pools: p.coach?.pools || {}, checks: p.coach?.checks || [], at: new Date().toISOString().slice(0, 10) };
-    if (activeExtras(p).length) ensurePools(p).then((ok) => toast(ok ? 'デイリーの 問題が できたよ！' : 'デイリーの 問題が うまく作れなかった…クエストを ひらくと もういちど 作るよ'));
+    if (activeExtras(p).length) ensurePools(p, images).then((ok) => toast(ok ? 'デイリーの 問題が できたよ！' : 'デイリーの 問題が うまく作れなかった…クエストを ひらくと もういちど 作るよ'));
     if (first) deps.gain(p, PLAN_BONUS, '作戦会議'); else save();
     form.remove();
     choices.replaceChildren(...[
