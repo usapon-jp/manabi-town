@@ -346,6 +346,20 @@ function cleanPlan(plan) {
   return { routines: routinesOut, goals, memo: String(plan?.memo || '').slice(0, 160) };
 }
 
+// ピヨが文の中に「- 5分くらい」のように候補を書いてきたときは、文から抜いてボタンにする
+const LIST_LINE = /^\s*(?:[-‐−ー・•*●○◯]|\d{1,2}[.)．）、])\s*(.+?)\s*$/;
+export function splitChoices(say, choices) {
+  const keep = [];
+  const found = [];
+  for (const line of String(say || '').split('\n')) {
+    const m = line.match(LIST_LINE);
+    if (m && m[1].length <= 40) found.push(m[1]); else keep.push(line);
+  }
+  const text = keep.join('\n').replace(/\n{3,}/g, '\n\n').trim();
+  const all = [...(Array.isArray(choices) ? choices : []), ...found].map((c) => String(c).trim()).filter(Boolean);
+  return { text: text || String(say || '').trim(), choices: [...new Set(all)] };
+}
+
 export function openConsult(p, deps) {
   const messages = [];
   let busy = false;
@@ -378,9 +392,10 @@ export function openConsult(p, deps) {
     try {
       const r = await askAI({ action: 'consult', name: p.name, today: today(), current: contextText(p), memo: p.consultMemo || '', messages }, { timeout: 30000 });
       wait.remove();
-      if (r.say) { messages.push({ role: 'assistant', text: r.say }); bubble('assistant', r.say); }
+      const s = splitChoices(r.say, r.choices);
+      if (r.say) { messages.push({ role: 'assistant', text: r.say }); bubble('assistant', s.text); }
       if (r.done && r.plan) { propose(cleanPlan(r.plan)); return; }
-      choices.replaceChildren(...(r.choices || []).map((c) => h('button', { type: 'button', class: 'pick', onclick: () => say(c) }, c)),
+      choices.replaceChildren(...s.choices.map((c) => h('button', { type: 'button', class: 'pick', onclick: () => say(c) }, c)),
         messages.length > 4 ? h('button', { type: 'button', class: 'pick', onclick: () => say('ここまでで まとめて') }, 'ここで まとめる') : null);
     } catch (e) {
       wait.remove();
