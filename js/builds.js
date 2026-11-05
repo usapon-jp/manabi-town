@@ -60,6 +60,26 @@ function buildRing(op) {
   return b.mesh();
 }
 
+// 付けかえ（{t:'parts', hx, hz, socket, part, flower}）を、その家の置いた操作に重ねたものにする。
+// 保存は「前から順の操作」のままなので、「もどす」は最後の1つをすてるだけで前の見た目にもどる。
+export function foldParts(ops) {
+  const houses = [];
+  const out = [];
+  for (const op of ops) {
+    if (op.t === 'place') { const c = { ...op, parts: { ...(op.parts || {}) }, flowers: { ...(op.flowers || {}) } }; houses.push(c); out.push(c); continue; }
+    if (op.t === 'parts') {
+      const h = houses.find((x) => x.x === op.hx && x.z === op.hz);
+      if (h) {
+        if ('part' in op) h.parts[op.socket] = op.part;       // null = はずす
+        if ('flower' in op) h.flowers[op.socket] = op.flower; // 花箱の花（null = いろいろ）
+      }
+      continue;
+    }
+    out.push(op);
+  }
+  return out;
+}
+
 export function createBuilds({ scene, wind, cut, setWalls }) {
   const layer = createPlantLayer(wind);
   scene.add(layer.group);
@@ -101,8 +121,9 @@ export function createBuilds({ scene, wind, cut, setWalls }) {
     rebuild(ops) {
       cut.clear(); layer.clear(); disposeRings();
       batching = true;
-      for (const op of ops) if (op.t === 'dig' || op.t === 'pond') apply(op);   // 高さが決まってから、花やかこみを置く
-      for (const op of ops) if (op.t !== 'dig' && op.t !== 'pond') apply(op);
+      const eff = foldParts(ops);
+      for (const op of eff) if (op.t === 'dig' || op.t === 'pond') apply(op);   // 高さが決まってから、花やかこみを置く
+      for (const op of eff) if (op.t !== 'dig' && op.t !== 'pond') apply(op);
       batching = false;
       setWalls?.(walls);
       cut.updateWater();

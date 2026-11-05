@@ -12,6 +12,8 @@ import { createBuilds, STAMP_STEP, loopLength, LOOP_MIN } from './builds.js';
 import { SPECIES, SPECIES_KEYS } from './plants.js';
 import { TOOLS, toolById } from './tools.js';
 import { ITEMS, ownedOfKind, isOwned } from './catalog.js';
+import { HOUSES, houseParts } from './pieces.js';
+import { foldParts } from './builds.js';
 import { BRIDGE_MIN } from './structures.js';
 import { icon } from './icons.js';
 
@@ -83,6 +85,16 @@ const CSS = `
 .wsp button.txt.on { background: rgba(255, 226, 168, 0.55); }
 .wsp button.on { box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.95), 0 1px 4px rgba(0, 0, 0, 0.3); }
 body.wedit-on #btnDash, body.wedit-on #btnJump { display: none; }   /* 指でなぞっているあいだは、パネルとかさなるので かくす */
+.wparts { position: fixed; inset: 0; z-index: 20; background: rgba(70, 52, 32, 0.3); display: grid; place-items: center; padding: 12px; }
+.wparts .pcard { width: min(560px, 100%); max-height: calc(100dvh - 24px); overflow-y: auto; background: #fffaf0; border-radius: 18px; padding: 14px; box-shadow: 0 8px 30px rgba(60, 40, 20, 0.35); color: #5a4636; }
+.wparts .ptitle { margin: 0 0 8px; font-weight: 800; font-size: 17px; text-align: center; }
+.wparts .prow { margin-bottom: 10px; }
+.wparts .prow > b { display: block; font-size: 13px; margin-bottom: 4px; }
+.wparts .popts, .wparts .pflow { display: flex; flex-wrap: wrap; gap: 6px; }
+.wparts .pflow { margin-top: 6px; padding-left: 10px; }
+.wparts button { all: unset; cursor: pointer; padding: 7px 11px; border-radius: 12px; font-size: 13px; font-weight: 700; background: #f1e7cf; border: 2px solid #e2d3ad; -webkit-tap-highlight-color: transparent; }
+.wparts button.on { background: #8aa66a; color: #fff; border-color: #6f8c52; }
+.wparts .pclose { display: block; margin: 8px auto 0; background: #fff; }
 .wedit-msg { position: fixed; left: 50%; top: calc(env(safe-area-inset-top, 0px) + 74px); transform: translateX(-50%); z-index: 6; padding: 8px 14px;
   border-radius: 14px; background: rgba(255, 252, 240, 0.96); color: #6b4a2b; font-weight: 700; font-size: 14px; border: 2px solid #e2d3ad; pointer-events: none; }
 `;
@@ -129,6 +141,7 @@ export function createEditor({ container, scene, cut, wind, pick, rotate, setWal
       <button type="button" data-a="tool" data-v="path">みち</button>
       <button type="button" data-a="tool" data-v="bed">はな</button>
       <button type="button" data-a="tool" data-v="river">かわ</button>
+      <button type="button" data-a="tool" data-v="parts">パーツ</button>
       <button type="button" class="size" data-a="size"></button>
       <div class="row2"><button type="button" data-a="left" aria-label="左をむく">◀</button><button type="button" data-a="right" aria-label="右をむく">▶</button></div>
       <button type="button" data-a="undo">もどす</button>
@@ -353,6 +366,7 @@ export function createEditor({ container, scene, cut, wind, pick, rotate, setWal
   function clearTrail() { trail.visible = false; }
 
   function setEditing(on) {
+    closeParts();
     st.editing = on && st.visible;
     st.stroke = null;
     ring.visible = false;
@@ -395,7 +409,61 @@ export function createEditor({ container, scene, cut, wind, pick, rotate, setWal
   }
 
   // world.js の pointer から呼ばれる（editing のあいだだけ）
+  // ---- 家のパーツ（扉・窓・ひさし・花箱）の付けかえ ----
+  const SOCKET_NAME = { door: 'とびら', doorDeco: 'とびらの かざり', winL: 'まど（左）', winR: 'まど（右）', overDoor: 'とびらの ひさし', sillL: 'はこ（左）', sillR: 'はこ（右）', overL: 'ひさし（左）', overR: 'ひさし（右）' };
+  function houses() { return foldParts(ops() || []).filter((o) => o.t === 'place' && HOUSES[o.k]); }
+  function nearestHouse(x, z) {
+    let best = null; let bd = 3.6;
+    for (const o of houses()) { const d = Math.hypot(x - o.x, z - o.z); if (d < bd) { bd = d; best = o; } }
+    return best;
+  }
+  let partsSheet = null;
+  function closeParts() { partsSheet?.remove(); partsSheet = null; }
+  function openParts(h) {
+    closeParts();
+    const draw = () => {
+      const cur = houses().find((o) => o.x === h.x && o.z === h.z);
+      if (!cur) { closeParts(); return; }
+      const parts = houseParts(cur);
+      const sockets = HOUSES[cur.k].sockets;
+      const owned = ownedOfKind('part');
+      const rows = Object.entries(sockets).map(([sid, s]) => {
+        const opts = owned.filter((id) => ITEMS[id].slot === s.slot);
+        const now = parts[sid] || null;
+        const btn = (id, label) => `<button type="button" data-s="${sid}" data-p="${id || ''}" class="${(now || '') === (id || '') ? 'on' : ''}">${label}</button>`;
+        const flowerRow = now === 'part:flowerbox' ? `<div class="pflow">${[['', 'いろいろ'], ...SPECIES_KEYS.map((k) => [k, SPECIES[k].label])].map(([k, l]) => `<button type="button" data-fs="${sid}" data-f="${k}" class="${(cur.flowers?.[sid] || '') === k ? 'on' : ''}">${l}</button>`).join('')}</div>` : '';
+        return `<div class="prow"><b>${SOCKET_NAME[sid] || sid}</b><div class="popts">${btn('', 'なし')}${opts.map((id) => btn(id, ITEMS[id].label)).join('')}</div>${flowerRow}</div>`;
+      }).join('');
+      partsSheet.querySelector('.pbody').innerHTML = rows;
+    };
+    partsSheet = document.createElement('div');
+    partsSheet.className = 'wparts';
+    partsSheet.innerHTML = '<div class="pcard"><p class="ptitle">家の パーツ</p><div class="pbody"></div><button type="button" class="pclose">とじる</button></div>';
+    partsSheet.addEventListener('click', (e) => {
+      if (e.target === partsSheet || e.target.closest('.pclose')) { closeParts(); return; }
+      const b = e.target.closest('button'); if (!b) return;
+      if (b.dataset.s !== undefined) {
+        const op = { t: 'parts', hx: h.x, hz: h.z, socket: b.dataset.s, part: b.dataset.p || null };
+        if (commit(op)) replay();
+      } else if (b.dataset.fs !== undefined) {
+        const op = { t: 'parts', hx: h.x, hz: h.z, socket: b.dataset.fs, flower: b.dataset.f || null };
+        if (commit(op)) replay();
+      }
+      draw();
+    });
+    document.body.appendChild(partsSheet);
+    draw();
+  }
+
   function pointer(type, e) {
+    if (type === 'down' && st.tool === 'parts') {
+      const p = pick(e);
+      if (!p) return;
+      const h = nearestHouse(p.x, p.z);
+      if (h) openParts(h); else say('パーツを つけたい 家を タップしてね');
+      return;
+    }
+    if (st.tool === 'parts') return;
     if (type === 'down') {
       const p = pick(e);
       if (!p) return;
