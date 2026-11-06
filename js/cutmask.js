@@ -37,6 +37,7 @@ export function createCutMask() {
   const waterTex = new THREE.DataTexture(water, N, N, THREE.RedFormat, THREE.UnsignedByteType);
   waterTex.flipY = false; waterTex.generateMipmaps = false;
   waterTex.minFilter = THREE.LinearFilter; waterTex.magFilter = THREE.LinearFilter;
+  let sourcesOff = false;
   let sources = [];   // 最初からある池など [{x,z,r}]
   const queue = new Int32Array(N * N);
   // かった所（草が短い所）の表。花をまける場所の判定に使う
@@ -191,6 +192,7 @@ export function createCutMask() {
     },
     // 池など、最初からある水。つなげた溝に水がながれこむ
     setSources(list) { sources = list || []; },
+    setSourcesOff(off) { sourcesOff = !!off; },
     // 水をつくりなおす。3回ほった所・池から、つながった溝（1回以上ほった所）まで水になる。ほる操作のあとに呼ぶ
     updateWater() {
       water.fill(0);
@@ -198,7 +200,7 @@ export function createCutMask() {
       const w = (2 * CUT_R) / N;
       const seed = (i) => { if (!water[i]) { water[i] = 255; queue[qt++] = i; } };
       for (let i = 0; i < N * N; i++) if (disp[i] >= 0.9) seed(i);
-      for (const s of sources) {
+      for (const s of (sourcesOff ? [] : sources)) {
         const x0 = Math.max(0, Math.floor(toPx(s.x - s.r))); const x1 = Math.min(N - 1, Math.ceil(toPx(s.x + s.r)));
         const y0 = Math.max(0, Math.floor(toPx(s.z - s.r))); const y1 = Math.min(N - 1, Math.ceil(toPx(s.z + s.r)));
         for (let yy = y0; yy <= y1; yy++) for (let xx = x0; xx <= x1; xx++) {
