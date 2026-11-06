@@ -495,9 +495,23 @@ export function createEditor({ container, scene, cut, wind, pick, rotate, setWal
   }
 
   // ---- 操作 ----
+  // 同じ建物・おきものの「うごかす／まわす／しまう」は、さいごの値だけ残せば同じ結果になる。まとめて数をへらす
+  function compactMoves(list) {
+    const first = new Map();
+    for (let i = 0; i < list.length; i++) {
+      const o = list[i];
+      if (o.t !== 'town' && o.t !== 'pmove') continue;
+      const k = o.t === 'town' ? `t:${o.id}` : `p:${o.hx},${o.hz}`;
+      const f = first.get(k);
+      if (f == null) { first.set(k, i); continue; }
+      Object.assign(list[f], o);
+      list.splice(i, 1); i--;
+    }
+  }
   function commit(op) {
     const list = ops();
     if (!list) return false;
+    if (list.length >= MAX_OPS) compactMoves(list);   // 建物の移動・回転のくり返しを1つにまとめて、あきを作る
     if (list.length >= MAX_OPS) { say('もう いっぱい！ もどして へらしてね'); replay(); return false; }
     list.push(op);
     save();              // 自動保存
