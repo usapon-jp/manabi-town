@@ -155,21 +155,25 @@ function editRow(p, s, deps, rerender) {
 
 // ---- BGM をえらぶ --------------------------------------------------------------
 
-async function openBgmPicker(onClose) {
+// live: タイマー中にひらく。曲をえらんでも とまらず、そのまま ながれる
+async function openBgmPicker(onClose, live = false) {
   const tracks = await bgm.listTracks();
-  const close = () => { bgm.stop(); sheet.remove(); onClose?.(); };
+  const close = () => { if (!live) bgm.stop(); sheet.remove(); onClose?.(); };
   const status = h('p', { class: 'sheet-sub' }, '');
   const fileIn = h('input', { type: 'file', accept: 'audio/*,video/*,.m4a,.mp3,.aac,.wav,.ogg,.mp4,.mov', hidden: true, onchange: async () => {
     const f = fileIn.files[0]; if (!f) return;
     status.textContent = 'とりこみ中…（動画は音だけ取り出すよ）';
-    try { const t = await bgm.importFile(f); status.textContent = `「${t.name}」を入れたよ`; close(); openBgmPicker(onClose); } catch (e) { status.textContent = 'とりこめなかった…ほかのファイルでためしてね'; }
+    try { const t = await bgm.importFile(f); status.textContent = `「${t.name}」を入れたよ`; close(); openBgmPicker(onClose, live); } catch (e) { status.textContent = 'とりこめなかった…ほかのファイルでためしてね'; }
   } });
   const libIn = h('input', { type: 'file', accept: '.json,application/json', hidden: true, onchange: async () => {
     const f = libIn.files[0]; if (!f) return;
     status.textContent = '読みこみ中…';
-    try { const n = await bgm.importLibrary(f); status.textContent = `${n}曲 入れたよ`; close(); openBgmPicker(onClose); } catch (e) { status.textContent = '読めなかった…前のタイマーの「書き出し」ファイルを選んでね'; }
+    try { const n = await bgm.importLibrary(f); status.textContent = `${n}曲 入れたよ`; close(); openBgmPicker(onClose, live); } catch (e) { status.textContent = '読めなかった…前のタイマーの「書き出し」ファイルを選んでね'; }
   } });
-  const again = () => { bgm.stop(); sheet.remove(); openBgmPicker(onClose); };
+  const again = () => {
+    if (live) { if (bgm.isPlaying()) bgm.play().catch(() => {}); } else bgm.stop();
+    sheet.remove(); openBgmPicker(onClose, live);
+  };
   const list = bgm.playlist();
   const byId = new Map(tracks.map((t) => [t.id, t]));
   const modes = [['one', '1きょく', 'repeat-1'], ['all', 'じゅんばん', 'repeat'], ['shuffle', 'シャッフル', 'shuffle']];
@@ -195,11 +199,12 @@ async function openBgmPicker(onClose) {
         if (!ts.length) return null;
         return h('div', { class: 'bgm-group' }, h('p', { class: 'label' }, label), ts.map((t) => h('div', { class: `bgm-item ${t.id === sel ? 'on' : ''}` },
           h('button', { class: 'play', 'aria-label': 'ためしにきく', onclick: () => { bgm.play(t.id).catch(() => { status.textContent = 'ならせなかった…'; }); } }, icon('play')),
-          h('button', { class: 'name', onclick: () => { bgm.setSelected(t.id); close(); } }, t.kind === 'video' ? icon('film') : null, ` ${t.name}`),
+          h('button', { class: 'name', onclick: () => { bgm.setSelected(t.id); if (live) { bgm.setUseList(false); bgm.play(t.id).catch(() => {}); } close(); } }, t.kind === 'video' ? icon('film') : null, ` ${t.name}`),
           h('button', { class: `add ${list.includes(t.id) ? 'on' : ''}`, 'aria-label': list.includes(t.id) ? 'リストから はずす' : 'リストに入れる', onclick: () => { bgm.togglePlaylist(t.id); again(); } }, icon(list.includes(t.id) ? 'list-music' : 'plus')),
           t.id === sel ? h('span', { class: 'check' }, icon('check')) : null,
-          t.from === 'own' ? h('button', { class: 'link', onclick: async () => { await bgm.removeTrack(t.id); close(); openBgmPicker(onClose); } }, 'けす') : null)));
+          t.from === 'own' ? h('button', { class: 'link', onclick: async () => { await bgm.removeTrack(t.id); close(); openBgmPicker(onClose, live); } }, 'けす') : null)));
       }),
+      live ? h('button', { class: 'btn small', onclick: () => { bgm.stop(); close(); } }, icon('volume-x'), ' おんがくを とめる') : null,
       h('label', { class: 'vol' }, '音の大きさ', h('input', { type: 'range', min: 0, max: 1, step: 0.05, value: bgm.volume(), oninput: (e) => bgm.setVolume(Number(e.target.value)) })),
       h('div', { class: 'row' },
         h('button', { class: 'btn small', onclick: () => fileIn.click() }, '＋ 曲や動画から入れる'),
@@ -272,8 +277,9 @@ function openRunning(p, deps) {
       h('button', { class: 'link reset' }, 'やめる（記録しない）')));
   document.body.append(layer);
 
+  // 右上の♪：曲やプレイリストをえらびなおせる（えらぶと そのまま ながれる）
   music.addEventListener('click', () => {
-    if (bgm.isPlaying()) { bgm.stop(); music.classList.remove('on'); } else { bgm.play().then(() => music.classList.add('on')).catch(() => {}); }
+    openBgmPicker(() => music.classList.toggle('on', bgm.isPlaying()), true);
   });
   pauseBtn.addEventListener('click', () => {
     if (t.pausedAt) { t.pausedTotal += Date.now() - t.pausedAt; t.pausedAt = null; bgm.resume(); } else { t.pausedAt = Date.now(); bgm.pause(); }
