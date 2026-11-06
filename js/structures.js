@@ -127,7 +127,42 @@ function buildStoneWall(op) {
   return { mesh: bag.mesh(), walls };
 }
 
+// 白い柵（ピケットフェンス）: とんがり頭の白い板を ならべる。ひくい 横木が2本
+function buildWhiteFence(op) {
+  const rnd = seeded(op.seed || 7);
+  const pts = resampleLine(op.pts, 0.2);
+  const bag = new Bag();
+  const walls = [];
+  const WHITE = [0xfffaf0, 0xf8f1e2, 0xfdf7ea];
+  const RAIL = 0xe9dfc8;
+  for (let i = 0; i < pts.length; i++) {
+    const p = pts[i];
+    const nx = pts[Math.min(pts.length - 1, i + 1)]; const pv = pts[Math.max(0, i - 1)];
+    const ang = Math.atan2(nx.x - pv.x, nx.z - pv.z);
+    const y = heightAt(p.x, p.z);
+    const h = 0.5 + rnd() * 0.04;
+    const col = WHITE[i % 3];
+    bag.add(rboxGeo(0.1, h, 0.03, 0.01), col, { x: p.x, y: y + h / 2, z: p.z, ry: ang + Math.PI / 2 });
+    bag.add(CONE, col, { x: p.x, y: y + h + 0.04, z: p.z, sx: 0.07, sy: 0.1, sz: 0.022, ry: ang + Math.PI / 2 });
+    if (i % 5 === 0) walls.push({ x: p.x, z: p.z, r: 0.14 });
+  }
+  // 横木（柱のうしろがわに2本）
+  for (let i = 0; i < pts.length - 6; i += 5) {
+    const a = pts[i]; const b = pts[i + 5];
+    const len = Math.hypot(b.x - a.x, b.z - a.z);
+    const ang = Math.atan2(b.x - a.x, b.z - a.z);
+    for (const hh of [0.15, 0.36]) {
+      const mx = (a.x + b.x) / 2; const mz = (a.z + b.z) / 2; const my = (heightAt(a.x, a.z) + heightAt(b.x, b.z)) / 2 + hh;
+      bag.add(rboxGeo(0.035, 0.05, len + 0.04, 0.01), RAIL, { x: mx - Math.cos(ang) * 0.03, y: my, z: mz + Math.sin(ang) * 0.03, ry: ang });
+    }
+  }
+  // 足もとの、小さな花
+  for (let i = 0; i < pts.length; i += 7) bag.add(SPH, [0xff9fbd, 0xfff08a, 0xc7a6ff][i % 3], { x: pts[i].x + 0.08, y: heightAt(pts[i].x, pts[i].z) + 0.06, z: pts[i].z + 0.08, s: 0.04 });
+  return { mesh: bag.mesh(), walls };
+}
+
 export function buildFence(op) {
+  if (op.style === 'white') return buildWhiteFence(op);
   if (op.style === 'iron') return buildIronFence(op);
   if (op.style === 'stone') return buildStoneWall(op);
   const rnd = seeded(op.seed || 7);

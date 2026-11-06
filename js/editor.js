@@ -12,6 +12,7 @@ import { createBuilds, STAMP_STEP, loopLength, LOOP_MIN } from './builds.js';
 import { SPECIES, SPECIES_KEYS } from './plants.js';
 import { TOOLS, toolById } from './tools.js';
 import { ITEMS, ownedOfKind, isOwned } from './catalog.js';
+import { ownedSeeds } from './gacha.js';
 import { HOUSES, houseParts } from './pieces.js';
 import { foldParts, foldAll } from './builds.js';
 import { buildingArt } from './townart.js';
@@ -26,7 +27,7 @@ const ROAM = 29;          // つくれるはんい（中心から）
 const BRUSH = [0.7, 1.2, 1.9];
 const RBRUSH = [0.6, 0.95, 1.4];   // 川のはば
 const BRUSH_NAME = ['ほそい', 'ふつう', 'ふとい'];
-const DOT = { buttercup: '#ffd62e', lupine: '#a58bf0', tulip: '#ff8fae', clover: '#f4f1ea', dandelion: '#ffe777' };
+const DOT = { buttercup: '#ffd62e', lupine: '#a58bf0', tulip: '#ff8fae', clover: '#f4f1ea', dandelion: '#ffe777', sunflower: '#f0b020', cosmos: '#ff8fb3', lavender: '#9d7ef0' };
 
 const CSS = `
 .wedit { position: fixed; right: calc(8px + env(safe-area-inset-right, 0px)); top: calc(env(safe-area-inset-top, 0px) + 64px); max-height: calc(100dvh - env(safe-area-inset-top, 0px) - 72px); overflow-y: auto; scrollbar-width: none; z-index: 4;
@@ -182,7 +183,7 @@ export function createEditor({ container, scene, cut, wind, pick, rotate, setWal
     <span data-group="bed"><button type="button" data-s="mode" data-v="plant">うえる</button>
     <button type="button" data-s="mode" data-v="ring">かこむ</button>
     <span class="sep"></span></span>
-    <span data-group="plant">${SPECIES_KEYS.map((k) => `<button type="button" class="sw" data-s="species" data-v="${k}" aria-label="${SPECIES[k].label}" style="background:${DOT[k]}"></button>`).join(' ')}</span>
+    <span data-group="plant">${SPECIES_KEYS.filter((k) => !SPECIES[k].gacha || ownedSeeds(currentProfile()).has(k)).map((k) => `<button type="button" class="sw" data-s="species" data-v="${k}" aria-label="${SPECIES[k].label}" style="background:${DOT[k]}"></button>`).join(' ')}</span>
     <span data-group="ring"><button type="button" data-s="border" data-v="log">まるた</button> <button type="button" data-s="border" data-v="stone">いし</button></span>`;
   container.appendChild(sub);
   // ---- 道具（ピヨの足もとで使う）。ボタンをおして歩くと足もとが変わる。上にスワイプすると道具をえらべる ----
@@ -222,7 +223,10 @@ export function createEditor({ container, scene, cut, wind, pick, rotate, setWal
       spEl.querySelectorAll('button').forEach((b) => b.classList.toggle('on', b.dataset.id === curOf()));
       spEl.hidden = false;
     } else if (hand.id === 'flower') {
-      spEl.innerHTML = SPECIES_KEYS.map((k) => `<button type="button" data-sp="${k}" aria-label="${SPECIES[k].label}" style="background:${DOT[k]}"></button>`).join('');
+      const have = ownedSeeds(currentProfile());
+      const keys = SPECIES_KEYS.filter((k) => !SPECIES[k].gacha || have.has(k));
+      if (!keys.includes(st.species)) st.species = keys[0];
+      spEl.innerHTML = keys.map((k) => `<button type="button" data-sp="${k}" aria-label="${SPECIES[k].label}" style="background:${DOT[k]}"></button>`).join('');
       spEl.querySelectorAll('button').forEach((b) => b.classList.toggle('on', b.dataset.sp === st.species));
       spEl.hidden = false;
     } else spEl.hidden = true;
@@ -669,7 +673,7 @@ export function createEditor({ container, scene, cut, wind, pick, rotate, setWal
         const opts = owned.filter((id) => ITEMS[id].slot === s.slot);
         const now = parts[sid] || null;
         const btn = (id, label) => `<button type="button" data-s="${sid}" data-p="${id || ''}" class="${(now || '') === (id || '') ? 'on' : ''}">${label}</button>`;
-        const flowerRow = now === 'part:flowerbox' ? `<div class="pflow">${[['', 'いろいろ'], ...SPECIES_KEYS.map((k) => [k, SPECIES[k].label])].map(([k, l]) => `<button type="button" data-fs="${sid}" data-f="${k}" class="${(cur.flowers?.[sid] || '') === k ? 'on' : ''}">${l}</button>`).join('')}</div>` : '';
+        const flowerRow = now === 'part:flowerbox' ? `<div class="pflow">${[['', 'いろいろ'], ...SPECIES_KEYS.filter((k) => !SPECIES[k].gacha || ownedSeeds(currentProfile()).has(k)).map((k) => [k, SPECIES[k].label])].map(([k, l]) => `<button type="button" data-fs="${sid}" data-f="${k}" class="${(cur.flowers?.[sid] || '') === k ? 'on' : ''}">${l}</button>`).join('')}</div>` : '';
         return `<div class="prow"><b>${SOCKET_NAME[sid] || sid}</b><div class="popts">${btn('', 'なし')}${opts.map((id) => btn(id, ITEMS[id].label)).join('')}</div>${flowerRow}</div>`;
       }).join('');
       partsSheet.querySelector('.pbody').innerHTML = rows;
