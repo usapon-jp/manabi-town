@@ -19,7 +19,7 @@ import { buildingArt } from './townart.js';
 import { BRIDGE_MIN } from './structures.js';
 import { icon } from './icons.js';
 
-const MAX_OPS = 300;      // 覚えておく操作の数（保存の大きさをおさえる）
+const MAX_OPS = 800;      // 覚えておく操作の数（保存の大きさをおさえる）
 const MAX_PTS = 400;      // ひとなぞりの点の数
 const MIN_STEP = 0.35;    // 点を打つ最小のきょり（m）。細かすぎると保存が重い
 const RING_STEP = 0.5;
