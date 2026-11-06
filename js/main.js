@@ -286,8 +286,8 @@ function homeTasks(p) {
     kind: 'step', item, st, label: st.label, done: st.done,
     tag: adult ? `${item.subject}・${item.type === 'test' ? '試験' : '目標'}` : `${item.subject}${item.type === 'test' ? 'テスト' : item.type === 'goal' ? '目標' : '宿題'}`,
   })));
-  // じぶんで 書いた やること（いちばん うしろ）
-  const mine = mineToday(p).map((m) => ({ kind: 'mine', id: m.id, label: m.text, tag: 'じぶん', done: m.done }));
+  // じぶんで 書いた やること（TODO、いちばん うしろ）
+  const mine = mineToday(p).map((m) => ({ kind: 'mine', id: m.id, label: m.text, tag: 'TODO', done: m.done }));
   // おとなは 子ども用クエストのかわりに ルーティーン
   if (adult) return [...todayRoutines(p), ...steps, ...mine];
   // きょう提出（すぎたものも）の宿題は、クエストより先に
