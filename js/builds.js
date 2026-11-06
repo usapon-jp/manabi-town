@@ -73,9 +73,9 @@ export function foldAll(ops) {
   const town = new Map();
   for (const op of ops) {
     if (op.t === 'place') { const c = { ...op, ox: op.x, oz: op.z, parts: { ...(op.parts || {}) }, flowers: { ...(op.flowers || {}) }, stored: false }; places.push(c); out.push(c); continue; }
-    // 柵をしまう（タップで消す）。seed が同じ柵を取りのぞく
+    // 柵をしまう（タップで消す）。seed と最初の点が同じ柵を取りのぞく
     if (op.t === 'fenceoff') {
-      const i = out.findIndex((o) => o.t === 'fence' && o.seed === op.seed);
+      const i = out.findIndex((o) => o.t === 'fence' && o.seed === op.seed && o.pts[0] === op.x && o.pts[1] === op.z);
       if (i >= 0) out.splice(i, 1);
       continue;
     }
