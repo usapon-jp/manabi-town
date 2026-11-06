@@ -478,21 +478,54 @@ function mailbox(op) {
 // ---- ランタン（ちいさな あかり。ぼんやり光る） --------------------------------------
 function lantern(op) {
   const g = new THREE.Group(); const b = new Bag(); const gl = new Bag();
-  const IRON = 0x3b3a40;
-  g.add(blob(0.35, 0.35, 0.2));
-  b.add(CYL, IRON, { y: 0.03, sx: 0.12, sy: 0.06, sz: 0.12 });                              // 台
-  b.add(CYL, IRON, { y: 0.22, sx: 0.12, sy: 0.04, sz: 0.12 });
-  b.add(CYL, IRON, { y: 0.55, sx: 0.12, sy: 0.04, sz: 0.12 });
-  for (const sx of [-1, 1]) for (const sz of [-1, 1]) b.add(CYL, IRON, { x: sx * 0.1, y: 0.39, z: sz * 0.1, sx: 0.012, sy: 0.34, sz: 0.012 });   // 4本の柱
-  gl.add(rboxGeo(0.17, 0.3, 0.17, 0.03), 0xffe39a, { y: 0.39 });                             // あかり
-  gl.add(SPH, 0xfffbe0, { y: 0.39, s: 0.05 });                                               // ほのお
-  b.add(HALF, IRON, { y: 0.57, sx: 0.15, sy: 0.12, sz: 0.15 });                              // 屋根
-  b.add(new THREE.TorusGeometry(0.05, 0.012, 6, 14, Math.PI), IRON, { y: 0.74, rz: 0 });   // 取っ手
-  b.add(SPH, IRON, { y: 0.575 + 0.12, s: 0.025 });
-  const halo = new THREE.Sprite(new THREE.SpriteMaterial({ map: haloTex(), color: 0xffe39a, transparent: true, opacity: 0.55, depthWrite: false, blending: THREE.AdditiveBlending }));
-  halo.scale.setScalar(1.3); halo.position.y = 0.4;
-  g.add(b.mesh(), gl.mesh(true), halo);
-  g.userData.update = (t) => { halo.material.opacity = 0.45 + Math.sin(t * 2.4 + (op.seed || 0)) * 0.1; };
+  const IRON = 0x34333a; const IRON2 = 0x4a4950; const BRASS = 0xc9a24a;
+  g.add(blob(0.38, 0.38, 0.2));
+  // 台座: 3つの足と、まるい皿
+  for (let i = 0; i < 3; i++) {
+    const a = (i / 3) * Math.PI * 2 + 0.5;
+    b.add(SPH, IRON, { x: Math.cos(a) * 0.12, y: 0.025, z: Math.sin(a) * 0.12, sx: 0.04, sy: 0.03, sz: 0.04 });
+  }
+  b.add(CYL, IRON, { y: 0.065, sx: 0.14, sy: 0.03, sz: 0.14 });
+  b.add(CYL, IRON2, { y: 0.09, sx: 0.115, sy: 0.02, sz: 0.115 });
+  b.add(CYL, BRASS, { y: 0.105, sx: 0.12, sy: 0.008, sz: 0.12 });                          // 真ちゅうの かざりわ
+  // 4本の柱（ほそい）と、中ほどの かざり輪
+  const R = 0.095;
+  for (const [sx, sz] of [[1, 1], [1, -1], [-1, 1], [-1, -1]]) {
+    b.add(CYL, IRON, { x: sx * R, y: 0.34, z: sz * R, sx: 0.011, sy: 0.4, sz: 0.011 });
+    b.add(SPH, BRASS, { x: sx * R, y: 0.54, z: sz * R, s: 0.02 });                         // 柱の上の まるい金具
+  }
+  for (const y of [0.2, 0.36]) b.add(new THREE.TorusGeometry(R * 1.35, 0.006, 5, 18), IRON, { y, rx: Math.PI / 2 });
+  // ガラスの面（あたたかい色、少し透ける）と、中のろうそく・炎
+  gl.add(rboxGeo(R * 1.75, 0.36, R * 1.75, 0.02), 0xffd98a, { y: 0.34 });
+  b.add(CYL, 0xfff3d8, { y: 0.215, sx: 0.028, sy: 0.12, sz: 0.028 });                    // ろうそく
+  b.add(CYL, 0x3a3a40, { y: 0.15, sx: 0.045, sy: 0.012, sz: 0.045 });                    // ろうそくの皿
+  const flame = new THREE.Mesh(new THREE.SphereGeometry(1, 12, 10), new THREE.MeshBasicMaterial({ color: 0xfff6c8 }));
+  flame.scale.set(0.028, 0.055, 0.028); flame.position.y = 0.3;
+  const flame2 = new THREE.Mesh(new THREE.SphereGeometry(1, 10, 8), new THREE.MeshBasicMaterial({ color: 0xffb347, transparent: true, opacity: 0.8 }));
+  flame2.scale.set(0.04, 0.075, 0.04); flame2.position.y = 0.31;
+  // 屋根: 2だんの ドーム、とんがり、からだの影
+  b.add(CYL, IRON, { y: 0.545, sx: 0.135, sy: 0.022, sz: 0.135 });
+  b.add(HALF, IRON, { y: 0.56, sx: 0.125, sy: 0.12, sz: 0.125 });
+  b.add(CYL, BRASS, { y: 0.575, sx: 0.07, sy: 0.012, sz: 0.07 });
+  b.add(HALF, IRON2, { y: 0.585, sx: 0.06, sy: 0.07, sz: 0.06 });
+  b.add(SPH, BRASS, { y: 0.69, s: 0.022 });
+  // くるんと巻いた吊り金具
+  b.add(new THREE.TorusGeometry(0.06, 0.009, 6, 16, Math.PI * 1.1), IRON, { y: 0.71, rz: -0.1 });
+  b.add(new THREE.TorusGeometry(0.02, 0.007, 6, 12), BRASS, { y: 0.78 });
+  // 光の かさ（ふんわり）
+  const halo = new THREE.Sprite(new THREE.SpriteMaterial({ map: haloTex(), color: 0xffd88a, transparent: true, opacity: 0.6, depthWrite: false, blending: THREE.AdditiveBlending }));
+  halo.scale.setScalar(1.5); halo.position.y = 0.34;
+  const glow = new THREE.Sprite(new THREE.SpriteMaterial({ map: haloTex(), color: 0xfff1c0, transparent: true, opacity: 0.8, depthWrite: false, blending: THREE.AdditiveBlending }));
+  glow.scale.setScalar(0.42); glow.position.y = 0.3;
+  g.add(b.mesh(), gl.mesh(true), flame, flame2, halo, glow);
+  const seed = op.seed || 0;
+  g.userData.update = (t) => {
+    const f = 1 + Math.sin(t * 9 + seed) * 0.07 + Math.sin(t * 15.3 + seed * 2) * 0.05;     // 炎の ゆらぎ
+    flame.scale.set(0.028 * (2 - f), 0.055 * f, 0.028 * (2 - f)); flame2.scale.set(0.04 * (2 - f), 0.075 * f, 0.04 * (2 - f));
+    flame.position.x = flame2.position.x = Math.sin(t * 6 + seed) * 0.004;
+    halo.material.opacity = 0.5 + Math.sin(t * 2.2 + seed) * 0.08 + (f - 1) * 0.5;
+    glow.material.opacity = 0.7 + (f - 1) * 0.8;
+  };
   return { mesh: g, walls: [{ dx: 0, dz: 0, r: 0.14 }] };
 }
 let _halo = null;
@@ -506,45 +539,87 @@ function haloTex() {
 }
 
 // ---- バラのアーチ（くぐれる。ツルとバラが からまる） --------------------------------
+// バラ1輪（花びらが渦をまく）。外のおおきな花びら→中の巻き→しん。きく向きは +z
+function addRose(b, x, y, z, col, size, rnd, bud = false) {
+  const c = new THREE.Color(col);
+  const dark = c.clone().multiplyScalar(0.8).getHex();
+  const mid = c.clone().multiplyScalar(0.92).getHex();
+  const lite = c.clone().lerp(new THREE.Color(0xffffff), 0.28).getHex();
+  const s = size;
+  if (bud) {                                                  // つぼみ: ふくらんだ しずくの形と、がく
+    b.add(SPH, col, { x, y: y + s * 0.2, z, sx: s * 0.5, sy: s * 0.85, sz: s * 0.5 });
+    b.add(SPH, dark, { x, y: y + s * 0.28, z: z + s * 0.1, sx: s * 0.36, sy: s * 0.6, sz: s * 0.3, ry: 0.6 });
+    for (let k = 0; k < 4; k++) { const a = (k / 4) * Math.PI * 2 + rnd(); b.add(SPH, 0x4f8f3e, { x: x + Math.cos(a) * s * 0.3, y: y - s * 0.12, z: z + Math.sin(a) * s * 0.3, sx: s * 0.1, sy: s * 0.4, sz: s * 0.1, rz: Math.cos(a) * 0.6, rx: Math.sin(a) * 0.6 }); }
+    return;
+  }
+  b.add(SPH, 0x4f8f3e, { x, y: y - s * 0.12, z: z - s * 0.04, sx: s * 0.4, sy: s * 0.3, sz: s * 0.4 });                  // がく
+  // 外がわ: 5まいの おおきな花びら（そっくり返る）
+  for (let k = 0; k < 5; k++) {
+    const a = (k / 5) * Math.PI * 2 + rnd() * 0.4;
+    b.add(SPH, mid, { x: x + Math.cos(a) * s * 0.52, y: y - s * 0.02, z: z + Math.sin(a) * s * 0.52 * 0.7 + s * 0.05, sx: s * 0.46, sy: s * 0.2, sz: s * 0.4, ry: -a, rz: 0.25 });
+  }
+  // なか: 渦をまく 小さな花びら（だんだん小さく、内がわへ）
+  for (let k = 0; k < 8; k++) {
+    const t = k / 7; const a = k * 2.4 + rnd() * 0.2; const r = s * (0.42 - t * 0.34);
+    b.add(SPH, k % 2 ? lite : col, { x: x + Math.cos(a) * r, y: y + s * (0.05 + t * 0.2), z: z + Math.sin(a) * r * 0.8 + s * 0.06, sx: s * (0.34 - t * 0.14), sy: s * (0.2 - t * 0.05), sz: s * (0.3 - t * 0.12), ry: -a });
+  }
+  b.add(SPH, dark, { x, y: y + s * 0.3, z: z + s * 0.08, s: s * 0.14 });                                               // しん
+}
+
+// ---- バラのアーチ（くぐれる。ツルとバラが からまる） --------------------------------
 function roseArch(op) {
   const rnd = seeded(op.seed || 31);
   const g = new THREE.Group(); const b = new Bag();
-  const W = 1.4; const H = 2.1;
+  const W = 1.4; const H = 2.1; const Rr = W / 2;
   g.add(blob(1.1, 0.5, 0.22));
-  const ROSE = [0xff7d9a, 0xff9fbd, 0xffffff, 0xffb27a];
-  const pts = [];
-  // 2本の柱と、まるいアーチ（細い鉄）
-  for (const sx of [-1, 1]) b.add(CYL, 0xf3efe6, { x: sx * W / 2, y: (H - W / 2) / 2, z: 0, sx: 0.035, sy: H - W / 2, sz: 0.035 });
-  const arc = new THREE.TorusGeometry(W / 2, 0.035, 8, 28, Math.PI);
-  b.add(arc, 0xf3efe6, { y: H - W / 2 });
-  // ツル（アーチにそって、うねる）と、葉と、バラ
-  const N = 34;
-  for (let i = 0; i <= N; i++) {
-    const t = i / N;
-    const a = Math.PI * t;
-    const side = i % 2 ? 1 : -1;
-    // 柱の高さ(0〜0.5)→アーチ(0.5〜1)の2つの区間
-    let x; let y;
-    if (t < 0.5 === false) { x = Math.cos(Math.PI - (t - 0.5) * 2 * Math.PI) * 0 + 0; }
-    const ax = Math.cos(Math.PI * (1 - t)) * (W / 2); const ay = (H - W / 2) + Math.sin(Math.PI * (1 - t)) * (W / 2);
-    x = ax + (rnd() - 0.5) * 0.12; y = ay + (rnd() - 0.5) * 0.12;
-    b.add(SPH, 0x5fa34a, { x, y, z: (rnd() - 0.5) * 0.14, sx: 0.07, sy: 0.035, sz: 0.05, rz: rnd() * 3 });
-    if (i % 2 === 0) {
-      const col = ROSE[Math.floor(rnd() * ROSE.length)];
-      b.add(SPH, col, { x, y, z: 0.05 * side, s: 0.085 });
-      b.add(SPH, new THREE.Color(col).multiplyScalar(0.82).getHex(), { x, y, z: 0.05 * side, s: 0.055 });
+  const ROSE = [0xff7d9a, 0xff9fbd, 0xffffff, 0xffb27a, 0xe8576f];
+  const LEAF = [0x4f9a42, 0x5fa34a, 0x6fb35a];
+  const IRONW = 0xf1ece0;
+  // 白い鉄のアーチ: 2本の柱と、まるい弧。柱の足もとに、かざりの玉
+  for (const sx of [-1, 1]) {
+    b.add(CYL, IRONW, { x: sx * Rr, y: (H - Rr) / 2, sx: 0.03, sy: H - Rr, sz: 0.03 });
+    b.add(CYL, IRONW, { x: sx * Rr, y: 0.04, sx: 0.06, sy: 0.08, sz: 0.06 });
+    b.add(SPH, IRONW, { x: sx * Rr, y: H - Rr + 0.0, s: 0.04 });
+  }
+  b.add(new THREE.TorusGeometry(Rr, 0.028, 8, 32, Math.PI), IRONW, { y: H - Rr });
+  b.add(new THREE.TorusGeometry(Rr - 0.09, 0.012, 6, 28, Math.PI), IRONW, { y: H - Rr });
+  b.add(SPH, IRONW, { y: H + 0.01, s: 0.05 });
+  // ツル: アーチを とおる、2本のつる（ゆるくからまる）。葉は3まい1くみ
+  const vine = (sign) => {
+    const N = 60;
+    for (let i = 0; i <= N; i++) {
+      const t = i / N;
+      // 柱のねもと→アーチのてっぺん
+      let x; let y;
+      if (t < 0.45) { const u = t / 0.45; x = sign * (Rr + Math.sin(u * 14 + sign) * 0.05); y = 0.1 + u * (H - Rr - 0.1); }
+      else { const u = (t - 0.45) / 0.55; const a = Math.PI * (1 - u * 0.5 * (sign > 0 ? 1 : 1)); const aa = sign > 0 ? Math.PI * u * 0.5 : Math.PI - Math.PI * u * 0.5; x = Math.cos(aa) * (Rr + Math.sin(u * 12) * 0.045); y = H - Rr + Math.sin(aa) * (Rr + Math.sin(u * 12) * 0.045); void a; }
+      b.add(SPH, 0x5a9a44, { x, y, z: Math.sin(i * 1.3) * 0.045, s: 0.018 });
+      if (i % 2 === 0) {
+        const lz = (rnd() - 0.5) * 0.2; const col = LEAF[Math.floor(rnd() * 3)];
+        for (let k = 0; k < 3; k++) {
+          const ka = (k - 1) * 0.9 + rnd() * 0.4;
+          b.add(SPH, col, { x: x + Math.cos(ka) * 0.045, y: y + Math.sin(ka) * 0.045, z: lz, sx: 0.05, sy: 0.026, sz: 0.012, rz: ka, ry: (rnd() - 0.5) * 0.6 });
+        }
+      }
+      if (i % 9 === 4) { b.add(CYL, 0x7a5a3a, { x, y, z: 0.03, sx: 0.004, sy: 0.04, sz: 0.004, rz: 0.5 }); }                // とげ
     }
-    void a; void pts;
+  };
+  vine(1); vine(-1);
+  // バラ: ツルにそって、ばらばらの大きさ・向きで。つぼみも ちらほら
+  const spots = [];
+  for (let i = 0; i < 25; i++) {
+    const t = i / 24;
+    let x; let y;
+    if (t < 0.3) { const u = t / 0.3; x = -Rr + Math.sin(i) * 0.06; y = 0.3 + u * 1.05; }
+    else if (t < 0.7) { const u = (t - 0.3) / 0.4; const a = Math.PI - u * Math.PI; x = Math.cos(a) * Rr * 1.0; y = H - Rr + Math.sin(a) * Rr * 1.0; }
+    else { const u = (t - 0.7) / 0.3; x = Rr + Math.sin(i * 2) * 0.06; y = 1.35 - u * 1.0; }
+    spots.push([x, y, 0.07 + (i % 2) * 0.05, ROSE[Math.floor(rnd() * ROSE.length)], 0.1 + rnd() * 0.05, i % 5 === 3]);
   }
-  // 柱をのぼるツル
-  for (const sx of [-1, 1]) for (let k = 0; k < 10; k++) {
-    const y = 0.15 + k * ((H - W / 2 - 0.2) / 9);
-    const x = sx * W / 2 + Math.sin(k * 1.7 + sx) * 0.05;
-    b.add(SPH, 0x5fa34a, { x, y, z: (rnd() - 0.5) * 0.08, sx: 0.06, sy: 0.03, sz: 0.045, rz: rnd() * 3 });
-    if (k % 2 === 1) { const col = ROSE[Math.floor(rnd() * ROSE.length)]; b.add(SPH, col, { x, y, z: 0.05, s: 0.08 }); b.add(SPH, new THREE.Color(col).multiplyScalar(0.8).getHex(), { x, y, z: 0.05, s: 0.05 }); }
-  }
+  for (const [x, y, z, col, sz, bud] of spots) addRose(b, x + (rnd() - 0.5) * 0.04, y, z, col, sz, rnd, bud);
+  // 柱のまわりの、小さな花（かすみそう）
+  for (let i = 0; i < 18; i++) b.add(SPH, 0xffffff, { x: (i % 2 ? 1 : -1) * Rr + (rnd() - 0.5) * 0.12, y: 0.2 + rnd() * 1.3, z: (rnd() - 0.5) * 0.12, s: 0.014 });
   g.add(b.mesh());
-  // くぐれる: 柱だけ当たり判定
+  g.userData.update = (t) => { g.rotation.z = Math.sin(t * 0.8 + (op.seed || 0)) * 0.004; };
   return { mesh: g, walls: [{ dx: -W / 2, dz: 0, r: 0.1 }, { dx: W / 2, dz: 0, r: 0.1 }] };
 }
 
