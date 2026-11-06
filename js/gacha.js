@@ -121,9 +121,16 @@ export const gemIcon = () => svgEl(GEM, 'gem');
 export const capsuleIcon = () => svgEl('<circle cx="12" cy="12" r="9"/><path d="M3 12h18"/><circle cx="12" cy="12" r="2.2"/>', 'capsule');
 const stars = (r) => h('span', { class: 'g-stars', 'aria-label': `★${r}` }, '★'.repeat(r));
 
+// 3Dモデルから前もって撮った絵（tools/gacha-thumbs.html で作る）。まだ持っていないものは、絵をかげ（シルエット）にして見せる
+const Q = '<circle cx="12" cy="12" r="9"/><path d="M9.1 9a3 3 0 0 1 5.8 1c0 2-3 3-3 3"/><path d="M12 17h.01"/>';
+export const thumbSrc = (it) => `assets/gacha/${it.id.replace(':', '-')}.webp`;
 function thumb(it, { locked = false } = {}) {
-  return h('span', { class: `g-thumb r${it.rarity} ${locked ? 'locked' : ''}`, style: `--c:${it.color || '#8a735d'}` },
-    svgEl(locked ? '<circle cx="12" cy="12" r="9"/><path d="M9.1 9a3 3 0 0 1 5.8 1c0 2-3 3-3 3"/><path d="M12 17h.01"/>' : it.svg));
+  const box = h('span', { class: `g-thumb r${it.rarity} ${locked ? 'locked' : ''}`, style: `--c:${it.color || '#8a735d'}` });
+  const fallback = () => box.replaceChildren(svgEl(locked ? Q : it.svg));   // 絵がないもの（あとから足したもの）は線の絵
+  const img = h('img', { class: 'g-img', src: thumbSrc(it), alt: '', loading: 'lazy', decoding: 'async', draggable: 'false' });
+  img.addEventListener('error', fallback, { once: true });
+  box.append(img);
+  return box;
 }
 
 function sheet(cls, ...kids) {
