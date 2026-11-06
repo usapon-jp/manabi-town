@@ -1663,3 +1663,6 @@ input.pin { font-size: 26px; letter-spacing: 0.5em; text-align: center; }
 .fold-sec[open] > summary { margin-bottom: 12px; }
 .fold-sec > summary .ic { width: 20px; height: 20px; color: var(--accent-dark); }
 .today-card .fold-sec > summary { box-shadow: none; padding: 10px 14px; }
+.todo-add { margin-top: -4px; }
+.todo-add > summary { background: var(--accent); border-color: var(--accent-dark); color: #fff; }
+.todo-add > summary .ic { color: #fff; }
