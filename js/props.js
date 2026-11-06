@@ -6,7 +6,7 @@ import * as THREE from 'three';
 const cache = {};
 function load(name) {
   if (!cache[name]) {
-    cache[name] = fetch(`./assets/models/${name}.json`).then((r) => r.json()).then((d) => {
+    cache[name] = fetch(new URL(`../assets/models/${name}.json`, import.meta.url)).then((r) => r.json()).then((d) => {
       const b64 = (s, T) => { const bin = atob(s); const u = new Uint8Array(bin.length); for (let i = 0; i < bin.length; i++) u[i] = bin.charCodeAt(i); return new T(u.buffer); };
       const q = b64(d.p, Uint16Array); const n = d.n; const pos = new Float32Array(n * 3);
       for (let i = 0; i < n; i++) for (let a = 0; a < 3; a++) pos[i * 3 + a] = d.mn[a] + (q[i * 3 + a] / 65535) * (d.mx[a] - d.mn[a]);
