@@ -18,6 +18,7 @@ const FILES = [
   'js/builds.js',
   'js/bonus.js',
   'js/more.js',
+  'js/mytodo.js',
   'js/ai.js',
   'js/review.js',
   'js/tests.js', 'js/rescue.js', 'js/scan.js', 'js/feedback.js', 'js/ask.js', 'js/townask.js', 'js/townguide.js', 'js/coach.js', 'js/adult.js', 'js/subjects.js', 'js/challenge.js', 'js/voice.js', 'js/photos.js', 'js/pickphoto.js', 'js/rangebar.js',
