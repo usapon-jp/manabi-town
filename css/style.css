@@ -397,7 +397,7 @@ textarea { resize: vertical; }
 .toast.show { opacity: 1; transform: translate(-50%, 0); }
 
 /* ---- きょうやること ---- */
-.bubble { max-height: calc(100% - var(--tabs-h) - env(safe-area-inset-bottom) - env(safe-area-inset-top) - 260px); overflow-y: auto; }
+.bubble { max-height: calc(100dvh - var(--tabs-h) - env(safe-area-inset-bottom) - env(safe-area-inset-top) - 74px - 16px); overflow-y: auto; overscroll-behavior: contain; -webkit-overflow-scrolling: touch; touch-action: pan-y; }
 /* きょうのカード */
 .bubble { border: 1.5px solid var(--line); box-shadow: var(--soft); color: var(--navy); top: calc(env(safe-area-inset-top) + 74px); padding: 12px 14px 14px; }
 .bubble.folded .today-body { display: none; }
@@ -791,9 +791,12 @@ button.go:active { transform: scale(0.97); animation: none; }
   .bubble {
     left: max(16px, env(safe-area-inset-left, 0px)); right: auto; width: min(340px, 44vw); margin: 0;
     top: calc(env(safe-area-inset-top) + 60px);
-    max-height: none; overflow: visible;
-    padding: 10px 12px;
+    max-height: calc(100dvh - env(safe-area-inset-top) - env(safe-area-inset-bottom) - 72px);
+    overflow-y: auto; overscroll-behavior: contain; -webkit-overflow-scrolling: touch; touch-action: pan-y;
+    padding: 8px 10px;
   }
+  .bubble > * { margin-top: 0; margin-bottom: 6px; }
+  .bubble p { margin-bottom: 6px; }
   body.menu-open .bubble { left: calc(var(--rail) + 12px); }
   .bubble .week, .bubble .all-tasks { display: none; }
   .bubble .today-body { margin-top: 8px; }
