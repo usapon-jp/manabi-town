@@ -227,9 +227,10 @@ function render() {
   panel.hidden = home;
   bubble.hidden = !home;
   pad.hidden = !home;
-  if (home) renderHome(p);
-  if (home && mineFocus) { mineFocus = false; bubble.querySelector('.mine-input')?.focus(); }
-  else if (tab === 'todo') renderTodo(p);
+  if (home) {
+    renderHome(p);
+    if (mineFocus) { mineFocus = false; bubble.querySelector('.mine-input')?.focus(); }
+  } else if (tab === 'todo') renderTodo(p);
   else if (tab === 'quest') (isAdult(p) ? renderRoutineTab(panel, p, { gain, addPoints, deleteButton, render: () => render() }) : renderQuest(p));
   else if (tab === 'timer') renderTimerTab(panel, p, timerDeps);
   else renderSettings(p);
