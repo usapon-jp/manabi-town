@@ -68,6 +68,7 @@ let world = null;
 // null や false の子は入れない
 const fill = (el, ...kids) => el.replaceChildren(...kids.flat().filter((k) => k != null && k !== false));
 let tab = 'home';
+let todoOpen = false;   // 「TODO を 書く」を ひらいている間は たたまない
 let todayAll = false;   // 「やること」のリストを ぜんぶ 見せる
 let goalAdd = false;   // 「目標」タブで 入れるフォームを ひらいて見せる（ホームの ＋ ボタンから）
 
@@ -755,21 +756,21 @@ function todayCard(p) {
   return h('div', { class: 'card quest today-card' },
     h('h3', {}, `きょうの リスト ${doneN} / ${tasks.length}`),
     tasks.length
-      ? h('ul', { class: 'tasks' }, (todayAll ? tasks : tasks.slice(0, 5)).map((t) => h('li', { class: `task ${t.done ? 'checked' : ''}` },
+      ? h('ul', { class: 'tasks' }, (todayAll || todoOpen ? tasks : tasks.slice(0, 5)).map((t) => h('li', { class: `task ${t.done ? 'checked' : ''}` },
         h('button', { class: 'check', 'aria-label': t.done ? 'もどす' : 'できた', onclick: () => toggle(t) }, t.done ? icon('check') : ''),
         h('button', { class: 'task-label', onclick: () => (t.kind === 'daily' ? startDaily(p) : openStep(p, t, toggle)) },
           h('span', { class: 'chip soft' }, t.pin ? icon('pin') : null, t.tag), ` ${t.label}`,
           t.item ? h('small', {}, ` ${daysLabel(daysUntil(t.item.date))}`) : null))))
       : h('p', { class: 'empty' }, 'まだ ありません。下の「TODO を書く」で足せるよ'),
-    tasks.length > 5 ? h('button', { class: 'link', onclick: () => { todayAll = !todayAll; render(); } }, todayAll ? 'たたむ' : `ぜんぶ見る（あと${tasks.length - 5}こ）`) : null,
+    tasks.length > 5 && !todoOpen ? h('button', { class: 'link', onclick: () => { todayAll = !todayAll; render(); } }, todayAll ? 'たたむ' : `ぜんぶ見る（あと${tasks.length - 5}こ）`) : null,
     h('button', { class: 'link', onclick: () => { goalAdd = true; show('todo'); } }, adult ? '目標・試験を いれる（目標タブへ）' : 'テスト・宿題を いれる（目標タブへ）'));
 }
 
 // 「＋ TODO を書く」: きょうの リストの すぐ下に 大きく出す（おとなは ルーティーンを ふやす と ならぶ）
 function todoAdd(p) {
-  return h('details', { class: 'fold-add todo-add', open: mineFocus || null },
+  return h('details', { class: 'fold-add todo-add', open: todoOpen || mineFocus || null, ontoggle: (e) => { if (e.target.open !== todoOpen) { todoOpen = e.target.open; if (todoOpen) render(); } } },
     h('summary', { class: 'btn' }, icon('plus'), ' TODO を 書く'),
-    h('div', { class: 'card form' }, mineAdder(p, { kids: !isAdult(p), render: () => { mineFocus = true; render(); } })));
+    h('div', { class: 'card form' }, mineAdder(p, { kids: !isAdult(p), render: () => { mineFocus = true; todoOpen = true; toast('リストに 入れたよ'); render(); } })));
 }
 
 // まにあわなそうな宿題（きょう・あした提出、すぎたもの）を ピヨ先生と相談

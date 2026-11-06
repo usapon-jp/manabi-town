@@ -1,7 +1,7 @@
 // じぶんで 書く「きょう やること」。ホームの きょうのリストに まざって出る。
 // チェックで 少しだけポイント（1こ MINE_POINTS、1日 MINE_DAY_CAP まで）。もどすと そのぶん へる。
 // きろくは p.myTodos = { 'YYYY-MM-DD': [{ id, text, done, pts }] }（14日分だけ のこす）
-import { h } from './ui.js';
+import { h, toast } from './ui.js';
 import { today, toISO, save } from './store.js';
 import { icon } from './icons.js';
 
@@ -23,6 +23,8 @@ const earnedToday = (p) => mineToday(p).reduce((s, t) => s + (t.done ? t.pts || 
 export function addMine(p, text) {
   text = String(text || '').trim().slice(0, 40);
   if (!text) return false;
+  // 同じ文字が もう あるときは 足さない
+  if (mineToday(p).some((x) => x.text === text)) { toast('もう 入っているよ'); return false; }
   const all = days(p);
   const key = today();
   // ふるい日は けす
