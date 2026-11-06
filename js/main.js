@@ -239,7 +239,7 @@ function render() {
     renderHome(p);
     if (mineFocus) { mineFocus = false; bubble.querySelector('.mine-input')?.focus(); }
   } else if (tab === 'todo') renderTodo(p);   // タブ名は「目標」: 目標の設定と 進み具合
-  else if (tab === 'quest') (isAdult(p) ? renderRoutineTab(panel, p, { gain, addPoints, deleteButton, render: () => render(), todayCard: () => [todayCard(p)] }) : renderQuest(p));   // タブ名は「やること」: きょうの内容を 見る・足す
+  else if (tab === 'quest') (isAdult(p) ? renderRoutineTab(panel, p, { gain, addPoints, deleteButton, render: () => render(), todayCard: () => [todayCard(p), todoAdd(p)] }) : renderQuest(p));   // タブ名は「やること」: きょうの内容を 見る・足す
   else if (tab === 'timer') renderTimerTab(panel, p, timerDeps);
   else renderSettings(p);
   if (!home && mineFocus) { mineFocus = false; panel.querySelector('.mine-input')?.focus(); }
@@ -714,6 +714,7 @@ function renderQuest(p) {
   fill(panel,
     h('h2', {}, 'やること'),
     todayCard(p),
+    todoAdd(p),
     h('div', { class: 'card quest' },
       h('h3', {}, 'きょうのクエスト'),
       h('p', {}, p.coach?.daily ? `${dailyLabel(p.coach)}。きのう まちがえた問題も もういちど出るよ。せいかい1もん10ポイント、ぜんもんせいかいで +30！` : '漢字・英単語・算数を 3もんずつ。せいかい1もん10ポイント、ぜんもんせいかいで +30！'),
@@ -759,12 +760,16 @@ function todayCard(p) {
         h('button', { class: 'task-label', onclick: () => (t.kind === 'daily' ? startDaily(p) : openStep(p, t, toggle)) },
           h('span', { class: 'chip soft' }, t.pin ? icon('pin') : null, t.tag), ` ${t.label}`,
           t.item ? h('small', {}, ` ${daysLabel(daysUntil(t.item.date))}`) : null))))
-      : h('p', { class: 'empty' }, 'まだ ありません。下の「やることを書く」で足せるよ'),
+      : h('p', { class: 'empty' }, 'まだ ありません。下の「TODO を書く」で足せるよ'),
     tasks.length > 5 ? h('button', { class: 'link', onclick: () => { todayAll = !todayAll; render(); } }, todayAll ? 'たたむ' : `ぜんぶ見る（あと${tasks.length - 5}こ）`) : null,
-    h('details', { class: 'fold-sec', open: mineFocus || null },
-      h('summary', {}, icon('plus'), ' やることを 書く'),
-      mineAdder(p, { kids: !adult, render: () => { mineFocus = true; render(); } })),
     h('button', { class: 'link', onclick: () => { goalAdd = true; show('todo'); } }, adult ? '目標・試験を いれる（目標タブへ）' : 'テスト・宿題を いれる（目標タブへ）'));
+}
+
+// 「＋ TODO を書く」: きょうの リストの すぐ下に 大きく出す（おとなは ルーティーンを ふやす と ならぶ）
+function todoAdd(p) {
+  return h('details', { class: 'fold-add todo-add', open: mineFocus || null },
+    h('summary', { class: 'btn' }, icon('plus'), ' TODO を 書く'),
+    h('div', { class: 'card form' }, mineAdder(p, { kids: !isAdult(p), render: () => { mineFocus = true; render(); } })));
 }
 
 // まにあわなそうな宿題（きょう・あした提出、すぎたもの）を ピヨ先生と相談
