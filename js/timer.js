@@ -180,7 +180,7 @@ async function openBgmPicker(onClose, live = false) {
   const listBox = h('div', { class: 'bgm-list' },
     h('p', { class: 'label' }, icon('list-music'), ' プレイリスト（ながく きく・くりかえし）'),
     list.length ? [
-      h('label', { class: 'bgm-use' }, h('input', { type: 'checkbox', checked: bgm.useList() || null, onchange: (e) => { bgm.setUseList(e.target.checked); again(); } }), ' リストで ながす'),
+      h('label', { class: 'bgm-use' }, h('input', { type: 'checkbox', checked: bgm.useList() || null, onchange: (e) => { bgm.setUseList(e.target.checked); if (live && e.target.checked) bgm.play().catch(() => {}); again(); } }), ' リストで ながす'),
       h('div', { class: 'bgm-modes' }, modes.map(([m, label, ic]) => h('button', { type: 'button', class: `bgm-mode ${bgm.mode() === m ? 'on' : ''}`, onclick: () => { bgm.setMode(m); again(); } }, icon(ic), h('span', {}, label)))),
       h('ol', { class: 'bgm-order' }, list.filter((id) => byId.has(id)).map((id, i, a) => h('li', {},
         h('span', { class: 'bgm-n' }, `${i + 1}`), h('span', { class: 'bgm-t' }, byId.get(id).name),
@@ -190,7 +190,7 @@ async function openBgmPicker(onClose, live = false) {
       : h('p', { class: 'sheet-sub' }, '曲の「＋」を おすと、リストに入るよ'));
   const sel = bgm.selectedId();
   const groups = [['standard', 'いつものBGM'], ['old', '前のタイマーの曲'], ['own', 'とりこんだ曲']];
-  const sheet = h('div', { class: 'sheet', onclick: (e) => { if (e.target === sheet) close(); } },
+  const sheet = h('div', { class: live ? 'sheet bgm-live' : 'sheet', onclick: (e) => { if (e.target === sheet) close(); } },
     h('div', { class: 'sheet-card bgm-card' },
       h('p', { class: 'sheet-title' }, icon('music-2'), ' BGM'),
       listBox,
@@ -332,7 +332,7 @@ function openRunning(p, deps) {
     document.body.append(card);
   }
 
-  function stopAll() { clearInterval(timerId); document.removeEventListener('visibilitychange', tick); bgm.stop(); layer.remove(); }
+  function stopAll() { clearInterval(timerId); document.removeEventListener('visibilitychange', tick); bgm.stop(); document.querySelectorAll('.bgm-live').forEach((el) => el.remove()); layer.remove(); }
 
   function finish(completed) {
     if (ended) return;
