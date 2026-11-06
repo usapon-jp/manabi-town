@@ -1,0 +1,76 @@
+<!doctype html><html><head><meta charset="utf-8"><title>ガチャのサムネイル</title>
+<style>body{margin:0;background:#eee;font:14px sans-serif}#out{display:flex;flex-wrap:wrap;gap:8px;padding:8px}#out figure{margin:0;text-align:center}#out img{width:96px;height:96px;background:#fffaf0;border-radius:18px}</style>
+<script type="importmap">{"imports":{"three":"../vendor/three/three.module.js","three/addons/":"../vendor/three/addons/"}}</script></head><body>
+<p>ガチャの「あつめた もの」に出す 3D の絵を作るページ。ローカルで開くと、表 js/data/gacha.js のぜんぶを描いて、下に並べる（右クリックで保存）。
+自動で作るときは playwright で window.thumbs() を呼ぶと {id: dataURL} が返る。保存先は assets/gacha/&lt;id の : を - に&gt;.webp（192px にちぢめて webp に）</p>
+<div id="out"></div>
+<script type="module">
+import * as THREE from 'three';
+import { ITEMS } from '../js/data/gacha.js';
+import { buildFence } from '../js/structures.js';
+import { buildPiece, PARTS, partBags, bagsAt, bagsMesh } from '../js/pieces.js';
+import { SPECIES, createPlantLayer, stampItems } from '../js/plants.js';
+import { makeWind } from '../js/wind.js';
+import { createCutMask } from '../js/cutmask.js';
+import { propReady } from '../js/props.js';
+
+const S = 256;   // 絵の大きさ（画面では 56〜110px）
+const r = new THREE.WebGLRenderer({ antialias: true, alpha: true, preserveDrawingBuffer: true });
+r.setSize(S, S); r.setPixelRatio(1); r.outputColorSpace = THREE.SRGBColorSpace; r.setClearColor(0x000000, 0);
+const scene = new THREE.Scene();
+scene.add(new THREE.HemisphereLight(0xfff6e6, 0xa8b88a, 1.7));
+const sun = new THREE.DirectionalLight(0xfff1d6, 2.0); sun.position.set(4, 8, 6); scene.add(sun);
+const cam = new THREE.PerspectiveCamera(26, 1, 0.05, 100);
+const wind = makeWind(createCutMask().uniforms);
+
+function model(it) {
+  const g = new THREE.Group();
+  const [kind, name] = it.id.split(':');
+  if (PARTS[it.id]) {
+    const P = PARTS[it.id];
+    const B = partBags(); P.build(bagsAt(B, 0, 0, 0, 0), { w: P.slot === 'sill' ? 0.86 : 1.2 }); g.add(bagsMesh(B));
+  } else if (kind === 'fence') g.add(buildFence({ t: 'fence', style: name, seed: 5, pts: [-0.85, 0, 0, 0.18, 0.85, 0] }).mesh);
+  else if (kind === 'piece') { const p = buildPiece({ k: it.id, x: 0, z: 0, rot: 0, seed: 4 }); if (p) g.add(p.mesh); }
+  else if (kind === 'part' || PARTS[it.id]) {
+    const P = PARTS[it.id]; if (!P) return null;
+    const B = partBags(); P.build(bagsAt(B, 0, 0, 0, 0), { w: P.slot === 'sill' ? 0.86 : 1.2 }); g.add(bagsMesh(B));
+  } else if (kind === 'seed' && SPECIES[it.species]) {
+    const L = createPlantLayer(wind); stampItems(it.species, 0, 0, 7, 0).forEach((x) => L.add({ ...x, k: x.k * 1.1 })); g.add(L.group);
+  } else return null;
+  return g;
+}
+// 地面のかげ（blob）は大きさに入れない
+function boxOf(g) {
+  const box = new THREE.Box3();
+  g.traverse((o) => { if (o.isMesh && !(o.material?.transparent && o.material?.depthWrite === false)) box.expandByObject(o, true); });
+  return box;
+}
+async function shot(it) {
+  let g = null;
+  try { g = model(it); } catch (e) { console.log('skip', it.id, e.message); return null; }
+  if (!g) return null;
+  scene.add(g);
+  await new Promise((ok) => setTimeout(ok, 30));   // 街灯など、あとから中身が入るもの
+  g.updateMatrixWorld(true);
+  const box = boxOf(g); const c = box.getCenter(new THREE.Vector3()); const sz = box.getSize(new THREE.Vector3());
+  const rad = Math.max(sz.x, sz.y, sz.z) * 0.62 + 0.02;
+  const dir = it.slot === 'over' ? new THREE.Vector3(0.7, 0.75, 1) : it.kind === 'part' ? new THREE.Vector3(0.35, 0.18, 1) : new THREE.Vector3(0.75, 0.55, 1);
+  const dist = rad / Math.sin(THREE.MathUtils.degToRad(cam.fov / 2));
+  cam.position.copy(c).addScaledVector(dir.normalize(), dist); cam.lookAt(c);
+  r.render(scene, cam);
+  const url = r.domElement.toDataURL('image/png');
+  scene.remove(g);
+  return url;
+}
+window.thumbs = async () => {
+  await propReady('lamppost');
+  const res = {};
+  for (const it of ITEMS) { const u = await shot(it); if (u) res[it.id] = u; }
+  await new Promise((ok) => setTimeout(ok, 400));   // 街灯の絵（jpeg）が読めるのを待って、もう一度
+  for (const it of ITEMS) { const u = await shot(it); if (u) res[it.id] = u; }
+  const out = document.getElementById('out'); out.replaceChildren();
+  for (const [id, u] of Object.entries(res)) { const f = document.createElement('figure'); const im = new Image(); im.src = u; f.append(im, Object.assign(document.createElement('figcaption'), { textContent: id })); out.append(f); }
+  return res;
+};
+window.ready = true;
+</script></body></html>

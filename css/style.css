@@ -1301,6 +1301,8 @@ input.pin { font-size: 26px; letter-spacing: 0.5em; text-align: center; }
 .g-thumb.r2 { box-shadow: 0 0 0 2px #dfe9c9; }
 .g-thumb.r3 { box-shadow: 0 0 0 3px #f6e2a8; }
 .g-thumb.locked { background: #f3ebdc; border-color: var(--line); color: #c8b79c; box-shadow: none; }
+.g-thumb .g-img { width: 88%; height: 88%; object-fit: contain; pointer-events: none; -webkit-user-select: none; user-select: none; }
+.g-thumb.locked .g-img { filter: brightness(0) opacity(0.16); }
 .g-n { position: absolute; right: -6px; bottom: -6px; font-style: normal; font-size: 11px; font-weight: 700; background: var(--card); border: 1.5px solid var(--line); border-radius: 999px; padding: 0 5px; }
 .g-rates { width: 100%; text-align: left; font-size: 13px; color: var(--ink-soft); }
 .g-rates summary { cursor: pointer; text-align: center; }
