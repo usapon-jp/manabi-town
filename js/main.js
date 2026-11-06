@@ -32,7 +32,8 @@ import { startNotify, notifyCard } from './notify.js';
 import { isAdult, todayRoutines, checkRoutine, renderRoutineTab, consultCta, openConsult, ROUTINE_POINTS } from './adult.js';
 import { subjectNames, subjectColor, openSubjectEditor } from './subjects.js';
 import { moreCard } from './more.js';
-import { diaryCard, diaryWeek } from './diary.js';
+import { openDiary, diaryFab } from './diary.js';
+import { sortPinned, togglePin } from './pins.js';
 import { mineToday, toggleMine, removeMine, mineAdder, MINE_POINTS } from './mytodo.js';
 import { aiPractice, practiceSubjects } from './challenge.js';
 
@@ -49,6 +50,9 @@ const hud = document.getElementById('hud');
 const askFab = h('button', { class: 'ask-fab', type: 'button', hidden: true, 'aria-label': 'ピヨ先生に しつもん', onclick: () => { const p = currentProfile(); if (p) openAsk(p); } },
   h('img', { src: 'assets/icons/icon-192.png', alt: '', width: 34, height: 34 }), h('span', {}, 'しつもん'));
 document.body.append(askFab);
+// 下に固定の「ふりかえり」。いつでも ひらけて、スタンプと 月カレンダーが 見られる
+const diaryBtn = diaryFab(() => { const p = currentProfile(); if (p) openDiary(p, () => diaryStats(p), { render: () => render(), kids: !isAdult(p) }); });
+document.body.append(diaryBtn);
 const bubble = document.getElementById('bubble');
 const pad = document.getElementById('pad');
 bindControls(pad);
@@ -64,6 +68,7 @@ let world = null;
 // null や false の子は入れない
 const fill = (el, ...kids) => el.replaceChildren(...kids.flat().filter((k) => k != null && k !== false));
 let tab = 'home';
+let todayAll = false;   // 「やること」のリストを ぜんぶ 見せる
 let goalAdd = false;   // 「目標」タブで 入れるフォームを ひらいて見せる（ホームの ＋ ボタンから）
 
 // 起動画面は、勉強の画面ができたらすぐ消す。3Dの草原は そのあと裏で読み込む（起動を早くするため）
@@ -197,7 +202,7 @@ function show(next) {
 
 function render() {
   const p = currentProfile();
-  if (!p) { askFab.hidden = true; renderWelcome(); return; }
+  if (!p) { askFab.hidden = true; diaryBtn.hidden = true; renderWelcome(); return; }
   // むかしの宿題（3ページで1ステップ）をページ単位に
   if (p.items.map(migrateHomework).some(Boolean)) save();
   const lv = levelOf(p);
@@ -219,6 +224,8 @@ function render() {
   );
   hud.hidden = false;
   askFab.hidden = tab === 'home';
+  diaryBtn.hidden = tab === 'home' || tab === 'timer';
+  diaryBtn.paint(p);
   document.querySelector('.tabs').hidden = false;
   menuBtn.hidden = false;
   document.body.dataset.tab = tab;
@@ -232,7 +239,7 @@ function render() {
     renderHome(p);
     if (mineFocus) { mineFocus = false; bubble.querySelector('.mine-input')?.focus(); }
   } else if (tab === 'todo') renderTodo(p);   // タブ名は「目標」: 目標の設定と 進み具合
-  else if (tab === 'quest') (isAdult(p) ? renderRoutineTab(panel, p, { gain, addPoints, deleteButton, render: () => render(), todayCard: () => [todayCard(p), diaryFor(p)] }) : renderQuest(p));   // タブ名は「やること」: きょうの内容を 見る・足す
+  else if (tab === 'quest') (isAdult(p) ? renderRoutineTab(panel, p, { gain, addPoints, deleteButton, render: () => render(), todayCard: () => [todayCard(p)] }) : renderQuest(p));   // タブ名は「やること」: きょうの内容を 見る・足す
   else if (tab === 'timer') renderTimerTab(panel, p, timerDeps);
   else renderSettings(p);
   if (!home && mineFocus) { mineFocus = false; panel.querySelector('.mine-input')?.focus(); }
@@ -282,10 +289,10 @@ function homeTasks(p) {
   // じぶんで 書いた やること（TODO、いちばん うしろ）
   const mine = mineToday(p).map((m) => ({ kind: 'mine', id: m.id, label: m.text, tag: 'TODO', done: m.done }));
   // おとなは 子ども用クエストのかわりに ルーティーン
-  if (adult) return [...todayRoutines(p), ...steps, ...mine];
+  if (adult) return sortPinned(p, [...todayRoutines(p), ...steps, ...mine]);
   // きょう提出（すぎたものも）の宿題は、クエストより先に
   const due = (t) => t.item.type === 'homework' && daysUntil(t.item.date) <= 0;
-  return [...steps.filter(due), daily, ...steps.filter((t) => !due(t)), ...mine];
+  return sortPinned(p, [...steps.filter(due), daily, ...steps.filter((t) => !due(t)), ...mine]);
 }
 
 // チェックをつける・もどす
@@ -388,7 +395,7 @@ function renderHome(p) {
   const list = h('ul', { class: 'tasks' }, tasks.map((t) => h('li', { class: `task ${t.done ? 'checked' : ''}` },
     h('button', { class: 'check', 'aria-label': t.done ? 'もどす' : 'できた', onclick: () => toggle(t) }, t.done ? icon('check') : ''),
     h('button', { class: 'task-label', onclick: () => (t.kind === 'daily' ? show('quest') : openStep(p, t, toggle)) },
-      h('span', { class: 'chip soft' }, t.tag), ` ${t.label}`,
+      h('span', { class: 'chip soft' }, t.pin ? icon('pin') : null, t.tag), ` ${t.label}`,
       t.item ? h('small', {}, ` ${daysLabel(daysUntil(t.item.date))}`) : null))));
 
   bubble.classList.toggle('mini', !cardOpen);
@@ -492,8 +499,15 @@ function openStep(p, t, toggle) {
         ? h('button', { class: 'btn', onclick: () => { close(); toggle(t); } }, 'まだだった（もどす）')
         : h('button', { class: 'btn primary big-btn', onclick: () => { close(); startTimer(p, { kind: kindForItem(t.item), subject: t.item.subject, item: t.item, stepLabel: t.label }, timerDeps); } }, icon('clock-3'), ' タイマーで はじめる'),
       t.done ? null : h('button', { class: 'btn', onclick: () => { close(); toggle(t); } }, 'もう できた！ ', icon('sprout'), '+10'),
+      t.done ? null : pinButton(p, t, close),
       h('button', { class: 'link', onclick: close }, 'あとで')));
   document.body.append(sheet);
+}
+
+// ピン留め（きょう 優先したい ことを いちばん上に）ボタン
+function pinButton(p, t, close) {
+  return h('button', { class: 'btn', onclick: () => { close(); togglePin(p, t); toast(t.pin ? 'ピンを はずしたよ' : 'いちばん上に 出すよ'); render(); } },
+    icon('pin'), t.pin ? ' ピンを はずす' : ' きょう 優先（ピン留め）');
 }
 
 // じぶんで 書いた やることの小さな画面（できた・タイマー・けす）
@@ -507,6 +521,7 @@ function openMine(p, t, toggle) {
         ? h('button', { class: 'btn', onclick: () => { close(); toggle(t); } }, 'まだだった（もどす）')
         : h('button', { class: 'btn primary big-btn', onclick: () => { close(); toggle(t); } }, icon('check'), ' できた！ ', icon('sprout'), `+${MINE_POINTS}`),
       t.done ? null : h('button', { class: 'btn', onclick: () => { close(); startTimer(p, { stepLabel: t.label }, timerDeps); } }, icon('clock-3'), ' タイマーで はじめる'),
+      pinButton(p, t, close),
       h('button', { class: 'link', onclick: () => { close(); removeMine(p, t.id, addPoints); render(); } }, 'リストから けす'),
       h('button', { class: 'link', onclick: close }, 'とじる')));
   document.body.append(sheet);
@@ -523,6 +538,7 @@ function openRoutine(p, t, toggle) {
         ? h('button', { class: 'btn', onclick: () => { close(); toggle(t); } }, 'まだだった（もどす）')
         : h('button', { class: 'btn primary big-btn', onclick: () => { close(); toggle(t); } }, icon('check'), ' できた！ ', icon('sprout'), `+${ROUTINE_POINTS}`),
       t.done ? null : h('button', { class: 'btn', onclick: () => { close(); show('timer'); } }, icon('clock-3'), ' タイマーで はかる'),
+      pinButton(p, t, close),
       h('button', { class: 'link', onclick: close }, 'あとで')));
   document.body.append(sheet);
 }
@@ -609,13 +625,12 @@ function renderTodo(p) {
       form),
     open.length ? h('h3', {}, 'いれたもの') : null,
     open.length ? h('ul', { class: 'items' }, open.map(card)) : null,
-    h('h3', {}, '進み具合'),
     rangeCard ? h('div', { class: 'card' }, rangeCard) : null,
-    h('div', { class: 'card prog-view' }, progressParts(p)),
-    diaryWeek(p),
+    h('details', { class: 'fold-sec' },
+      h('summary', {}, icon('chart-column'), ' 進み具合（レベル・時間）'),
+      h('div', { class: 'card prog-view' }, progressParts(p))),
     adult ? null : rescueCard(p),
-    adult ? null : scheduleCard(p),
-    adult ? null : scoreCard(p),
+    adult ? null : h('details', { class: 'fold-sec' }, h('summary', {}, icon('calendar-check'), ' これからの予定・実力テスト'), scheduleCard(p), scoreCard(p)),
     done.length ? h('details', { class: 'done' }, h('summary', {}, 'おわったもの'), h('ul', { class: 'items' }, done.map(card))) : null,
   );
 }
@@ -699,7 +714,6 @@ function renderQuest(p) {
   fill(panel,
     h('h2', {}, 'やること'),
     todayCard(p),
-    diaryFor(p),
     h('div', { class: 'card quest' },
       h('h3', {}, 'きょうのクエスト'),
       h('p', {}, p.coach?.daily ? `${dailyLabel(p.coach)}。きのう まちがえた問題も もういちど出るよ。せいかい1もん10ポイント、ぜんもんせいかいで +30！` : '漢字・英単語・算数を 3もんずつ。せいかい1もん10ポイント、ぜんもんせいかいで +30！'),
@@ -710,6 +724,7 @@ function renderQuest(p) {
       h('button', { class: 'btn primary', onclick: start }, result ? 'もういちど れんしゅう' : 'はじめる')),
     missCard(p),
     moreCard(p, moreDeps),
+    h('details', { class: 'fold-sec' }, h('summary', {}, icon('notebook-pen'), ' やりなおし・小テスト・しつもん'),
     reviewCard(p),
     weakCard(p),
     h('h3', {}, '小テスト'),
@@ -721,13 +736,13 @@ function renderQuest(p) {
         h('button', { class: 'btn', onclick: () => openAsk(p) }, icon('camera'), ' しつもん'),
         h('button', { class: 'btn', onclick: () => openAsk(p, { mode: 'zu' }) }, icon('shapes'), ' 図で'),
         h('button', { class: 'btn', onclick: () => openAsk(p, { mode: 'yomu' }) }, icon('volume-2'), ' 読み上げ'),
-        h('button', { class: 'btn', onclick: () => openAsk(p, { mode: 'talk' }) }, icon('languages'), ' 英会話'))));
+        h('button', { class: 'btn', onclick: () => openAsk(p, { mode: 'talk' }) }, icon('languages'), ' 英会話')))));
 }
 
-// きょうの ふりかえり（自動まとめ＋スタンプ＋ひとこと）
-function diaryFor(p) {
+// きょうの ふりかえり用の まとめ（できた数・勉強の分）
+function diaryStats(p) {
   const tasks = homeTasks(p);
-  return diaryCard(p, { done: tasks.filter((t) => t.done).length, total: tasks.length, minutes: minutesOn(p, today()) }, { render, kids: !isAdult(p) });
+  return { done: tasks.filter((t) => t.done).length, total: tasks.length, minutes: minutesOn(p, today()) };
 }
 
 // 「やること」のいちばん上: きょうの リスト。チェックも、書いて たすのも ここで（ホームと同じ中身）
@@ -739,13 +754,16 @@ function todayCard(p) {
   return h('div', { class: 'card quest today-card' },
     h('h3', {}, `きょうの リスト ${doneN} / ${tasks.length}`),
     tasks.length
-      ? h('ul', { class: 'tasks' }, tasks.map((t) => h('li', { class: `task ${t.done ? 'checked' : ''}` },
+      ? h('ul', { class: 'tasks' }, (todayAll ? tasks : tasks.slice(0, 5)).map((t) => h('li', { class: `task ${t.done ? 'checked' : ''}` },
         h('button', { class: 'check', 'aria-label': t.done ? 'もどす' : 'できた', onclick: () => toggle(t) }, t.done ? icon('check') : ''),
         h('button', { class: 'task-label', onclick: () => (t.kind === 'daily' ? startDaily(p) : openStep(p, t, toggle)) },
-          h('span', { class: 'chip soft' }, t.tag), ` ${t.label}`,
+          h('span', { class: 'chip soft' }, t.pin ? icon('pin') : null, t.tag), ` ${t.label}`,
           t.item ? h('small', {}, ` ${daysLabel(daysUntil(t.item.date))}`) : null))))
       : h('p', { class: 'empty' }, 'まだ ありません。下の「やることを書く」で足せるよ'),
-    mineAdder(p, { kids: !adult, render: () => { mineFocus = true; render(); } }),
+    tasks.length > 5 ? h('button', { class: 'link', onclick: () => { todayAll = !todayAll; render(); } }, todayAll ? 'たたむ' : `ぜんぶ見る（あと${tasks.length - 5}こ）`) : null,
+    h('details', { class: 'fold-sec', open: mineFocus || null },
+      h('summary', {}, icon('plus'), ' やることを 書く'),
+      mineAdder(p, { kids: !adult, render: () => { mineFocus = true; render(); } })),
     h('button', { class: 'link', onclick: () => { goalAdd = true; show('todo'); } }, adult ? '目標・試験を いれる（目標タブへ）' : 'テスト・宿題を いれる（目標タブへ）'));
 }
 
