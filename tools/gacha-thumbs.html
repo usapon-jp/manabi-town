@@ -73,4 +73,5 @@ window.thumbs = async () => {
   return res;
 };
 window.ready = true;
+if (!navigator.webdriver) window.thumbs();   // 手で開いたときは、すぐ描いて下に並べる
 </script></body></html>
