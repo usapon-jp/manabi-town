@@ -318,19 +318,20 @@ export function renderRoutineTab(panel, p, deps) {
   };
 
   panel.replaceChildren(...[
-    h('h2', {}, 'ルーティーン'),
-    consultCta(p, deps),
+    h('h2', {}, deps.todayCard ? 'やること' : 'ルーティーン'),
+    deps.todayCard ? null : consultCta(p, deps),
     all.some((r) => r.time) ? notifyCard(p, { rerender: deps.render }) : null,
     ...weeklies.map((r) => weeklyCard(p, r, check)),
-    daily.length || !weeklies.length ? h('div', { class: 'card quest' },
+    ...(deps.todayCard ? deps.todayCard() : []),
+    !deps.todayCard && (daily.length || !weeklies.length ? h('div', { class: 'card quest' },
       h('h3', {}, `きょうの分 ${doneN} / ${list.length}`),
       list.length
         ? h('ul', { class: 'tasks' }, list.map((t) => h('li', { class: `task ${t.done ? 'checked' : ''}` },
           h('button', { class: 'check', 'aria-label': t.done ? 'もどす' : 'できた', onclick: () => check(t.r) }, t.done ? icon('check') : ''),
           h('button', { class: 'task-label', onclick: () => check(t.r) }, h('span', { class: 'chip soft' }, t.r.when || 'いつでも'), ` ${t.label}`))))
         : h('p', { class: 'empty' }, all.length ? 'きょうの曜日の ルーティーンは ありません' : 'まだ ありません。下で足すか、ピヨと相談して決めましょう'),
-      daily.length ? h('p', { class: 'cleared' }, `この30日で ぜんぶできた日: ${fullDays(p)}日`) : null) : null,
-    addForm,
+      daily.length ? h('p', { class: 'cleared' }, `この30日で ぜんぶできた日: ${fullDays(p)}日`) : null) : null),
+    h('details', { class: 'fold-add' }, h('summary', { class: 'btn' }, icon('plus'), ' ルーティーンを ふやす'), addForm),
     all.length ? h('details', { class: 'card form' },
       h('summary', {}, `入れているルーティーン（${all.length}）・なおす`),
       h('ul', { class: 'items' }, all.map(row))) : null,

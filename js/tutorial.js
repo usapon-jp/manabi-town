@@ -6,13 +6,13 @@ import { icon } from './icons.js';
 const STEPS = [
   { text: 'スティックで ピヨを動かそう', target: () => document.getElementById('joy'), tap: 'any', pad: 8 },
   { text: 'ジャンプと ダッシュ', target: () => padButtons(), tap: 'any', pad: 8 },
-  { text: 'テストや宿題を 入れよう', target: () => tab('todo'), tap: 'target', open: 'todo' },
-  { text: 'ざっくりでOK。毎日の分に わけるよ', target: () => document.querySelector('form.card'), tap: 'any', pad: 6 },
+  { text: '目標・テスト・宿題は ここ', target: () => tab('todo'), tap: 'target', open: 'todo' },
+  { text: 'ここから 入れるよ。毎日の分に わけるよ', target: () => document.querySelector('.goal-add > summary'), tap: 'any', pad: 6 },
   { text: 'ホームに もどろう', target: () => tab('home'), tap: 'target', open: 'home' },
   { text: 'きょうのクエストは ここ。数字は のこりだよ', target: () => document.querySelector('.quest-mark') || document.querySelector('.go'), tap: 'any', pad: 6 },
   { text: '毎日つづけて れんぞく日数を のばそう', target: () => document.querySelector('.hud .stats'), tap: 'any', pad: 6 },
   { text: 'ポイントを もっと ほしいときは ここ', target: () => document.querySelector('.bonus-btn'), tap: 'any', pad: 6 },
-  { text: '勉強は ここ。勉強する・進み具合・作戦会議の 3つが あるよ', target: () => tab('quest'), tap: 'target', open: 'quest' },
+  { text: 'きょうの やることは ここ。書いて ふやせるよ', target: () => tab('quest'), tap: 'target', open: 'quest' },
   { text: 'タイマーで 勉強を計ろう', target: () => tab('timer'), tap: 'target', open: 'timer' },
 ];
 
