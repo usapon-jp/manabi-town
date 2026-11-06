@@ -54,6 +54,7 @@ bindControls(pad);
 let cardOpen = false;   // ホームの「きょうのカード」。ふだんは たたんで、バッジつきのマークだけ
 let lastStamp = '';     // さっきスタンプをおしたマス（ポンと出す）
 let listOpen = false;
+let mineOpen = false;    // 「＋ TODO」で 書くところを ひらく
 let mineFocus = false;   // じぶんで書いたあと、また すぐ書けるように
 let lastDone = '';
 const tabs = document.querySelectorAll('.tabs button');
@@ -424,8 +425,9 @@ function renderHome(p) {
       h('details', { class: 'all-tasks', open: listOpen || null, ontoggle: (e) => { listOpen = e.target.open; } },
         h('summary', {}, 'きょうのリスト'),
         list,
-        mineAdder(p, { kids: !isAdult(p), render: () => { listOpen = true; mineFocus = true; render(); } }),
+        mineOpen ? mineAdder(p, { kids: !isAdult(p), render: () => { listOpen = true; mineFocus = true; render(); } }) : null,
         h('button', { class: 'btn small', 'data-tour': 'add', onclick: () => show(isAdult(p) ? 'quest' : 'todo') }, isAdult(p) ? '＋ ルーティーン' : '＋ テスト・宿題・目標'),
+        h('button', { class: 'btn small', onclick: () => { mineOpen = true; listOpen = true; mineFocus = true; render(); } }, '＋ TODO'),
         isAdult(p) ? h('button', { class: 'btn small', onclick: () => show('todo') }, '＋ 目標・試験') : null),
     )),
   );
