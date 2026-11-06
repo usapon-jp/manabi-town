@@ -364,7 +364,7 @@ export function createEditor({ container, scene, cut, wind, pick, rotate, setWal
     const a = b.dataset.a;
     if (a === 'toggle') setEditing(!st.editing);
     else if (a === 'done') setEditing(false);
-    else if (a === 'tool') { st.tool = b.dataset.v; refreshButtons(); }
+    else if (a === 'tool') { st.tool = b.dataset.v; refreshButtons(); if (st.tool === 'move') say('たてものや おきものを タップ → 「バッグに しまう」'); }
     else if (a === 'size') { st.size = (st.size + 1) % BRUSH.length; refreshButtons(); }
     else if (a === 'left') rotate(-0.45);
     else if (a === 'right') rotate(0.45);
@@ -643,7 +643,7 @@ export function createEditor({ container, scene, cut, wind, pick, rotate, setWal
       <div class="lcard"><p class="lt">レベル ${q.lv}！！</p>
       <p class="ln">${announceText(q.label)}</p>
       <div class="lpic">${art}<span class="spark s1">✦</span><span class="spark s2">✦</span><span class="spark s3">✦</span></div>
-      <p class="lh">つくる → うごかす で ならべかえ</p><button type="button">やったね！</button></div>`;
+      <p class="lh">しまう・うごかす:<br>つくる → うごかす → たてものを タップ</p><button type="button">やったね！</button></div>`;
     const done = () => { el.remove(); levelShowing = false; setTimeout(showLevel, 350); };
     el.addEventListener('click', (e) => { if (e.target === el || e.target.closest('button')) done(); });
     document.body.appendChild(el);
