@@ -1581,3 +1581,16 @@ input.pin { font-size: 26px; letter-spacing: 0.5em; text-align: center; }
 @media (max-width: 340px) { .study-tab b { font-size: 13px; } .study-tab .st-ic { width: 34px; height: 34px; } }
 /* iPhone SE（320はば）では しつもんの4つのボタンを 2れつに */
 @media (max-width: 360px) { .ask-quick { grid-template-columns: repeat(2, 1fr); } }
+
+/* じぶんで 書く「きょう やること」 */
+.mine-add { display: grid; gap: 8px; margin: 0 0 12px; }
+.mine-row { display: flex; gap: 8px; align-items: center; }
+.mine-input { flex: 1; min-width: 0; font: inherit; font-size: 16px; padding: 10px 12px; border: 2px solid var(--line); border-radius: 14px; background: #fff; color: var(--ink); }
+.mine-input:focus { outline: none; border-color: var(--accent); }
+.all-tasks .mine-btn { margin-top: 0; width: 44px; height: 44px; padding: 0; display: grid; place-items: center; border-radius: 14px; }
+.mine-chips { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.mine-chips small { font-size: 12px; color: var(--ink-soft); margin-right: 2px; }
+.mine-chip { font: inherit; font-size: 13px; font-weight: 500; padding: 5px 10px; border-radius: 999px; border: 1.5px solid var(--line); background: #fff; color: var(--ink); cursor: pointer; }
+.mine-chip.left { border-color: #e6c27a; background: #fff8e6; }
+.mine-chip .ic { width: 13px; height: 13px; vertical-align: -2px; }
+.mine-note { margin: 0; font-size: 12px; color: var(--ink-soft); }

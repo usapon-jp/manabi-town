@@ -32,6 +32,7 @@ import { startNotify, notifyCard } from './notify.js';
 import { isAdult, todayRoutines, checkRoutine, renderRoutineTab, consultCta, openConsult, ROUTINE_POINTS } from './adult.js';
 import { subjectNames, subjectColor, openSubjectEditor } from './subjects.js';
 import { moreCard } from './more.js';
+import { mineToday, toggleMine, removeMine, mineAdder, MINE_POINTS } from './mytodo.js';
 import { aiPractice, practiceSubjects } from './challenge.js';
 
 const POINTS_HOMEWORK = 20;
@@ -53,6 +54,7 @@ bindControls(pad);
 let cardOpen = false;   // ホームの「きょうのカード」。ふだんは たたんで、バッジつきのマークだけ
 let lastStamp = '';     // さっきスタンプをおしたマス（ポンと出す）
 let listOpen = false;
+let mineFocus = false;   // じぶんで書いたあと、また すぐ書けるように
 let lastDone = '';
 const tabs = document.querySelectorAll('.tabs button');
 let world = null;
@@ -226,6 +228,7 @@ function render() {
   bubble.hidden = !home;
   pad.hidden = !home;
   if (home) renderHome(p);
+  if (home && mineFocus) { mineFocus = false; bubble.querySelector('.mine-input')?.focus(); }
   else if (tab === 'todo') renderTodo(p);
   else if (tab === 'quest') (isAdult(p) ? renderRoutineTab(panel, p, { gain, addPoints, deleteButton, render: () => render() }) : renderQuest(p));
   else if (tab === 'timer') renderTimerTab(panel, p, timerDeps);
@@ -282,16 +285,25 @@ function homeTasks(p) {
     kind: 'step', item, st, label: st.label, done: st.done,
     tag: adult ? `${item.subject}・${item.type === 'test' ? '試験' : '目標'}` : `${item.subject}${item.type === 'test' ? 'テスト' : item.type === 'goal' ? '目標' : '宿題'}`,
   })));
+  // じぶんで 書いた やること（いちばん うしろ）
+  const mine = mineToday(p).map((m) => ({ kind: 'mine', id: m.id, label: m.text, tag: 'じぶん', done: m.done }));
   // おとなは 子ども用クエストのかわりに ルーティーン
-  if (adult) return [...todayRoutines(p), ...steps];
+  if (adult) return [...todayRoutines(p), ...steps, ...mine];
   // きょう提出（すぎたものも）の宿題は、クエストより先に
   const due = (t) => t.item.type === 'homework' && daysUntil(t.item.date) <= 0;
-  return [...steps.filter(due), daily, ...steps.filter((t) => !due(t))];
+  return [...steps.filter(due), daily, ...steps.filter((t) => !due(t)), ...mine];
 }
 
 // チェックをつける・もどす
 function toggleTask(p, t) {
   if (t.kind === 'daily') { studyView = 'do'; show('quest'); return; }
+  if (t.kind === 'mine') {
+    const was = t.done;
+    toggleMine(p, t.id, { gain, addPoints });
+    lastDone = was ? '' : t.label;
+    render();
+    return;
+  }
   if (t.kind === 'routine') {
     const on = checkRoutine(p, t.r, { gain, addPoints, render: () => render() });
     lastDone = on ? t.label : '';
@@ -411,6 +423,7 @@ function renderHome(p) {
       h('details', { class: 'all-tasks', open: listOpen || null, ontoggle: (e) => { listOpen = e.target.open; } },
         h('summary', {}, 'きょうのリスト'),
         list,
+        mineAdder(p, { kids: !isAdult(p), render: () => { listOpen = true; mineFocus = true; render(); } }),
         h('button', { class: 'btn small', 'data-tour': 'add', onclick: () => show(isAdult(p) ? 'quest' : 'todo') }, isAdult(p) ? '＋ ルーティーン' : '＋ テスト・宿題・目標'),
         isAdult(p) ? h('button', { class: 'btn small', onclick: () => show('todo') }, '＋ 目標・試験') : null),
     )),
@@ -473,6 +486,7 @@ const rangeDeps = (p) => ({ startStep: (item, label) => startTimer(p, { kind: ki
 // 1つのステップに集中する小さな画面（やったら「できた！」）
 function openStep(p, t, toggle) {
   if (t.kind === 'routine') { openRoutine(p, t, toggle); return; }
+  if (t.kind === 'mine') { openMine(p, t, toggle); return; }
   const close = () => sheet.remove();
   const sheet = h('div', { class: 'sheet', onclick: (e) => { if (e.target === sheet) close(); } },
     h('div', { class: 'sheet-card' },
@@ -484,6 +498,22 @@ function openStep(p, t, toggle) {
         : h('button', { class: 'btn primary big-btn', onclick: () => { close(); startTimer(p, { kind: kindForItem(t.item), subject: t.item.subject, item: t.item, stepLabel: t.label }, timerDeps); } }, icon('clock-3'), ' タイマーで はじめる'),
       t.done ? null : h('button', { class: 'btn', onclick: () => { close(); toggle(t); } }, 'もう できた！ ', icon('sprout'), '+10'),
       h('button', { class: 'link', onclick: close }, 'あとで')));
+  document.body.append(sheet);
+}
+
+// じぶんで 書いた やることの小さな画面（できた・タイマー・けす）
+function openMine(p, t, toggle) {
+  const close = () => sheet.remove();
+  const sheet = h('div', { class: 'sheet', onclick: (e) => { if (e.target === sheet) close(); } },
+    h('div', { class: 'sheet-card' },
+      h('span', { class: 'chip' }, t.tag),
+      h('p', { class: 'sheet-title' }, t.label),
+      t.done
+        ? h('button', { class: 'btn', onclick: () => { close(); toggle(t); } }, 'まだだった（もどす）')
+        : h('button', { class: 'btn primary big-btn', onclick: () => { close(); toggle(t); } }, icon('check'), ' できた！ ', icon('sprout'), `+${MINE_POINTS}`),
+      t.done ? null : h('button', { class: 'btn', onclick: () => { close(); startTimer(p, { stepLabel: t.label }, timerDeps); } }, icon('clock-3'), ' タイマーで はじめる'),
+      h('button', { class: 'link', onclick: () => { close(); removeMine(p, t.id, addPoints); render(); } }, 'リストから けす'),
+      h('button', { class: 'link', onclick: close }, 'とじる')));
   document.body.append(sheet);
 }
 
