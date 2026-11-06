@@ -12,7 +12,7 @@ const STEPS = [
   { text: 'きょうのクエストは ここ。数字は のこりだよ', target: () => document.querySelector('.quest-mark') || document.querySelector('.go'), tap: 'any', pad: 6 },
   { text: '毎日つづけて れんぞく日数を のばそう', target: () => document.querySelector('.hud .stats'), tap: 'any', pad: 6 },
   { text: 'ポイントを もっと ほしいときは ここ', target: () => document.querySelector('.bonus-btn'), tap: 'any', pad: 6 },
-  { text: '毎日のクエストは ここ', target: () => tab('quest'), tap: 'target', open: 'quest' },
+  { text: '勉強は ここ。勉強する・進み具合・作戦会議の 3つが あるよ', target: () => tab('quest'), tap: 'target', open: 'quest' },
   { text: 'タイマーで 勉強を計ろう', target: () => tab('timer'), tap: 'target', open: 'timer' },
 ];
 
