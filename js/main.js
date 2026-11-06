@@ -429,7 +429,9 @@ function renderHome(p) {
         h('button', { class: 'btn small', 'data-tour': 'add', onclick: () => { goalAdd = !isAdult(p); show(isAdult(p) ? 'quest' : 'todo'); } }, isAdult(p) ? '＋ ルーティーン' : '＋ テスト・宿題・目標'),
         h('button', { class: 'btn small', onclick: () => { mineOpen = true; listOpen = true; mineFocus = true; render(); } }, '＋ TODO'),
         isAdult(p) ? h('button', { class: 'btn small', onclick: () => { goalAdd = true; show('todo'); } }, '＋ 目標・試験') : null),
-    )),
+    ),
+    // 下に ついてくる「とじる」（リストを ひらいて 下へ スクロールしても 上の × が 見えなくなるので）
+    h('button', { class: 'card-close', onclick: () => { cardOpen = false; render(); } }, icon('chevron-up'), ' とじる')),
   );
 }
 

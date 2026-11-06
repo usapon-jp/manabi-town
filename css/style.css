@@ -1666,3 +1666,7 @@ input.pin { font-size: 26px; letter-spacing: 0.5em; text-align: center; }
 .todo-add { margin-top: -4px; }
 .todo-add > summary { background: var(--accent); border-color: var(--accent-dark); color: #fff; }
 .todo-add > summary .ic { color: #fff; }
+
+/* ホームのカード: 下へ スクロールしても 見える「とじる」 */
+.card-close { position: sticky; bottom: -14px; z-index: 3; display: flex; align-items: center; justify-content: center; gap: 4px; width: 100%; margin-top: 10px; padding: 10px; border-radius: 16px; border: 2px solid var(--line); background: #fffdf5; color: var(--navy); font: inherit; font-size: 14px; font-weight: 700; cursor: pointer; }
+.card-close .ic { width: 18px; height: 18px; }
