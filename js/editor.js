@@ -19,7 +19,7 @@ import { buildingArt } from './townart.js';
 import { BRIDGE_MIN } from './structures.js';
 import { icon } from './icons.js';
 
-const MAX_OPS = 300;      // 覚えておく操作の数（保存の大きさをおさえる）
+const MAX_OPS = 800;      // 覚えておく操作の数（保存の大きさをおさえる）
 const MAX_PTS = 400;      // ひとなぞりの点の数
 const MIN_STEP = 0.35;    // 点を打つ最小のきょり（m）。細かすぎると保存が重い
 const RING_STEP = 0.5;
@@ -364,7 +364,7 @@ export function createEditor({ container, scene, cut, wind, pick, rotate, setWal
     const a = b.dataset.a;
     if (a === 'toggle') setEditing(!st.editing);
     else if (a === 'done') setEditing(false);
-    else if (a === 'tool') { st.tool = b.dataset.v; refreshButtons(); }
+    else if (a === 'tool') { st.tool = b.dataset.v; refreshButtons(); if (st.tool === 'move') say('たてものや おきものを タップ → 「バッグに しまう」'); }
     else if (a === 'size') { st.size = (st.size + 1) % BRUSH.length; refreshButtons(); }
     else if (a === 'left') rotate(-0.45);
     else if (a === 'right') rotate(0.45);
@@ -495,9 +495,23 @@ export function createEditor({ container, scene, cut, wind, pick, rotate, setWal
   }
 
   // ---- 操作 ----
+  // 同じ建物・おきものの「うごかす／まわす／しまう」は、さいごの値だけ残せば同じ結果になる。まとめて数をへらす
+  function compactMoves(list) {
+    const first = new Map();
+    for (let i = 0; i < list.length; i++) {
+      const o = list[i];
+      if (o.t !== 'town' && o.t !== 'pmove') continue;
+      const k = o.t === 'town' ? `t:${o.id}` : `p:${o.hx},${o.hz}`;
+      const f = first.get(k);
+      if (f == null) { first.set(k, i); continue; }
+      Object.assign(list[f], o);
+      list.splice(i, 1); i--;
+    }
+  }
   function commit(op) {
     const list = ops();
     if (!list) return false;
+    if (list.length >= MAX_OPS) compactMoves(list);   // 建物の移動・回転のくり返しを1つにまとめて、あきを作る
     if (list.length >= MAX_OPS) { say('もう いっぱい！ もどして へらしてね'); replay(); return false; }
     list.push(op);
     save();              // 自動保存
@@ -643,7 +657,7 @@ export function createEditor({ container, scene, cut, wind, pick, rotate, setWal
       <div class="lcard"><p class="lt">レベル ${q.lv}！！</p>
       <p class="ln">${announceText(q.label)}</p>
       <div class="lpic">${art}<span class="spark s1">✦</span><span class="spark s2">✦</span><span class="spark s3">✦</span></div>
-      <p class="lh">つくる → うごかす で ならべかえ</p><button type="button">やったね！</button></div>`;
+      <p class="lh">しまう・うごかす:<br>つくる → うごかす → たてものを タップ</p><button type="button">やったね！</button></div>`;
     const done = () => { el.remove(); levelShowing = false; setTimeout(showLevel, 350); };
     el.addEventListener('click', (e) => { if (e.target === el || e.target.closest('button')) done(); });
     document.body.appendChild(el);

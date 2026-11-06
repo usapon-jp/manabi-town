@@ -66,6 +66,7 @@ function buildRing(op) {
 //   pmove   … おきものを動かす・しまう {hx,hz, x?, z?, rot?, stored?}
 //   town    … 町の建物（レベルで出る）を動かす・しまう {id, x?, z?, rot?, stored?}
 // 「もどす」は最後の操作をすてるだけで、前の形にもどる。
+const TOWN_POND = { id: 'town:2', x: -9.5, z: 3.5, r: 2.4 };
 export function foldAll(ops) {
   const places = [];
   const out = [];
@@ -89,6 +90,10 @@ export function foldAll(ops) {
       const { t, id, ...rest } = op;
       town.set(id, { ...(town.get(id) || {}), ...rest });
       continue;
+    }
+    // 町の池（レベル3）は「うめる」でなぞると、うめたてられる（しまった扱いにして消す）
+    if (op.t === 'fill' && op.pts.some((v, i) => i % 2 === 0 && Math.hypot(v - TOWN_POND.x, op.pts[i + 1] - TOWN_POND.z) < TOWN_POND.r + op.r + 0.4)) {
+      town.set(TOWN_POND.id, { ...(town.get(TOWN_POND.id) || {}), stored: true });
     }
     out.push(op);
   }
@@ -140,6 +145,7 @@ export function createBuilds({ scene, wind, cut, setWalls, setTown }) {
       batching = true;
       const { eff, town } = foldAll(ops);
       setTown?.(town);
+      cut.setSourcesOff?.(!!town.get(TOWN_POND.id)?.stored);   // うめた池には、水を流さない
       for (const op of eff) if (op.t === 'dig' || op.t === 'pond' || op.t === 'fill') apply(op);   // 高さが決まってから、花やかこみを置く
       for (const op of eff) if (op.t !== 'dig' && op.t !== 'pond' && op.t !== 'fill') apply(op);
       batching = false;

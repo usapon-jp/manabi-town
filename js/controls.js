@@ -42,6 +42,20 @@ export function bindControls(root) {
   };
   joy.addEventListener('pointerup', end);
   joy.addEventListener('pointercancel', end);
+  joy.addEventListener('lostpointercapture', end);
+  // 指がはなれた合図が来なかったときも、スティックを戻す（勝手に走り続けない）
+  const release = () => {
+    if (id === null && input.jx === 0 && input.jy === 0) return;
+    id = null;
+    knob.style.transform = '';
+    joy.classList.remove('act');
+    input.jx = 0; input.jy = 0;
+    if (input.dashLatch) stopDash();
+  };
+  window.addEventListener('pointerup', (e) => { if (e.pointerId === id) end(e); });
+  window.addEventListener('pointercancel', (e) => { if (e.pointerId === id) end(e); });
+  window.addEventListener('blur', release);
+  document.addEventListener('visibilitychange', () => { if (document.hidden) release(); });
 
   function stopDash() { input.dash = false; input.dashLatch = false; dash.classList.remove('hold'); }
   [dash, jump, joy].forEach((b) => b.addEventListener('contextmenu', (e) => e.preventDefault()));
@@ -60,6 +74,7 @@ export function bindControls(root) {
   });
   window.addEventListener('keyup', (e) => { input.keys[e.code] = false; });
   window.addEventListener('blur', () => { input.keys = {}; });
+  document.addEventListener('visibilitychange', () => { if (document.hidden) input.keys = {}; });
 }
 
 // スティックとキーをまとめて、-1〜1 の向きにする
