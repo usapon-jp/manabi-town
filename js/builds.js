@@ -73,6 +73,12 @@ export function foldAll(ops) {
   const town = new Map();
   for (const op of ops) {
     if (op.t === 'place') { const c = { ...op, ox: op.x, oz: op.z, parts: { ...(op.parts || {}) }, flowers: { ...(op.flowers || {}) }, stored: false }; places.push(c); out.push(c); continue; }
+    // 柵をしまう（タップで消す）。seed が同じ柵を取りのぞく
+    if (op.t === 'fenceoff') {
+      const i = out.findIndex((o) => o.t === 'fence' && o.seed === op.seed);
+      if (i >= 0) out.splice(i, 1);
+      continue;
+    }
     if (op.t === 'parts' || op.t === 'pmove') {
       const h = places.find((x) => x.ox === op.hx && x.oz === op.hz);
       if (!h) continue;

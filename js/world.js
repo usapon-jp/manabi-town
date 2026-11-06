@@ -106,6 +106,7 @@ export function createWorld(container) {
   canvas.addEventListener('pointerup', (e) => {
     if (editor.active) { editor.pointer('up', e); return; }
     // タップした場所へ歩く機能は なし（2026-11-02 フミオさん）。ドラッグでまわすだけ
+    if (drag && !drag.moved) editor.tapWorld?.(e);   // 柵の道具を持っているとき、置いた柵をタップでしまう
     drag = null;
   });
   canvas.addEventListener('pointercancel', () => { drag = null; if (editor.active) editor.pointer('cancel'); });

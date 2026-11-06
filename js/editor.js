@@ -863,6 +863,29 @@ export function createEditor({ container, scene, cut, wind, pick, rotate, setWal
     update(t) { builds.update(t); },
     get active() { return st.editing; },
     pointer,
+    // 柵の道具のとき、置いた柵をタップするとしまえる（「もどす」で もどせる）
+    tapWorld(e) {
+      if (!st.visible || st.editing || hand.id !== 'fence') return;
+      const p = pick(e);
+      if (!p) return;
+      let best = null; let bd = 1.0;
+      for (const o of foldAll(ops() || []).eff) {
+        if (o.t !== 'fence') continue;
+        const a = o.pts;
+        for (let i = 0; i < a.length; i += 2) {
+          let d = Math.hypot(p.x - a[i], p.z - a[i + 1]);
+          if (i + 3 < a.length) {   // 点と点のあいだ（線分）もはかる
+            const vx = a[i + 2] - a[i]; const vz = a[i + 3] - a[i + 1];
+            const L = vx * vx + vz * vz;
+            const u = L ? Math.max(0, Math.min(1, ((p.x - a[i]) * vx + (p.z - a[i + 1]) * vz) / L)) : 0;
+            d = Math.min(d, Math.hypot(p.x - (a[i] + vx * u), p.z - (a[i + 1] + vz * u)));
+          }
+          if (d < bd) { bd = d; best = o; }
+        }
+      }
+      if (!best) return;
+      if (commit({ t: 'fenceoff', seed: best.seed })) { replay(); refreshButtons(); say('柵を しまったよ（もどすで もどせるよ）'); }
+    },
     // ホーム画面が出ているときだけボタンを出す
     setVisible(on) {
       st.visible = on;
