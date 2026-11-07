@@ -178,6 +178,19 @@ const timerDeps = {
     save();
     render();
   },
+  // TODO・ルーティーンを タイマーで はじめたあと「できた！」
+  completeOwn(t) {
+    const p = currentProfile();
+    if (t.mineId) {
+      if (mineToday(p).find((x) => x.id === t.mineId)?.done) { render(); return; }
+      toggleMine(p, t.mineId, { gain, addPoints });
+    } else if (t.routineId) {
+      const r = todayRoutines(p).find((x) => x.r.id === t.routineId);
+      if (r && !r.done) checkRoutine(p, r.r, { gain, addPoints, render: () => render() });
+    }
+    lastDone = t.stepLabel;
+    render();
+  },
 };
 
 // ボーナスにわたす道具（ポイントをあげたら上のバーも直す）
@@ -521,7 +534,7 @@ function openMine(p, t, toggle) {
       t.done
         ? h('button', { class: 'btn', onclick: () => { close(); toggle(t); } }, 'まだだった（もどす）')
         : h('button', { class: 'btn primary big-btn', onclick: () => { close(); toggle(t); } }, icon('check'), ' できた！ ', icon('sprout'), `+${MINE_POINTS}`),
-      t.done ? null : h('button', { class: 'btn', onclick: () => { close(); startTimer(p, { stepLabel: t.label }, timerDeps); } }, icon('clock-3'), ' タイマーで はじめる'),
+      t.done ? null : h('button', { class: 'btn', onclick: () => { close(); startTimer(p, { stepLabel: t.label, mineId: t.id }, timerDeps); } }, icon('clock-3'), ' タイマーで はじめる'),
       pinButton(p, t, close),
       h('button', { class: 'link', onclick: () => { close(); removeMine(p, t.id, addPoints); render(); } }, 'リストから けす'),
       h('button', { class: 'link', onclick: close }, 'とじる')));
@@ -538,7 +551,7 @@ function openRoutine(p, t, toggle) {
       t.done
         ? h('button', { class: 'btn', onclick: () => { close(); toggle(t); } }, 'まだだった（もどす）')
         : h('button', { class: 'btn primary big-btn', onclick: () => { close(); toggle(t); } }, icon('check'), ' できた！ ', icon('sprout'), `+${ROUTINE_POINTS}`),
-      t.done ? null : h('button', { class: 'btn', onclick: () => { close(); show('timer'); } }, icon('clock-3'), ' タイマーで はかる'),
+      t.done ? null : h('button', { class: 'btn', onclick: () => { close(); startTimer(p, { stepLabel: t.label, routineId: t.r.id }, timerDeps); } }, icon('clock-3'), ' タイマーで はじめる'),
       pinButton(p, t, close),
       h('button', { class: 'link', onclick: close }, 'あとで')));
   document.body.append(sheet);
