@@ -17,7 +17,7 @@ import { openAsk } from './ask.js';
 import { townAskButton } from './townask.js';
 import { bindControls } from './controls.js';
 import { levelOf, streak, week } from './progress.js';
-import { renderTimerTab, startTimer, resumeIfRunning, restoreTimers, kindForItem, minutesOn } from './timer.js';
+import { renderTimerTab, startTimer, resumeIfRunning, restoreTimers, matchRuns, kindForItem, minutesOn } from './timer.js';
 import { openBonus, bonusCount, openRecommend, openProgress, startDrill, progressParts, lookProgress } from './bonus.js';
 import { DRILLS } from './quests.js';
 import { icon } from './icons.js';
@@ -116,7 +116,7 @@ window.addEventListener('manabi-save-error', () => {
 });
 window.addEventListener('manabi-restored', () => toast('データがこわれていたので、きのうまでの分に もどしたよ', 6000));
 // ほかのタブで進んだら、こちらの画面も新しくする
-window.addEventListener('manabi-synced', () => render());
+window.addEventListener('manabi-synced', () => { matchRuns(getState().profiles); render(); });
 // ほかの端末と そろえる（ログインしているときだけ）
 startSync();
 window.addEventListener('manabi-sync-merged', () => toast('ほかの端末の 同じ名前の人と、進みを ひとつに まとめたよ', 5000));

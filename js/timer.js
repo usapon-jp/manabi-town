@@ -75,6 +75,10 @@ export function restoreTimers(profiles) {
   return changed;
 }
 
+// 同期で そろったあとに よぶ。クラウドの中身が正しいので、写しも それに合わせる
+// （ほかの端末で「やめる」したタイマーを、あとで写しから もどさないように）
+export function matchRuns(profiles) { (profiles || []).forEach(keepRun); }
+
 export function sessions(p) { if (!p.sessions) p.sessions = []; return p.sessions; }
 export function minutesOn(p, iso) { return sessions(p).filter((s) => s.date === iso).reduce((n, s) => n + s.minutes, 0); }
 
