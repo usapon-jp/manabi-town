@@ -435,17 +435,17 @@ function renderHome(p) {
   );
 }
 
-// カードの下の「つまみ」: 上へ ひっぱる（または タップ）で とじる
+// カードの下の「つまみ」: 上へ ひっぱると とじる
 function cardHandle(close) {
   let y0 = null;
-  const el = h('button', { class: 'card-close', type: 'button', 'aria-label': 'とじる（上へひっぱる）' },
-    h('i', { class: 'grip' }), h('span', {}, icon('chevron-up'), ' うえへ ひっぱって とじる'));
+  const el = h('button', { class: 'card-close', type: 'button', 'aria-label': '上へひっぱってとじる' },
+    h('i', { class: 'grip' }));
   el.addEventListener('pointerdown', (e) => { y0 = e.clientY; el.setPointerCapture(e.pointerId); });
   el.addEventListener('pointermove', (e) => { if (y0 != null) el.style.transform = `translateY(${Math.min(0, e.clientY - y0)}px)`; });
   const end = (e) => {
     if (y0 == null) return;
     const dy = e.clientY - y0; y0 = null; el.style.transform = '';
-    if (dy < -30 || Math.abs(dy) < 8) close();   // 上へ ひっぱる／ちょん と タップ
+    if (dy < -30) close();   // 上へ ひっぱったときだけ（タップでは とじない）
   };
   el.addEventListener('pointerup', end);
   el.addEventListener('pointercancel', () => { y0 = null; el.style.transform = ''; });
