@@ -224,7 +224,7 @@ export function guessSubject(p, text) {
   if (hit) return hit;
   for (const [k, sub] of SUBJECT_HINTS) {
     if (!text.includes(k)) continue;
-    const alt = names.find((n) => n === sub || (sub === '算数' && n === '数学') || (sub === '数学' && n === '算数'));
+    const alt = names.find((n) => (sub === '算数' || sub === '数学' ? /算数|数学/.test(n) : n.includes(sub)));
     if (alt) return alt;
   }
   return null;
