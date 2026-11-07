@@ -1669,3 +1669,7 @@ input.pin { font-size: 26px; letter-spacing: 0.5em; text-align: center; }
 .todo-add { margin-top: -4px; }
 .todo-add > summary { background: var(--accent); border-color: var(--accent-dark); color: #fff; }
 .todo-add > summary .ic { color: #fff; }
+
+/* ホームのカード: 下へ スクロールしても 見える「つまみ」（上へ ひっぱる／タップで とじる） */
+.card-close { position: sticky; bottom: -14px; z-index: 3; display: grid; place-items: center; width: calc(100% + 28px); margin: 4px -14px -14px; padding: 12px 0 10px; border: 0; border-radius: 0 0 18px 18px; background: #fffdf5; cursor: grab; touch-action: none; }
+.card-close .grip { width: 64px; height: 6px; border-radius: 3px; background: #cdbd9f; }

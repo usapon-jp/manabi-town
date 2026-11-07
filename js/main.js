@@ -429,8 +429,39 @@ function renderHome(p) {
         h('button', { class: 'btn small', 'data-tour': 'add', onclick: () => { goalAdd = !isAdult(p); show(isAdult(p) ? 'quest' : 'todo'); } }, isAdult(p) ? '＋ ルーティーン' : '＋ テスト・宿題・目標'),
         h('button', { class: 'btn small', onclick: () => { mineOpen = true; listOpen = true; mineFocus = true; render(); } }, '＋ TODO'),
         isAdult(p) ? h('button', { class: 'btn small', onclick: () => { goalAdd = true; show('todo'); } }, '＋ 目標・試験') : null),
-    )),
+    ),
+    // 下に ついてくる「とじる」（リストを ひらいて 下へ スクロールしても 上の × が 見えなくなるので）
+    cardHandle(() => { cardOpen = false; render(); })),
   );
+}
+
+// カードの下の「つまみ」: 上へ ひっぱると とじる
+function cardHandle(close) {
+  let y0 = null;
+  const el = h('button', { class: 'card-close', type: 'button', 'aria-label': '上へひっぱってとじる' },
+    h('i', { class: 'grip' }));
+  el.addEventListener('pointerdown', (e) => { y0 = e.clientY; el.setPointerCapture(e.pointerId); });
+  el.addEventListener('pointermove', (e) => { if (y0 != null) el.style.transform = `translateY(${Math.min(0, e.clientY - y0)}px)`; });
+  const end = (e) => {
+    if (y0 == null) return;
+    const dy = e.clientY - y0; y0 = null; el.style.transform = '';
+    if (dy < -30) close();   // 上へ ひっぱったときだけ（タップでは とじない）
+  };
+  el.addEventListener('pointerup', end);
+  el.addEventListener('pointercancel', () => { y0 = null; el.style.transform = ''; });
+  return el;
+}
+
+// 枠の外（草原）を ちょん と タップしても、ひらいているカードを とじる
+{
+  let down = null;
+  document.addEventListener('pointerdown', (e) => { down = e.target.tagName === 'CANVAS' ? { x: e.clientX, y: e.clientY } : null; });
+  document.addEventListener('pointerup', (e) => {
+    const d = down; down = null;
+    if (!d || !cardOpen || tab !== 'home' || document.body.classList.contains('wedit-on')) return;
+    if (Math.hypot(e.clientX - d.x, e.clientY - d.y) > 8) return;   // ドラッグ（回す）は とじない
+    cardOpen = false; render();
+  });
 }
 
 // いそぎの宿題（きょう・あした提出、すぎたもの）。1ページ1マスで、できたらタップしてスタンプ
