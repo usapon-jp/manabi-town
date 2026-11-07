@@ -1669,3 +1669,48 @@ input.pin { font-size: 26px; letter-spacing: 0.5em; text-align: center; }
 .todo-add { margin-top: -4px; }
 .todo-add > summary { background: var(--accent); border-color: var(--accent-dark); color: #fff; }
 .todo-add > summary .ic { color: #fff; }
+
+/* ひらめき パズル（js/brain.js） */
+.bz-card-home .more-head { display: flex; gap: 12px; align-items: center; }
+.bz-card-home h3, .bz-card-home .more-head p { margin: 0; }
+.bz-card-home .bz-home-ic { width: 44px; height: 44px; flex: none; display: grid; }
+.bz-card-home .bz-home-ic svg, .bz-thumb svg { width: 100%; height: 100%; }
+.bz-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.bz-game { display: grid; justify-items: center; gap: 2px; padding: 12px 8px 10px; border-radius: 16px; border: 2px solid var(--line); background: #fffdf5; color: inherit; font: inherit; cursor: pointer; text-align: center; }
+.bz-game:active { transform: scale(0.97); }
+.bz-game .bz-thumb { width: 48px; height: 48px; display: grid; margin-bottom: 4px; }
+.bz-game b { font-size: 15px; }
+.bz-game small { font-size: 12px; opacity: 0.7; }
+.bz-game .bz-stage { margin-top: 4px; font-size: 12px; font-weight: 700; color: #5c7a3e; background: #e9f0d8; border-radius: 999px; padding: 2px 10px; }
+.bz-card .prompt { font-size: 16px; }
+.bz-body { display: grid; gap: 14px; }
+.bz-fig { display: grid; justify-items: center; gap: 6px; padding: 16px 12px; }
+.bz-fig svg { display: block; margin: 0 auto; }
+.bz-note { margin: 4px 0 0; font-size: 15px; font-weight: 700; color: #4f86a8; }
+.bz-opts { display: grid; gap: 12px; }
+.bz-opts.cols-2 { grid-template-columns: 1fr 1fr; }
+.bz-opts.cols-3 { grid-template-columns: 1fr 1fr 1fr; }
+.bz-opts.cols-4 { grid-template-columns: repeat(4, 1fr); }
+.bz-opt { min-width: 0; font-size: 19px; }
+.bz-opt.pic { padding: 10px; display: grid; place-items: center; }
+.bz-opt.pic svg { max-height: 110px; max-width: 120px; }
+.bz-opts.cols-2 .bz-opt.pic svg { max-height: 120px; }
+.bz-seqs { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; }
+.bz-seq { width: 52px; height: 52px; border-radius: 12px; background: #fbf6ec; border: 1.5px solid var(--line); display: grid; place-items: center; padding: 5px; font-size: 20px; font-weight: 800; color: var(--navy); }
+.bz-seq.num { width: auto; min-width: 52px; padding: 5px 8px; }
+.bz-seq.q { background: #fff; border: 2px dashed #7f985e; color: #7f985e; font-size: 26px; }
+.bz-ice { touch-action: none; -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; display: grid; justify-items: center; }
+.bz-ice svg { display: block; border-radius: 16px; background: #fffaf0; }
+.bz-ice.clear svg { animation: pop-in 0.4s ease-out; }
+.bz-ice-bar { display: flex; align-items: center; justify-content: center; gap: 10px; flex-wrap: wrap; }
+.bz-left { font-weight: 800; color: #4f86a8; background: #e3f0f5; border-radius: 999px; padding: 3px 12px; font-size: 14px; }
+.bz-hint { margin: 0; font-size: 15px; font-weight: 700; }
+.bz-ice-btns { display: flex; justify-content: center; gap: 10px; }
+.bz-giveup { opacity: 0.75; }
+.bz-stars { display: flex; justify-content: center; gap: 6px; }
+.bz-stars i { width: 40px; height: 40px; color: #e2d3b7; }
+.bz-stars i svg { width: 100%; height: 100%; }
+.bz-stars i.on { color: #e7b54c; }
+.bz-stars i.on svg { fill: #f3d27a; }
+.bz-result .bz-piyo { margin: 0 auto; border-radius: 22px; }
+.bz-pts { margin: 0; font-weight: 700; color: #c9803f; }

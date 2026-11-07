@@ -32,6 +32,7 @@ import { startNotify, notifyCard } from './notify.js';
 import { isAdult, todayRoutines, checkRoutine, renderRoutineTab, consultCta, openConsult, ROUTINE_POINTS } from './adult.js';
 import { subjectNames, subjectColor, openSubjectEditor } from './subjects.js';
 import { moreCard } from './more.js';
+import { brainCard } from './brain.js';
 import { openDiary, diaryFab } from './diary.js';
 import { sortPinned, togglePin } from './pins.js';
 import { mineToday, toggleMine, removeMine, mineAdder, MINE_POINTS } from './mytodo.js';
@@ -739,6 +740,7 @@ function renderQuest(p) {
       h('button', { class: 'btn primary', onclick: start }, result ? 'もういちど れんしゅう' : 'はじめる')),
     missCard(p),
     moreCard(p, moreDeps),
+    brainCard(p, bonusDeps),
     h('details', { class: 'fold-sec' }, h('summary', {}, icon('notebook-pen'), ' やりなおし・小テスト・しつもん'),
     reviewCard(p),
     weakCard(p),
