@@ -17,7 +17,7 @@ import { openAsk } from './ask.js';
 import { townAskButton } from './townask.js';
 import { bindControls } from './controls.js';
 import { levelOf, streak, week } from './progress.js';
-import { renderTimerTab, startTimer, resumeIfRunning, kindForItem, minutesOn } from './timer.js';
+import { renderTimerTab, startTimer, resumeIfRunning, restoreTimers, matchRuns, kindForItem, minutesOn } from './timer.js';
 import { openBonus, bonusCount, openRecommend, openProgress, startDrill, progressParts, lookProgress } from './bonus.js';
 import { DRILLS } from './quests.js';
 import { icon } from './icons.js';
@@ -116,14 +116,14 @@ window.addEventListener('manabi-save-error', () => {
 });
 window.addEventListener('manabi-restored', () => toast('データがこわれていたので、きのうまでの分に もどしたよ', 6000));
 // ほかのタブで進んだら、こちらの画面も新しくする
-window.addEventListener('manabi-synced', () => render());
+window.addEventListener('manabi-synced', () => { matchRuns(getState().profiles); render(); });
 // ほかの端末と そろえる（ログインしているときだけ）
 startSync();
 window.addEventListener('manabi-sync-merged', () => toast('ほかの端末の 同じ名前の人と、進みを ひとつに まとめたよ', 5000));
 // ログインしたら「だれが つかう？」
 function afterLogin() {
   toast('ログインしたよ。進みを そろえたよ');
-  if (getState().profiles.length > 1 || !currentProfile()) openPicker((id) => { switchProfile(id); show('home'); }, { closable: !!currentProfile() });
+  if (getState().profiles.length > 1 || !currentProfile()) openPicker((id) => { switchProfile(id); show('home'); resumeIfRunning(currentProfile(), timerDeps); }, { closable: !!currentProfile() });
   else show('home');
 }
 
@@ -974,7 +974,7 @@ function renderSettings(p) {
     h('div', { class: 'card form' },
       h('h3', {}, 'つかう人をかえる'),
       h('ul', { class: 'people' }, s.profiles.map((x) => h('li', {},
-        h('button', { class: `btn ${x.id === p.id ? 'primary' : ''}`, onclick: async () => { if (x.id === p.id || await askPin(x)) { switchProfile(x.id); show('home'); } } },
+        h('button', { class: `btn ${x.id === p.id ? 'primary' : ''}`, onclick: async () => { if (x.id === p.id || await askPin(x)) { switchProfile(x.id); show('home'); resumeIfRunning(currentProfile(), timerDeps); } } },
           `${x.name}（${gradeLabel(x)}） `, icon('sprout'), `${x.points}`, x.pinHash ? icon('lock') : null),
       ))),
       h('details', {}, h('summary', {}, 'あたらしく ついか'), profileForm('きょうだいも ここで ついかできます。', 'ついか')),
@@ -997,5 +997,7 @@ const openTab = (t) => { if (TABS.includes(t) && currentProfile() && !document.q
 navigator.serviceWorker?.addEventListener('message', (e) => { if (e.data?.type === 'open-tab') openTab(e.data.tab); });
 const startTab = new URLSearchParams(location.search).get('tab');
 if (startTab) { history.replaceState(null, '', location.pathname); if (getState().profiles.length === 1) openTab(startTab); }
+// アプリが落ちても タイマーは つづきから（ほかの人のタイマーも、その人に かえたら つづきから）
+restoreTimers(getState().profiles);
 resumeIfRunning(currentProfile(), timerDeps);
 if (currentProfile() && !currentProfile().tutorialDone) setTimeout(() => runTutorial(currentProfile()), 1200);
