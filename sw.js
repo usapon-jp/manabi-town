@@ -1,6 +1,6 @@
 // オフラインでも開けるように、アプリの部品を端末にしまっておく。
 // 部品を変えたら VERSION を上げる（古いしまい場所は消える）。
-const VERSION = 'manabi-v84';
+const VERSION = 'manabi-v85';
 const FILES = [
   './',
   'index.html',
@@ -19,6 +19,14 @@ const FILES = [
   'js/builds.js',
   'js/bonus.js',
   'js/more.js',
+  'js/brain.js',
+  'js/brain/choice.js',
+  'js/brain/icepath.js',
+  'js/brain/blocks.js',
+  'js/brain/origami.js',
+  'js/brain/pattern.js',
+  'js/brain/section.js',
+  'assets/brain/piyo.webp',
   'js/mytodo.js',
   'js/diary.js',
   'js/pins.js',
