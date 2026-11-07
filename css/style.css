@@ -1764,3 +1764,4 @@ input.pin { font-size: 26px; letter-spacing: 0.5em; text-align: center; }
 .thinking-choice.thinking-wrong{background:#fce5df;border-color:#d18a7b;opacity:1}
 .thinking-feedback{line-height:1.8;margin:12px 0}
 .thinking-feedback .btn{margin-top:12px}
+.puzzle-btn .ic { color: #5c7a3e; }
