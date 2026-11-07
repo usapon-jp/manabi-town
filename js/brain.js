@@ -235,7 +235,7 @@ export function openBrain(p, deps) {
       h('p', { class: 'more-meter' }, d.pts >= BRAIN_DAY_CAP
         ? 'きょうの ポイントは いっぱい（力だめしは つづけられるよ）'
         : `ほし1こ ${BRAIN_PER_STAR}ポイント（1日 ${BRAIN_DAY_CAP}ポイントまで${d.pts ? `・あと ${BRAIN_DAY_CAP - d.pts}` : ''}）`),
-      h('button', { type: 'button', class: 'btn primary', onclick: async () => { close(); const m = await import('./thinking.js'); m.openThinkingClassroom(); } }, icon('book-open'), ' ピヨちゃんの考える教室（3もん）'),
+      h('button', { type: 'button', class: 'btn primary', onclick: async () => { close(); const m = await import('./thinking.js'); m.openThinkingClassroom(); } }, icon('book-open'), ' ピヨちゃんの考える教室'),
       h('button', { class: 'link', type: 'button', onclick: close }, 'とじる')));
   document.body.append(sheet);
 }
@@ -251,10 +251,4 @@ export function brainCard(p, deps) {
         h('p', {}, '1分で 何もん とける？ 塔を のぼろう'))),
     floors ? h('p', { class: 'more-meter' }, `のぼった 階 ぜんぶで ${floors}階`) : null,
     h('button', { class: 'btn', onclick: () => openBrain(p, deps) }, icon('puzzle'), ' あそぶ'));
-}
-
-// ホームの「きょうやること」の下に出す ワンタップの入口（たたんだ ときだけ 見える）
-export function brainHomeButton(p, deps) {
-  return h('button', { class: 'bz-home-btn', type: 'button', 'aria-label': 'ひらめき パズルを ひらく', onclick: () => openBrain(p, deps) },
-    icon('puzzle'), h('span', {}, 'ひらめき パズル'));
 }

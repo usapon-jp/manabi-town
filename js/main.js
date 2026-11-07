@@ -32,7 +32,7 @@ import { startNotify, notifyCard } from './notify.js';
 import { isAdult, todayRoutines, checkRoutine, renderRoutineTab, consultCta, openConsult, ROUTINE_POINTS } from './adult.js';
 import { subjectNames, subjectColor, openSubjectEditor } from './subjects.js';
 import { moreCard } from './more.js';
-import { brainCard, brainHomeButton } from './brain.js';
+import { brainCard, openBrain } from './brain.js';
 import { openDiary, diaryFab } from './diary.js';
 import { sortPinned, togglePin } from './pins.js';
 import { mineToday, toggleMine, removeMine, mineAdder, MINE_POINTS } from './mytodo.js';
@@ -235,7 +235,8 @@ function render() {
       h('button', { class: 'bonus-btn', 'aria-label': 'ボーナス', onclick: () => openBonus(p, bonusDeps) },
         icon('gift'), bonusN ? h('i', { class: 'badge' }, bonusN) : null),
       h('button', { class: 'bonus-btn gacha-btn', 'aria-label': 'ガチャ', onclick: () => openGacha(p, bonusDeps) },
-        capsuleIcon(), stones(p) ? h('i', { class: 'badge stone' }, stones(p)) : null)),
+        capsuleIcon(), stones(p) ? h('i', { class: 'badge stone' }, stones(p)) : null),
+      h('button', { class: 'bonus-btn puzzle-btn', 'aria-label': 'ひらめき パズル', onclick: () => openBrain(p, bonusDeps) }, icon('puzzle'))),
   );
   hud.hidden = false;
   askFab.hidden = tab === 'home';
@@ -422,7 +423,6 @@ function renderHome(p) {
       h('span', { class: 'quest-label' }, hot ? 'きょう ていしゅつ！' : left ? 'きょうやること' : 'ぜんぶ できた！'),
       left ? h('span', { class: 'quest-badge' }, String(left)) : null),
     townAskButton(p),   // まちづくりの つかいかたを ピヨに しつもん（たたんだ ときだけ 見える）
-    brainHomeButton(p, bonusDeps),   // ひらめき パズル（たたんだ ときだけ 見える）
     h('div', { class: 'card-body' },
       bar,
       homeRangeBar(p, rangeDeps(p)),   // テスト範囲の すすみバー
