@@ -1756,11 +1756,12 @@ input.pin { font-size: 26px; letter-spacing: 0.5em; text-align: center; }
 .bz-game .bz-stage { background: color-mix(in srgb, var(--tc, #e9f0d8) 35%, #fff); color: var(--navy); }
 
 /* ピヨちゃんの考える教室 */
-.thinking-overlay .sheet-card{max-width:520px;max-height:90dvh;overflow:auto}
-.thinking-prompt{font-size:1rem;line-height:1.9;white-space:pre-wrap;margin:16px 0}
-.thinking-choices{display:grid;gap:10px;margin:16px 0}
+.thinking-overlay .sheet-card{max-width:520px;max-height:min(90dvh,calc(100dvh - env(safe-area-inset-top) - env(safe-area-inset-bottom) - 32px));overflow:auto;grid-template-columns:minmax(0,1fr)}
+.thinking-prompt{font-size:1rem;line-height:1.9;white-space:pre-wrap;margin:16px 0;text-align:left}
+.thinking-choices{display:grid;gap:10px;margin:16px 0;width:100%;min-width:0}
 .thinking-choice{width:100%;min-height:48px;text-align:left;justify-content:flex-start;white-space:normal}
 .thinking-choice.thinking-right{background:#dcefd2;border-color:#79a766;color:#294c27;opacity:1}
 .thinking-choice.thinking-wrong{background:#fce5df;border-color:#d18a7b;opacity:1}
-.thinking-feedback{line-height:1.8;margin:12px 0}
+.thinking-feedback{line-height:1.8;margin:12px 0;width:100%;text-align:left}
 .thinking-feedback .btn{margin-top:12px}
+.thinking-overlay .link{min-height:44px;padding:10px 16px}
