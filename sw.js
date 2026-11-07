@@ -26,6 +26,7 @@ const FILES = [
   'js/brain/origami.js',
   'js/brain/pattern.js',
   'js/brain/section.js',
+  'assets/brain/piyo.webp',
   'js/mytodo.js',
   'js/diary.js',
   'js/pins.js',

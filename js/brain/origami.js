@@ -125,4 +125,4 @@ function make(level, rand) {
 const thumb = `<svg viewBox="0 0 48 48"><rect x="6" y="8" width="18" height="32" fill="#f3c9b8" stroke="#5e4a35" stroke-width="1.5"/><rect x="24" y="8" width="18" height="32" fill="#f9e3d9" stroke="#d9a493" stroke-dasharray="3 2"/>
 <circle cx="15" cy="18" r="3.5" fill="#fff" stroke="#5e4a35" stroke-width="1.3"/><circle cx="15" cy="30" r="3.5" fill="#fff" stroke="#5e4a35" stroke-width="1.3"/><path d="M38 14 q-6 -6 -12 -1" stroke="#c98f7a" stroke-width="2.5" fill="none" stroke-linecap="round"/></svg>`;
 
-export default { id: 'origami', title: 'おりがみ パンチ', sub: 'おって あけた あなは？', round: 5, prompt: 'おって、あなを あけて、ひらくと？', thumb, make, mount: choiceMount };
+export default { id: 'origami', title: 'おりがみ パンチ', sub: 'おって あけた あなは？', time: 60, target: 5, prompt: 'おって、あなを あけて、ひらくと？', thumb, make, mount: choiceMount };

@@ -128,4 +128,4 @@ const thumb = `<svg viewBox="0 0 48 48"><g stroke="#5e4a35" stroke-width="1.3" s
 <polygon points="24,6 36,13 24,20 12,13" fill="#f6dd9a"/><polygon points="12,13 24,20 24,32 12,25" fill="#e5bd63"/><polygon points="36,13 24,20 24,32 36,25" fill="#cf9f45"/>
 <polygon points="12,25 24,32 12,39 0,32" fill="#f6dd9a" transform="translate(4,0)"/><polygon points="36,25 48,32 36,39 24,32" fill="#f6dd9a" transform="translate(-4,0)"/></g></svg>`;
 
-export default { id: 'blocks', title: 'つみきの かげ', sub: '上から・前から 見ると？', round: 5, thumb, make, mount: choiceMount };
+export default { id: 'blocks', title: 'つみきの かげ', sub: '上から・前から 見ると？', time: 60, target: 6, thumb, make, mount: choiceMount };

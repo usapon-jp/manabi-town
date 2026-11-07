@@ -115,4 +115,4 @@ function make(level, rand) {
 const thumb = `<svg viewBox="0 0 48 48"><path d="M8 8 L15 20 H1Z" fill="#f0cf7a" stroke="#5e4a35" stroke-width="1.3" stroke-linejoin="round"/><circle cx="24" cy="15" r="6" fill="#f3a8b5" stroke="#5e4a35" stroke-width="1.3"/><path d="M40 8 L47 20 H33Z" fill="#f0cf7a" stroke="#5e4a35" stroke-width="1.3" stroke-linejoin="round"/>
 <rect x="15" y="27" width="18" height="18" rx="5" fill="#fff" stroke="#7f985e" stroke-width="2" stroke-dasharray="4 3"/><text x="24" y="41" text-anchor="middle" font-size="14" font-weight="800" fill="#7f985e">?</text></svg>`;
 
-export default { id: 'pattern', title: 'きまり さがし', sub: 'ならびの「？」は？', round: 5, prompt: 'きまりを 見つけて、？に 入るのは？', thumb, make, mount: choiceMount };
+export default { id: 'pattern', title: 'きまり さがし', sub: 'ならびの「？」は？', time: 60, target: 6, prompt: 'きまりを 見つけて、？に 入るのは？', thumb, make, mount: choiceMount };

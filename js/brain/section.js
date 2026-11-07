@@ -1,6 +1,6 @@
 // 立体の 切り口: 立方体を 赤い 3つの 点を 通る 平面で 切ると、切り口は どんな形？
 // 点は 頂点と 辺の まん中から えらぶ。切り口は 平面と 12本の 辺の 交わりから 計算する。
-// 答えたあと 切り口を 色で 見せる。小4〜小6は「何角形」、中2は 正方形・ひし形・台形 なども。
+// 答えたあと 切り口を 色で 見せる。えらぶのは 切り口の ほんとうの 形（4つの 図から）。小学生は 角の数が ちがう 形から、中学生は 似た 形からも えらぶ。
 import { choiceMount } from './choice.js';
 
 const INK = '#5e4a35';
@@ -68,38 +68,61 @@ function cubeSvg(points, poly) {
   return `<svg viewBox="0 0 ${w} ${hgt}" width="100%" style="max-width:280px">${s}</svg>`;
 }
 
-const FAMILY = [['正三角形', '二等辺三角形', '三角形'], ['正方形', '長方形', 'ひし形', '台形', '平行四辺形'], ['五角形', '六角形', '正六角形']];
+// すべての 3点の 組みあわせで 切り口を 先に 作っておく（20点から 3つ = 1140とおり）
+let POOL = null;
+function pool() {
+  if (POOL) return POOL;
+  POOL = [];
+  for (let a = 0; a < CAND.length; a++) for (let b = a + 1; b < CAND.length; b++) for (let c = b + 1; c < CAND.length; c++) {
+    const pts = [CAND[a], CAND[b], CAND[c]];
+    const poly = cut(pts); if (!poly) continue;
+    POOL.push({ pts, poly, name: classify(poly), k: poly.length });
+  }
+  return POOL;
+}
+
+// 切り口の ほんとうの 形（まっすぐ 見た形）。いちばん 長い 辺を 下に して わくに おさめる
+function shapeSvg(poly) {
+  const k = poly.length;
+  const n = cross(sub(poly[1], poly[0]), sub(poly[2], poly[0]));
+  let bi = 0; let bl = 0;
+  poly.forEach((q, i) => { const l = len(sub(poly[(i + 1) % k], q)); if (l > bl + 1e-6) { bl = l; bi = i; } });
+  const o = poly[bi];
+  const u = sub(poly[(bi + 1) % k], o).map((v) => v / bl);
+  const nn = n.map((v) => v / len(n));
+  const w = cross(nn, u);
+  let pts = poly.map((q) => [dot(sub(q, o), u), dot(sub(q, o), w)]);
+  if (pts.some(([, y]) => y < -1e-6)) pts = pts.map(([x, y]) => [x, -y]);
+  const xs = pts.map((q) => q[0]); const ys = pts.map((q) => q[1]);
+  const minX = Math.min(...xs); const maxX = Math.max(...xs); const maxY = Math.max(...ys);
+  const sc = 70 / Math.max(maxX - minX, maxY, 0.01);
+  const ox = 45 - ((maxX + minX) / 2) * sc; const oy = 45 + (maxY / 2) * sc;
+  const d = pts.map(([x, y]) => `${(ox + x * sc).toFixed(1)},${(oy - y * sc).toFixed(1)}`).join(' ');
+  return `<svg viewBox="0 0 90 90" width="100%"><polygon points="${d}" fill="#cfe3ec" stroke="#4f86a8" stroke-width="2.5" stroke-linejoin="round"/></svg>`;
+}
 
 function make(level, rand) {
-  const detail = level >= 4;
-  const kinds = detail ? ['正三角形', '二等辺三角形', '正方形', '長方形', 'ひし形', '台形', '五角形', '六角形', '正六角形']
-    : level <= 1 ? ['三角形', '四角形'] : ['三角形', '四角形', '五角形', '六角形'];
+  const all = pool();
+  const kinds = level >= 4 ? ['正三角形', '二等辺三角形', '正方形', '長方形', 'ひし形', '台形', '五角形', '正六角形']
+    : level <= 1 ? ['正三角形', '二等辺三角形', '正方形', '長方形'] : ['正三角形', '二等辺三角形', '長方形', 'ひし形', '台形', '五角形', '正六角形'];
   const target = kinds[Math.floor(rand() * kinds.length)];
-  let best = null;
-  for (let t = 0; t < 3000; t++) {
-    const idx = new Set(); while (idx.size < 3) idx.add(Math.floor(rand() * CAND.length));
-    const pts = [...idx].map((i) => CAND[i]);
-    const poly = cut(pts); if (!poly) continue;
-    const name = detail ? classify(poly) : BASIC[poly.length];
-    if (!kinds.includes(name)) continue;
-    best = { pts, poly, name };
-    if (name === target) break;
+  const hits = all.filter((c) => c.name === target);
+  const right = hits[Math.floor(rand() * hits.length)];
+  // まちがいの 形: 小学生は 角の数が ちがう 形、中学生は 角の数が 同じでも 形が ちがうもの
+  const others = all.filter((c) => c.name !== right.name && (level >= 4 || c.k !== right.k));
+  const picked = []; const names = new Set([right.name]);
+  for (const c of others.slice().sort(() => rand() - 0.5)) {
+    if (picked.length >= 3) break;
+    if (names.has(c.name)) continue;
+    names.add(c.name); picked.push(c);
   }
-  const { pts, poly, name } = best;
-  let opts;
-  if (!detail) opts = level <= 1 ? ['三角形', '四角形', '五角形', '六角形'] : ['三角形', '四角形', '五角形', '六角形'];
-  else {
-    const fam = FAMILY.find((f) => f.includes(name));
-    const same = fam.filter((x) => x !== name).sort(() => rand() - 0.5).slice(0, 2);
-    const other = FAMILY.flat().filter((x) => x !== name && !same.includes(x)).sort(() => rand() - 0.5);
-    opts = [name, ...same, ...other].slice(0, 4).sort(() => rand() - 0.5);
-  }
+  const opts = [right, ...picked].sort(() => rand() - 0.5);
   return {
-    figure: cubeSvg(pts),
-    reveal: cubeSvg(pts, poly),
-    options: opts,
-    answer: opts.indexOf(name),
-    note: `切り口は ${name}`,
+    figure: cubeSvg(right.pts),
+    reveal: cubeSvg(right.pts, right.poly),
+    options: opts.map((c) => shapeSvg(c.poly)),
+    answer: opts.indexOf(right),
+    note: `切り口は ${right.name}`,
     cols: 2,
   };
 }
@@ -107,4 +130,4 @@ function make(level, rand) {
 const thumb = `<svg viewBox="0 0 48 48"><g stroke="#5e4a35" stroke-width="1.6" fill="none" stroke-linejoin="round"><rect x="5" y="17" width="26" height="26"/><path d="M5 17 L17 7 H43 V33 L31 43 M31 17 L43 7"/></g>
 <polygon points="5,25 17,7 31,30" fill="#9cc3dc" fill-opacity="0.8" stroke="#4f86a8" stroke-width="1.5"/></svg>`;
 
-export default { id: 'section', title: '立体の 切り口', sub: '3つの点で 切ると？', round: 5, prompt: '赤い 3つの 点を 通るように 切ると、切り口は どんな形？', thumb, make, mount: choiceMount };
+export default { id: 'section', title: '立体の 切り口', sub: '3つの点で 切ると？', time: 60, target: 5, prompt: '赤い 3つの 点を 通るように 切ると、切り口は どんな形？', thumb, make, mount: choiceMount };
