@@ -216,14 +216,30 @@ async function openBgmPicker(onClose, live = false) {
 
 // ---- 計っているところ ----------------------------------------------------------
 
-// opts: { kind, subject, item, stepLabel } 「つぎはこれ」から始めるときに入る
+// やること名から 教科をあてる（「英単語」→英語 など）。わからなければ null
+const SUBJECT_HINTS = [['漢字', '国語'], ['音読', '国語'], ['作文', '国語'], ['単語', '英語'], ['英', '英語'], ['計算', '算数'], ['ドリル', '算数'], ['方程式', '数学'], ['図形', '算数']];
+export function guessSubject(p, text) {
+  const names = subjectNames(p);
+  const hit = names.find((n) => text.includes(n));
+  if (hit) return hit;
+  for (const [k, sub] of SUBJECT_HINTS) {
+    if (!text.includes(k)) continue;
+    const alt = names.find((n) => n === sub || (sub === '算数' && n === '数学') || (sub === '数学' && n === '算数'));
+    if (alt) return alt;
+  }
+  return null;
+}
+
+// opts: { kind, subject, item, stepLabel, mineId, routineId } 「つぎはこれ」から始めるときに入る
+// 教科がわからない やること(TODO・ルーティーン)は、名前から教科をあてる
 export function startTimer(p, opts, deps) {
   const pf = prefs(p);
+  if (!opts.subject && opts.stepLabel) opts = { ...opts, subject: guessSubject(p, opts.stepLabel) };
   p.timer = {
     start: Date.now(), pausedTotal: 0, pausedAt: null,
     kind: opts.kind || pf.kind, subject: opts.subject || pf.subject,
     mode: pf.mode, planned: pf.mode === 'focus' ? pf.minutes : null,
-    itemId: opts.item?.id || null, stepLabel: opts.stepLabel || null, lastBreak: 0,
+    itemId: opts.item?.id || null, stepLabel: opts.stepLabel || null, mineId: opts.mineId || null, routineId: opts.routineId || null, lastBreak: 0,
   };
   save();
   if (pf.bgm) bgm.play().catch(() => {});
@@ -360,13 +376,16 @@ function openRunning(p, deps) {
 function showDone(p, s, t, bonus, deps) {
   const item = t.itemId ? p.items.find((i) => i.id === t.itemId) : null;
   const close = () => { card.remove(); deps.render(); };
+  const own = !!(t.stepLabel && (t.mineId || t.routineId) && deps.completeOwn);
+  const ask = own || !!(item && t.stepLabel);
   const card = h('div', { class: 'sheet' }, h('div', { class: 'sheet-card done-card' },
     h('p', { class: 'big-num' }, `${s.minutes}`, h('small', {}, '分')),
     h('p', { class: 'sheet-title' }, bonus ? 'さいごまで やりきった！' : 'おつかれさま！'),
     h('p', { class: 'reward' }, icon('sprout'), ` +${s.points}${bonus ? `（やりきり +${bonus}）` : ''}`),
-    item && t.stepLabel ? h('p', { class: 'sheet-sub' }, `「${t.stepLabel}」は できた？`) : null,
+    ask ? h('p', { class: 'sheet-sub' }, `「${t.stepLabel}」は できた？`) : null,
     item && t.stepLabel ? h('button', { class: 'btn primary', onclick: () => { card.remove(); deps.completeStepFor(item, t.stepLabel); } }, 'できた！ ', icon('sprout'), '+10') : null,
-    h('button', { class: `btn ${item && t.stepLabel ? '' : 'primary'}`, onclick: close }, item && t.stepLabel ? 'まだ（つづきは あとで）' : 'もどる')));
+    own ? h('button', { class: 'btn primary', onclick: () => { card.remove(); deps.completeOwn(t); } }, 'できた！ ', icon('sprout')) : null,
+    h('button', { class: `btn ${ask ? '' : 'primary'}`, onclick: close }, ask ? 'まだ（つづきは あとで）' : 'もどる')));
   document.body.append(card);
 }
 
