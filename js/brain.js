@@ -5,7 +5,7 @@
 // - じっくり: 時間なしで 5もん（塔は のぼらない）
 // - ポイントは ひかえめ: ほし1こ 3ポイント、1日 BRAIN_DAY_CAP まで
 // きろくは p.brain = { st: { [ゲーム]: { floor, best, stars, plays } }, days: { [日]: { pts, rounds } } }
-import { h } from './ui.js';
+import { h, toast } from './ui.js';
 import { today, save, gradeBucket } from './store.js';
 import { seededRandom } from './quests.js';
 import { icon } from './icons.js';
@@ -224,7 +224,19 @@ export function openBrain(p, deps) {
     h('div', { class: 'sheet-card' },
       h('div', { class: 'coach' }, h('img', { src: 'assets/icons/icon-192.png', alt: '', width: 48, height: 48 }),
         h('p', {}, 'どの 塔に のぼる？')),
-      h('button', { type: 'button', class: 'btn primary', onclick: async () => { close(); const m = await import('./thinking.js'); m.openThinkingClassroom(); } }, '📖 ピヨちゃんの考える教室（3もん）'),
+      h('button', { type: 'button', class: 'btn primary', onclick: async (e) => {
+        const button = e.currentTarget;
+        if (button.disabled) return;
+        button.disabled = true;
+        try {
+          const m = await import('./thinking.js');
+          if (!sheet.isConnected) return;
+          close();
+          m.openThinkingClassroom();
+        } catch {
+          if (sheet.isConnected) toast('教室をひらけなかったよ。もう一度ためしてね');
+        } finally { button.disabled = false; }
+      } }, '📖 ピヨちゃんの考える教室（3もん・ポイントなし）'),
       h('div', { class: 'bz-grid' }, GAMES.map((gm) => {
         const r = gameRec(p, gm.id);
         return h('button', { type: 'button', class: 'bz-game', onclick: () => { close(); openGame(p, gm, deps); } },
