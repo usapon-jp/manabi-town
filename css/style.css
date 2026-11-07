@@ -1764,3 +1764,17 @@ input.pin { font-size: 26px; letter-spacing: 0.5em; text-align: center; }
 .thinking-choice.thinking-wrong{background:#fce5df;border-color:#d18a7b;opacity:1}
 .thinking-feedback{line-height:1.8;margin:12px 0}
 .thinking-feedback .btn{margin-top:12px}
+/* ホームから ワンタップの「ひらめき パズル」（きょうやることの 下。たたんだ ときだけ） */
+.bz-home-btn { display: none; }
+.bubble.mini .bz-home-btn {
+  display: flex; width: fit-content; align-items: center; gap: 8px; margin: 10px 0 0 0; height: 52px; padding: 0 16px 0 12px; border-radius: 26px; cursor: pointer;
+  background: rgba(255, 250, 240, 0.94); border: 2px solid #fff; box-shadow: var(--soft); color: var(--navy); font: inherit; font-weight: 700; font-size: 15px;
+  -webkit-tap-highlight-color: transparent; transition: transform 0.12s;
+}
+.bubble.mini .bz-home-btn .ic { width: 24px; height: 24px; color: var(--accent-dark); }
+.bubble.mini .bz-home-btn:active { transform: scale(0.95); }
+/* せまい画面: 「？」は 下の段。ふきだしは 右がわに出して、ひらめきパズルと かさならないように */
+@media (max-width: 379px) {
+  .town-ask-tip { left: calc(100% + 10px); top: 12px; }
+  .town-ask-tip::before { display: none; }
+}

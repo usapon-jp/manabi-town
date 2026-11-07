@@ -32,7 +32,7 @@ import { startNotify, notifyCard } from './notify.js';
 import { isAdult, todayRoutines, checkRoutine, renderRoutineTab, consultCta, openConsult, ROUTINE_POINTS } from './adult.js';
 import { subjectNames, subjectColor, openSubjectEditor } from './subjects.js';
 import { moreCard } from './more.js';
-import { brainCard } from './brain.js';
+import { brainCard, brainHomeButton } from './brain.js';
 import { openDiary, diaryFab } from './diary.js';
 import { sortPinned, togglePin } from './pins.js';
 import { mineToday, toggleMine, removeMine, mineAdder, MINE_POINTS } from './mytodo.js';
@@ -254,7 +254,7 @@ function render() {
     renderHome(p);
     if (mineFocus) { mineFocus = false; bubble.querySelector('.mine-input')?.focus(); }
   } else if (tab === 'todo') renderTodo(p);   // タブ名は「目標」: 目標の設定と 進み具合
-  else if (tab === 'quest') (isAdult(p) ? renderRoutineTab(panel, p, { gain, addPoints, deleteButton, render: () => render(), todayCard: () => [todayCard(p), todoAdd(p)] }) : renderQuest(p));   // タブ名は「やること」: きょうの内容を 見る・足す
+  else if (tab === 'quest') (isAdult(p) ? renderRoutineTab(panel, p, { gain, addPoints, deleteButton, render: () => render(), todayCard: () => [todayCard(p), todoAdd(p), brainCard(p, bonusDeps)] }) : renderQuest(p));   // タブ名は「やること」: きょうの内容を 見る・足す
   else if (tab === 'timer') renderTimerTab(panel, p, timerDeps);
   else renderSettings(p);
   if (!home && mineFocus) { mineFocus = false; panel.querySelector('.mine-input')?.focus(); }
@@ -422,6 +422,7 @@ function renderHome(p) {
       h('span', { class: 'quest-label' }, hot ? 'きょう ていしゅつ！' : left ? 'きょうやること' : 'ぜんぶ できた！'),
       left ? h('span', { class: 'quest-badge' }, String(left)) : null),
     townAskButton(p),   // まちづくりの つかいかたを ピヨに しつもん（たたんだ ときだけ 見える）
+    brainHomeButton(p, bonusDeps),   // ひらめき パズル（たたんだ ときだけ 見える）
     h('div', { class: 'card-body' },
       bar,
       homeRangeBar(p, rangeDeps(p)),   // テスト範囲の すすみバー
