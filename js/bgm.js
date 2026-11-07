@@ -95,13 +95,13 @@ export function setSelected(id) { meta.selected = id; saveMeta(meta); }
 export const playlist = () => (Array.isArray(meta.playlist) ? meta.playlist : []);
 export const mode = () => meta.mode || 'all';
 export const useList = () => !!meta.useList && playlist().length > 0;
-export function setMode(m) { meta.mode = m; saveMeta(meta); }
+export function setMode(m) { meta.mode = m; resetShuffle(); saveMeta(meta); }
 export function setUseList(on) { meta.useList = !!on; saveMeta(meta); }
 export function togglePlaylist(id) {
   const l = playlist().slice();
   const i = l.indexOf(id);
   if (i >= 0) l.splice(i, 1); else l.push(id);
-  meta.playlist = l;
+  meta.playlist = l; resetShuffle();
   if (!l.length) meta.useList = false;
   saveMeta(meta);
 }
@@ -112,16 +112,27 @@ export function movePlaylist(id, dir) {
   [l[i], l[j]] = [l[j], l[i]];
   meta.playlist = l; saveMeta(meta);
 }
+// シャッフル: 全曲を1回ずつ流し終えてから、次の周をまたシャッフルする（周の切れ目で同じ曲が続かない）
+let shuffleQueue = [];
+function resetShuffle() { shuffleQueue = []; }
+function shuffleNext(l, current) {
+  if (l.length === 1) return l[0];
+  shuffleQueue = shuffleQueue.filter((id) => l.includes(id));
+  if (!shuffleQueue.length) {
+    const q = l.slice();
+    for (let i = q.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [q[i], q[j]] = [q[j], q[i]]; }
+    // 先頭（最初に流れる曲）が、いま流れた曲と同じなら入れかえる
+    if (q[0] === current) { const j = 1 + Math.floor(Math.random() * (q.length - 1)); [q[0], q[j]] = [q[j], q[0]]; }
+    shuffleQueue = q;
+  }
+  return shuffleQueue.shift();
+}
 // つぎにかける曲（リストにない曲idは とばす）
 function nextId(current, valid) {
   const l = playlist().filter((id) => valid.has(id));
   if (!l.length) return null;
   if (mode() === 'one') return current;
-  if (mode() === 'shuffle') {
-    if (l.length === 1) return l[0];
-    let n; do { n = l[Math.floor(Math.random() * l.length)]; } while (n === current);
-    return n;
-  }
+  if (mode() === 'shuffle') return shuffleNext(l, current);
   const i = l.indexOf(current);
   return l[(i + 1) % l.length];
 }
@@ -222,7 +233,7 @@ export async function play(id, opts = {}) {
   const valid = new Set(tracks.map((t) => t.id));
   const listIds = playlist().filter((x) => valid.has(x));
   const listOn = (opts.list ?? (id === undefined && useList())) && listIds.length > 0;
-  if (id === undefined) id = listOn ? (mode() === 'shuffle' ? listIds[Math.floor(Math.random() * listIds.length)] : listIds[0]) : meta.selected;
+  if (id === undefined) id = listOn ? (mode() === 'shuffle' ? (resetShuffle(), shuffleNext(listIds, null)) : listIds[0]) : meta.selected;
   const track = tracks.find((t) => t.id === id) || STANDARD[0];
   const el = document.createElement(track.kind === 'video' ? 'video' : 'audio');
   // リストで流すときは、1曲おわったらつぎの曲へ（1曲くりかえしだけ loop）
