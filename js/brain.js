@@ -224,6 +224,7 @@ export function openBrain(p, deps) {
     h('div', { class: 'sheet-card' },
       h('div', { class: 'coach' }, h('img', { src: 'assets/icons/icon-192.png', alt: '', width: 48, height: 48 }),
         h('p', {}, 'どの 塔に のぼる？')),
+      h('button', { type: 'button', class: 'btn primary', onclick: async () => { close(); const m = await import('./thinking.js'); m.openThinkingClassroom(); } }, '📖 ピヨちゃんの考える教室（3もん）'),
       h('div', { class: 'bz-grid' }, GAMES.map((gm) => {
         const r = gameRec(p, gm.id);
         return h('button', { type: 'button', class: 'bz-game', onclick: () => { close(); openGame(p, gm, deps); } },
