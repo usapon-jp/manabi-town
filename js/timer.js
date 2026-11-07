@@ -18,12 +18,21 @@ export const KINDS = [
   { id: 'self', label: '自主学習', ic: 'book-open' },
   { id: 'testprep', label: 'テスト勉強', ic: 'target' },
 ];
+// おとなは 今ある しくみ（ルーティーン・TODO・資格）で わける
+export const ADULT_KINDS = [
+  { id: 'routine', label: 'ルーティーン', ic: 'repeat' },
+  { id: 'todo', label: 'TODO', ic: 'list-checks' },
+  { id: 'study', label: '資格・勉強', ic: 'book-open' },
+  { id: 'free', label: 'じゆう', ic: 'sparkles' },
+];
+const isAdultP = (p) => p?.grade === 'adult';
+const kindsFor = (p) => (isAdultP(p) ? ADULT_KINDS : KINDS);
 const PRESETS = [20, 40, 60];
 const MAX_MIN = 90;
 const BREAK_EVERY = 20;
 const BONUS = 10;
 
-const kindOf = (id) => KINDS.find((k) => k.id === id) || KINDS[2];
+const kindOf = (id) => KINDS.find((k) => k.id === id) || ADULT_KINDS.find((k) => k.id === id) || KINDS[2];
 const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
 const mmss = (sec) => `${String(Math.floor(sec / 60)).padStart(2, '0')}:${String(Math.floor(sec % 60)).padStart(2, '0')}`;
 
@@ -31,6 +40,7 @@ function prefs(p) {
   const names = subjectNames(p);
   if (!p.timerPrefs) p.timerPrefs = { kind: 'self', subject: names[0], mode: 'focus', minutes: 25, bgm: true };
   if (!names.includes(p.timerPrefs.subject)) p.timerPrefs.subject = names[0];
+  if (!kindsFor(p).some((k) => k.id === p.timerPrefs.kind)) p.timerPrefs.kind = isAdultP(p) ? 'free' : 'self';
   if (!PRESETS.includes(p.timerPrefs.minutes)) p.timerPrefs.minutes = PRESETS.reduce((a, b) => (Math.abs(b - p.timerPrefs.minutes) < Math.abs(a - p.timerPrefs.minutes) ? b : a));
   return p.timerPrefs;
 }
@@ -63,7 +73,7 @@ export function renderTimerTab(panel, p, deps) {
 
     h('div', { class: 'card setup' },
       h('p', { class: 'label' }, 'なにをする？'),
-      h('div', { class: 'picks kinds' }, KINDS.map((k) => chip(pf.kind === k.id, [icon(k.ic), ` ${k.label}`], () => set('kind', k.id)))),
+      h('div', { class: 'picks kinds' }, kindsFor(p).map((k) => chip(pf.kind === k.id, [icon(k.ic), ` ${k.label}`], () => set('kind', k.id)))),
       h('div', { class: 'label-row' }, h('p', { class: 'label' }, p.grade === 'adult' ? 'ジャンル' : 'きょうか'), editSubjectsLink(p, rerender)),
       h('div', { class: 'picks subjects' }, subjectNames(p).map((s) => chip(pf.subject === s, s, () => set('subject', s), subjectColor(p, s)))),
       h('div', { class: 'seg' },
@@ -128,7 +138,7 @@ function recordRow(p, s, deps, rerender) {
 }
 
 function editRow(p, s, deps, rerender) {
-  const kind = h('select', {}, KINDS.map((k) => h('option', { value: k.id }, k.label)));
+  const kind = h('select', {}, [...kindsFor(p), ...(kindsFor(p).some((k) => k.id === s.kind) ? [] : [kindOf(s.kind)])].map((k) => h('option', { value: k.id }, k.label)));
   kind.value = s.kind;
   const subject = h('select', {}, [...new Set([...subjectNames(p), s.subject])].map((x) => h('option', { value: x }, x)));
   subject.value = s.subject;
@@ -237,7 +247,7 @@ export function startTimer(p, opts, deps) {
   if (!opts.subject && opts.stepLabel) opts = { ...opts, subject: guessSubject(p, opts.stepLabel) };
   p.timer = {
     start: Date.now(), pausedTotal: 0, pausedAt: null,
-    kind: opts.kind || pf.kind, subject: opts.subject || pf.subject,
+    kind: (isAdultP(p) && (opts.routineId ? 'routine' : opts.mineId ? 'todo' : opts.item ? 'study' : null)) || opts.kind || pf.kind, subject: opts.subject || pf.subject,
     mode: pf.mode, planned: pf.mode === 'focus' ? pf.minutes : null,
     itemId: opts.item?.id || null, stepLabel: opts.stepLabel || null, mineId: opts.mineId || null, routineId: opts.routineId || null, lastBreak: 0,
   };
