@@ -246,6 +246,10 @@ function render() {
   diaryBtn.hidden = tab === 'home' || tab === 'timer';
   diaryBtn.paint(p);
   document.querySelector('.tabs').hidden = false;
+  // 目標が まだ ないときは「目標」タブに 印
+  { const gb = document.querySelector('.tabs [data-tab="todo"]');
+    gb.querySelector('.tab-badge')?.remove();
+    if (!p.items.some((i) => !i.done)) gb.append(h('i', { class: 'tab-badge dot' }, '!')); }
   menuBtn.hidden = false;
   document.body.dataset.tab = tab;
   if (tab !== 'home') { document.body.classList.remove('menu-open'); menuBtn.replaceChildren(icon('menu')); }
@@ -630,7 +634,7 @@ function renderTodo(p) {
   h('label', {}, adult ? 'いつまで・試験の日' : 'しめきり・テストの日', date),
   h('button', { class: 'btn primary', type: 'submit', 'data-tour': 'submit' }, 'ついか'));
 
-  const addOpen = goalAdd || !p.items.length;
+  const addOpen = goalAdd;
   goalAdd = false;
   lookProgress(p, bonusDeps);
   const rangeCard = adult ? null : rangePanel(p, rangeDeps(p));
@@ -640,7 +644,7 @@ function renderTodo(p) {
     h('h2', {}, '目標'),
     adult ? consultCta(p, bonusDeps) : planCard(p),
     h('details', { class: 'fold-add goal-add', open: addOpen || null },
-      h('summary', { class: 'btn' }, icon('plus'), adult ? ' 目標・試験を いれる' : ' テスト・宿題・目標を いれる'),
+      h('summary', { class: 'btn' }, icon('plus'), adult ? ' 目標・試験を いれる' : ' テスト・宿題・目標を いれる', p.items.some((i) => !i.done) ? null : h('i', { class: 'tab-badge inline' }, '!')),
       adult ? null : scanButton(p, bonusDeps),
       form),
     open.length ? h('h3', {}, 'いれたもの') : null,
