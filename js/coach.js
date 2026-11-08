@@ -66,10 +66,11 @@ const clampN = (v, lo, hi, d) => Math.min(hi, Math.max(lo, Math.round(Number(v))
 function cleanDaily(d) {
   if (!d || typeof d !== 'object') return null;
   const base = (Array.isArray(d.base) ? d.base : []).filter((b) => BASE.some(([id]) => id === b));
-  const extra = (Array.isArray(d.extra) ? d.extra : []).filter((x) => x && x.subject && x.topic).slice(0, 4)
+  const extra = (Array.isArray(d.extra) ? d.extra : []).filter((x) => x && x.subject && x.topic).slice(0, 6)
     .map((x) => ({
       subject: String(x.subject).slice(0, 10), topic: String(x.topic).slice(0, 60),
       until: /^\d{4}-\d{2}-\d{2}$/.test(String(x.until)) ? String(x.until) : '',
+      from: /^\d{4}-\d{2}-\d{2}$/.test(String(x.from)) ? String(x.from) : '',   // この日から出す（「3日前から」など）
       perDay: clampN(x.perDay, 1, 30, 5), size: clampN(x.size, 10, 60, 20),
       photo: x.photo === true,   // この会議で 見せた写真が この範囲のもの
     }));
@@ -113,7 +114,7 @@ function testExtras(p, own) {
 // いま有効な extra（until をすぎたものは はずす）＋ テスト前の 自動の範囲
 export function activeExtras(p) {
   const t = today();
-  const own = (p.coach?.daily?.extra || []).filter((x) => !x.until || x.until >= t);
+  const own = (p.coach?.daily?.extra || []).filter((x) => (!x.until || x.until >= t) && (!x.from || x.from <= t));
   return [...own, ...testExtras(p, own)];
 }
 
@@ -132,9 +133,12 @@ export function dailyLabel(c, p) {
   if (!d && !p) return '';
   const base = p ? dailyBase(p) : d.base;
   const t = today();
-  const extra = p ? activeExtras(p) : d.extra.filter((x) => !x.until || x.until >= t);
+  const extra = p ? activeExtras(p) : d.extra.filter((x) => (!x.until || x.until >= t) && (!x.from || x.from <= t));
+  const later = (d?.extra || []).filter((x) => x.from && x.from > t && (!x.until || x.until >= t));
+  const md = (s) => `${Number(s.slice(5, 7))}/${Number(s.slice(8, 10))}`;
   return [...base.map((b) => `${BASE.find(([id]) => id === b)[1]} 3もん`),
-    ...extra.map((x) => `${x.subject}「${x.topic}」${perDayOf(x)}もん${x.auto ? '（テスト前）' : ''}`)].join('・');
+    ...extra.map((x) => `${x.subject}「${x.topic}」${perDayOf(x)}もん${x.auto ? '（テスト前）' : ''}`),
+    ...later.map((x) => `${x.subject}「${x.topic}」${perDayOf(x)}もん（${md(x.from)}から）`)].join('・');
 }
 
 // 一問一答が まだ たりない extra
