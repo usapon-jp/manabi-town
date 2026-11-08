@@ -69,6 +69,7 @@ const FILES = [
   'js/townart.js',
   'js/townkit.js',
   'js/tutorial.js',
+  'js/back.js',
   'js/ui.js',
   'js/world.js',
   'vendor/three/LICENSE',

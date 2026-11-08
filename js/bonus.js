@@ -52,14 +52,14 @@ function goals(p) {
   const routineDays = dates.filter((d) => Object.keys(p.routineLog?.[d] || {}).length).length;
   return {
     daily: [
-      { id: 'min30', ic: 'clock-3', label: 'タイマーで 30分 勉強', now: minutesOn(p, today()), goal: 30, reward: 15 },
+      { id: 'min30', ic: 'clock-3', label: 'タイマーで 30分 勉強', tab: 'timer', now: minutesOn(p, today()), goal: 30, reward: 15 },
     ],
     weekly: [
-      { id: 'stamp5', ic: 'calendar-check', label: 'スタンプを 5日 あつめる', now: stamps, goal: 5, reward: 50 },
-      { id: 'min120', ic: 'timer', label: '今週 120分 勉強', now: weekMin, goal: 120, reward: 50 },
+      { id: 'stamp5', ic: 'calendar-check', label: 'スタンプを 5日 あつめる', tab: 'home', now: stamps, goal: 5, reward: 50 },
+      { id: 'min120', ic: 'timer', label: '今週 120分 勉強', tab: 'timer', now: weekMin, goal: 120, reward: 50 },
       adult
-        ? { id: 'routine5', ic: 'trophy', label: 'ルーティーンを 5日 やる', now: routineDays, goal: 5, reward: 30 }
-        : { id: 'quest5', ic: 'trophy', label: 'まいにちクエストを 5回', now: quests, goal: 5, reward: 30 },
+        ? { id: 'routine5', ic: 'trophy', label: 'ルーティーンを 5日 やる', tab: 'quest', now: routineDays, goal: 5, reward: 30 }
+        : { id: 'quest5', ic: 'trophy', label: 'まいにちクエストを 5回', tab: 'quest', now: quests, goal: 5, reward: 30 },
     ],
   };
 }
@@ -103,12 +103,12 @@ export function openBonus(p, deps) {
   const { day, wk } = state(p);
   const g = goals(p);
 
-  const row = ({ ic, label, sub, reward, done, ready, onTap, progress }) => h('li', { class: `quest-row ${done ? 'done' : ''} ${ready ? 'ready' : ''}` },
+  const row = ({ ic, label, sub, reward, done, ready, onTap, progress }) => h('li', { class: `quest-row ${done ? 'done' : ''} ${ready ? 'ready' : ''}`, ...(done ? {} : { onclick: onTap, style: 'cursor:pointer' }) },
     h('span', { class: 'q-ic' }, icon(ic)),
     h('span', { class: 'q-main' }, h('b', {}, label), progress || (sub ? h('small', {}, sub) : null)),
     done
       ? h('span', { class: 'q-done' }, icon('check'))
-      : h('button', { class: `q-go ${ready ? 'claim' : ''}`, onclick: onTap }, ready ? 'うけとる' : [icon('sprout'), `${reward}`]));
+      : h('button', { class: `q-go ${ready ? 'claim' : ''}`, 'aria-label': label }, ready ? 'うけとる' : [icon('sprout'), `${reward}`]));
 
   const reopen = () => { s.close(); deps.render(); openBonus(p, deps); };
 
@@ -144,7 +144,12 @@ export function openBonus(p, deps) {
     return row({ ic: x.ic, label: x.label, reward: x.reward, done, ready,
       progress: h('span', { class: 'q-prog' }, bar(x.now, x.goal), h('small', {}, `${Math.min(x.now, x.goal)} / ${x.goal}`)),
       onTap: () => {
-        if (!ready) { toast(`あと ${x.goal - x.now}${x.id.startsWith('min') ? '分' : ''}！`); return; }
+        if (!ready) {   // まだなら、そのページへ とぶ
+          s.close();
+          deps.goTab?.(x.tab);
+          toast(`あと ${x.goal - x.now}${x.id.startsWith('min') ? '分' : ''}！`);
+          return;
+        }
         store[x.id] = true;
         deps.gain(p, x.reward, `ボーナス: ${x.label}`, { study: false });
         reopen();
