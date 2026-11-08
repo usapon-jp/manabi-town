@@ -1,6 +1,6 @@
 // オフラインでも開けるように、アプリの部品を端末にしまっておく。
 // 部品を変えたら VERSION を上げる（古いしまい場所は消える）。
-const VERSION = 'manabi-v103';
+const VERSION = 'manabi-v104';
 const FILES = [
   './',
   'index.html',
@@ -69,6 +69,7 @@ const FILES = [
   'js/townart.js',
   'js/townkit.js',
   'js/tutorial.js',
+  'js/back.js',
   'js/ui.js',
   'js/world.js',
   'vendor/three/LICENSE',
