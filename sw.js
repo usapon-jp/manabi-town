@@ -21,6 +21,8 @@ const FILES = [
   'js/more.js',
   'js/brain.js',
   'js/thinking.js',
+  'js/thinking-bank.js', 'js/thinking-progress.js', 'js/thinking-art.js',
+  'css/thinking.css', 'docs/thinking-classroom.html',
   'js/brain/choice.js',
   'js/brain/icepath.js',
   'js/brain/blocks.js',
