@@ -200,6 +200,7 @@ const bonusDeps = {
   render: () => render(),
   startDaily: (p) => startDaily(p),   // 作戦会議の あとに すぐ デイリーへ
   celebrate: () => world?.celebrate(),
+  goTab: (t) => show(t),   // ボーナスから そのページへ
   openRecommend: () => openRecommend(currentProfile(), recommendations(currentProfile()), bonusDeps),
 };
 
