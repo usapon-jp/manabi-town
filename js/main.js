@@ -37,6 +37,7 @@ import { openDiary, diaryFab } from './diary.js';
 import { sortPinned, togglePin } from './pins.js';
 import { mineToday, toggleMine, removeMine, mineAdder, MINE_POINTS } from './mytodo.js';
 import { aiPractice, practiceSubjects } from './challenge.js';
+import { initBack } from './back.js';
 
 const POINTS_HOMEWORK = 20;
 const POINTS_TEST = 50;
@@ -1033,6 +1034,7 @@ navigator.serviceWorker?.addEventListener('message', (e) => { if (e.data?.type =
 const startTab = new URLSearchParams(location.search).get('tab');
 if (startTab) { history.replaceState(null, '', location.pathname); if (getState().profiles.length === 1) openTab(startTab); }
 // アプリが落ちても タイマーは つづきから（ほかの人のタイマーも、その人に かえたら つづきから）
+initBack({ tab: () => tab, goHome: () => show('home'), menuBtn });   // スマホの戻るボタン
 restoreTimers(getState().profiles);
 resumeIfRunning(currentProfile(), timerDeps);
 if (currentProfile() && !currentProfile().tutorialDone) setTimeout(() => runTutorial(currentProfile()), 1200);
