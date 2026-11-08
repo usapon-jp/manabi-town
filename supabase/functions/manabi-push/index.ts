@@ -4,7 +4,7 @@
 //   通知を受ける端末（push_subs.profiles）に そのまま反映される。ログインなしの端末は その端末だけ（owner = dev:端末）
 // - pg_cron が毎分 action:tick で呼ぶ → 時刻になった分を その端末へ送る（アプリを閉じていても届く）
 // - VAPID の鍵は はじめて使うときに ここで作って app_secret にしまう（外には出さない。公開鍵だけ返す）
-// - いまはおとなのルーティーン。あとで 宿題・勉強のお知らせも同じ reminders に入れれば届く（kind で見分ける）
+// - おとなのルーティーン（kind:routine、毎日・曜日）と 宿題の前の日（kind:due、on の日だけ）。kind で見分ける
 import webpush from 'npm:web-push@3.6.7';
 
 const URL_ = Deno.env.get('SUPABASE_URL')!;
@@ -56,7 +56,7 @@ async function keys() {
   return vapid!;
 }
 
-type Reminder = { id: string; kind?: string; title: string; body?: string; time: string; days?: number[]; skipUntil?: string; url?: string };
+type Reminder = { id: string; kind?: string; title: string; body?: string; time: string; days?: number[]; skipUntil?: string; on?: string; url?: string };
 const HM = /^([01]\d|2[0-3]):[0-5]\d$/;
 const ISO = /^\d{4}-\d{2}-\d{2}$/;
 const clip = (s: unknown, n: number) => String(s ?? '').replace(/[\u0000-\u001f]/g, ' ').trim().slice(0, n);
@@ -70,6 +70,7 @@ function cleanReminders(list: unknown): Reminder[] {
     time: String(x?.time || ''),
     days: Array.isArray(x?.days) ? x.days.map(Number).filter((d: number) => Number.isInteger(d) && d >= 0 && d < 7) : [],
     skipUntil: ISO.test(String(x?.skipUntil || '')) ? String(x.skipUntil) : '',
+    on: ISO.test(String(x?.on || '')) ? String(x.on) : '',   // この日だけ（宿題の前の日など）
     url: clip(x?.url, 40),
   })).filter((r) => r.id && r.title && HM.test(r.time));
 }
@@ -131,6 +132,7 @@ async function tick() {
       if (done[x.id] === t.date) return false;
       if (x.days?.length && !x.days.includes(t.dow)) return false;
       if (x.skipUntil && t.date < x.skipUntil) return false;
+      if (x.on && t.date !== x.on) return false;
       const d = t.min - toMin(x.time);
       return d >= 0 && d <= LATE;
     });

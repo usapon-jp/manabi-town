@@ -1765,3 +1765,9 @@ input.pin { font-size: 26px; letter-spacing: 0.5em; text-align: center; }
 .thinking-feedback{line-height:1.8;margin:12px 0}
 .thinking-feedback .btn{margin-top:12px}
 .puzzle-btn .ic { color: #5c7a3e; }
+.notify-card .due-notify { display: flex; flex-direction: column; gap: 6px; margin: 8px 0; align-items: flex-start; }
+.notify-card .due-notify label.row { display: flex; flex-direction: row; align-items: center; gap: 8px; margin: 0; }
+.notify-card .due-notify input[type="time"] { width: auto; flex: none; font: inherit; padding: 6px 10px; border: 1.5px solid var(--line); border-radius: 10px; background: #fff; }
+.notify-card .kid-due { margin-top: 12px; padding-top: 10px; border-top: 1px dashed var(--line); }
+.notify-card .kid-due p { margin: 0 0 6px; }
+.notify-card .kid-due small { display: block; margin-top: 6px; opacity: 0.7; }
