@@ -53,7 +53,10 @@ export function readChatJson(text: string): Record<string, unknown> {
   if (m) {
     try {
       const o = JSON.parse(m[0]);
-      if (o && typeof o === 'object') return { ...o, say: typeof o.say === 'string' ? o.say.trim() : '' };
+      if (o && typeof o === 'object') {
+        const s = [o.say, o.message, o.text, o.reply].find((v) => typeof v === 'string' && v.trim());
+        return { ...o, say: s ? s.trim() : '' };
+      }
     } catch { /* 下で ひろう */ }
   }
   const sayM = t.match(/"say"\s*:\s*"((?:[^"\\]|\\.)*)"/);
@@ -168,8 +171,13 @@ Deno.serve(async (req) => {
         'デイリーを かえたいと言われたら、やさしく内容を たしかめて、ほかに決めることが なければ すぐまとめる。前の作戦会議のメモがあれば、決まっていたことは まとめに そのまま入れる。',
         'できないことを たのまれたら、できることを 1つ提案する。だまらない。',
         '子どもが 写真（テスト範囲のプリント・ワークや教科書の目次 など）を見せたら、読みとって 教科・範囲・テストの日に使う。読めない所は 読めないと言って 聞く。範囲を聞くときは「写真でもいいよ」と そえる。',
+        '写真は ちゃんと見えている。「見えない」とは言わない。写真を見たら、写っている単元名・ページ・内容（漢字の問題なら どんな漢字か 2〜3こ）を 1文で言って たしかめる。',
+        '「（前に見せた写真）」は 前に見せてもらった写真（もう画像は ない）。前の会話の内容から わかることを使う。',
+        '写真の範囲を extra に入れるときは その extra に "photo":true をつける（アプリが 写真を しりょうに入れて、その写真から 問題を作る）。topic は 写真から読んだ単元名やページで 具体的に（例「漢字ワーク p.106 新出漢字」）。',
+        '範囲（写真か ことば）がわかっていて「問題だして」「デイリーに入れて」「ファイルにしまって」などと言われたら、ほかの質問は あとまわしにして すぐ まとめ（done）にする。テストの日や量が わからなければ until は空、perDay・size は ピヨ先生が きめてよい。',
+        '前の作戦会議の メモに デイリーの範囲が あれば、はずすと言われないかぎり daily.extra に そのまま入れる（daily を書くときは 前の base と extra も わすれずに）。',
         '返事は JSON だけ。会話中: {"say":"…","choices":["…"],"done":false}',
-        'まとめ: {"say":"まとめのひとこと","done":true,"profile":{"style":"進め方を1文","when":"やる時間","focusMin":集中できる分(数),"strong":["教科"],"weak":["教科"],"plans":[{"subject":"教科","how":"進め方を1文"}],"check":[{"subject":"教科","topic":"単元"}],"daily":{"base":["kanji","english","math"],"extra":[{"subject":"教科","topic":"範囲","until":"YYYY-MM-DD か空","perDay":1日の数,"size":全部の数}]},"memo":"先生が覚えておくこと1〜2文"}}',
+        'まとめ: {"say":"まとめのひとこと","done":true,"profile":{"style":"進め方を1文","when":"やる時間","focusMin":集中できる分(数),"strong":["教科"],"weak":["教科"],"plans":[{"subject":"教科","how":"進め方を1文"}],"check":[{"subject":"教科","topic":"単元"}],"daily":{"base":["kanji","english","math"],"extra":[{"subject":"教科","topic":"範囲","until":"YYYY-MM-DD か空","perDay":1日の数,"size":全部の数,"photo":写真の範囲なら true}]},"memo":"先生が覚えておくこと1〜2文"}}',
         'daily は デイリーの話をしたときだけ入れる（話していなければ daily は書かない）。check は 0〜3こ。',
       ].join('\n');
       const ctx = `今日: ${clip(body.today, 10)}\n名前: ${clip(body.name, 20)}\n学年: ${clip(body.grade, 20)}\nいまの予定:\n${clip(body.items, 1500) || '（まだない）'}\n` +
@@ -197,8 +205,15 @@ Deno.serve(async (req) => {
       }
       if (history[history.length - 1].role !== 'user') history.push({ role: 'user', content: '（つづけて）' });
       // 考える量は low。まとめの JSON は長いので max_tokens に よゆうを もたせる
-      const text = await claude(key, [], system, 4000, MODEL_SMART, history, false, 'low');
-      const r = readChatJson(text);
+      let text = await claude(key, [], system, 4000, MODEL_SMART, history, false, 'low');
+      let r = readChatJson(text);
+      // 返事が 読めなかったら（JSON の形が ちがう など）1回だけ やりなおす。何が来たかは ログに のこす
+      if (!r.say && !(r.done && r.profile)) {
+        console.log('plan: unreadable reply', clip(text, 600));
+        text = await claude(key, [], system + '\nかならず {"say":"…","choices":[…],"done":false} の形の JSON だけで 返事する。', 4000, MODEL_SMART, history, false, 'low');
+        r = readChatJson(text);
+        if (!r.say && !(r.done && r.profile)) console.log('plan: unreadable reply (retry)', clip(text, 600));
+      }
       return ok({
         say: clip(r.say, 300) || 'ごめんね、うまく まとまらなかった。もういちど 送ってみてね',
         choices: Array.isArray(r.choices) ? r.choices.slice(0, 4).map((c) => clip(c, 40)) : [],

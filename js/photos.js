@@ -91,9 +91,10 @@ export async function openPhotos(p, opts = {}) {
   };
   const useBtn = h('button', { type: 'button', class: 'btn primary', onclick: async () => {
     const urls = [];
-    for (const id of chosen) { const d = await getData(id); if (d) urls.push(d); }
+    const ids = [];
+    for (const id of chosen) { const d = await getData(id); if (d) { urls.push(d); ids.push(id); } }
     close();
-    opts.onPick?.(urls);
+    opts.onPick?.(urls, ids);
   } });
 
   async function draw() {
@@ -119,7 +120,7 @@ export async function openPhotos(p, opts = {}) {
     useBtn.disabled = !chosen.size;
   }
 
-  const sheet = h('div', { class: 'sheet', onclick: (e) => { if (e.target === sheet) close(); } },
+  const sheet = h('div', { class: 'sheet ph-sheet', onclick: (e) => { if (e.target === sheet) close(); } },
     h('div', { class: 'sheet-card piyo-menu ph-card' },
       h('p', { class: 'sheet-title' }, icon('folder'), ' しりょうの写真'),
       tabs, info, grid, useBtn,
