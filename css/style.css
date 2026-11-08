@@ -1773,3 +1773,4 @@ input.pin { font-size: 26px; letter-spacing: 0.5em; text-align: center; }
 .notify-card .kid-due { margin-top: 12px; padding-top: 10px; border-top: 1px dashed var(--line); }
 .notify-card .kid-due p { margin: 0 0 6px; }
 .notify-card .kid-due small { display: block; margin-top: 6px; opacity: 0.7; }
+.plan-next { width: 100%; margin: 4px 0 0; text-align: center; font-weight: 600; color: var(--accent-dark); }
