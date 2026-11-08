@@ -680,7 +680,36 @@ async function startDaily(p) {
     if (pts > 0) gain(p, pts, 'きょうのクエスト'); else save();
     render();
     return `+${pts} ポイント！`;
-  });
+  }, { again: (results) => stockRetry(p, results) });
+}
+
+// ---- まちがえた問題を その日のうちに もう一度 ----------------------------------
+// きょうの デイリーで まちがえた問題を p.retry にためて、おわったあと すぐ／やることタブから もう一度。
+// ぜんぶ なおせるまで くりかえせる（ポイントは なし。あしたの やりなおしにも 入っている）
+const retryKey = (q) => [q.kind, q.prompt, q.big || '', q.topic || ''].join('|');
+function retryList(p) {
+  return p.retry?.day === today() && Array.isArray(p.retry.qs) ? p.retry.qs : [];
+}
+function stockRetry(p, results) {
+  const have = retryList(p);
+  const seen = new Set(have.map(retryKey));
+  const add = results.filter((r) => !r.ok && r.q).map((r) => JSON.parse(JSON.stringify(r.q))).filter((q) => !seen.has(retryKey(q)) && seen.add(retryKey(q)));
+  p.retry = { day: today(), qs: [...have, ...add] };
+  save();
+  return retryAgain(p);
+}
+const retryAgain = (p) => (retryList(p).length ? { label: `まちがえた ${retryList(p).length}もんを もう一度`, onClick: () => runRetry(p) } : null);
+function runRetry(p) {
+  const qs = retryList(p);
+  if (!qs.length) return;
+  runQuestions('まちがえた問題を もう一度', qs, (score, total, results) => {
+    const left = new Set(results.filter((r) => !r.ok).map((r) => retryKey(r.q)));
+    const done = new Set(results.map((r) => retryKey(r.q)));
+    p.retry.qs = qs.filter((q) => left.has(retryKey(q)) || !done.has(retryKey(q)));
+    save();
+    render();
+    return p.retry.qs.length ? `あと ${p.retry.qs.length}もん！` : 'ぜんぶ なおせたね！';
+  }, { again: () => retryAgain(p) });
 }
 
 // テスト前の 見直しワーク: デイリーで まちがえた 一問一答を まとめて もういちど（テスト3日前から 目立たせる）
@@ -739,7 +768,10 @@ function renderQuest(p) {
       result
         ? h('p', { class: 'cleared' }, `きょうは クリアずみ（${result.score} / ${result.total}）`)
         : null,
-      h('button', { class: 'btn primary', onclick: start }, result ? 'もういちど れんしゅう' : 'はじめる')),
+      retryList(p).length && result
+        ? h('button', { class: 'btn primary', onclick: () => runRetry(p) }, icon('repeat'), ` まちがえた ${retryList(p).length}もんを もう一度`)
+        : null,
+      h('button', { class: retryList(p).length && result ? 'btn' : 'btn primary', onclick: start }, result ? 'もういちど れんしゅう' : 'はじめる')),
     missCard(p),
     moreCard(p, moreDeps),
     brainCard(p, bonusDeps),

@@ -177,15 +177,17 @@ export function runQuestions(title, questions, onFinish, opts = {}) {
     setTimeout(() => { const b = layer.querySelector('.q-box'); if (b) burst(b, 14); }, 250);
     const perfect = score === questions.length;
     const extra = onFinish(score, questions.length, results);
+    // opts.again は 関数でもOK（けっかを見てから「もう1回」を出すか きめる）
+    const again = typeof opts.again === 'function' ? opts.again(results) : opts.again;
     layer.replaceChildren(h('div', { class: 'runner-card result' },
       h('div', { class: 'q-box' },
         h('p', { class: 'big' }, perfect ? 'ぜんもんせいかい！' : `${score} / ${questions.length} もん せいかい`),
         h('p', { class: 'prompt' }, perfect ? 'ピヨ先生「かんぺき！あしたもいっしょにがんばろう」' : 'ピヨ先生「まちがえたところは、またやってみようね」'),
         extra ? h('p', { class: 'reward' }, extra) : null,
       ),
-      opts.again
+      again
         ? h('div', { class: 'result-btns' },
-          h('button', { class: 'btn primary next', onclick: () => { close(); opts.again.onClick(); } }, opts.again.label || 'もう1回'),
+          h('button', { class: 'btn primary next', onclick: () => { close(); again.onClick(); } }, again.label || 'もう1回'),
           h('button', { class: 'btn next', onclick: close }, 'もどる'))
         : h('button', { class: 'btn primary next', onclick: close }, 'もどる'),
     ));
