@@ -1,0 +1,15 @@
+<!doctype html><html lang="ja"><meta charset="utf-8"><base href="../"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><title>絵本の教室・ローカルプレビュー</title><link rel="stylesheet" href="../css/style.css"><link rel="stylesheet" href="../css/thinking.css"><body><button id="open">教室をひらく</button><div id="toast"></div><script type="module">
+import {getState,addProfile,currentProfile,switchProfile,save} from './js/store.js';
+import {openThinkingClassroom} from './js/thinking.js';
+import {makeQuestion} from './js/thinking-bank.js';
+import {readBook,recordAnswer} from './js/thinking-progress.js';
+if(!['localhost','127.0.0.1'].includes(location.hostname))throw new Error('Local preview only');
+const staged=Number(new URLSearchParams(location.search).get('stage'));
+if(staged>0&&staged<=36){
+ const name=`絵本の検証用${staged}`;
+ let p=getState().profiles.find(p=>p.name===name)||addProfile(name,'adult');
+ switchProfile(p.id);
+ if(!p.thinkingBook){let book={...readBook(p),introduced:true};for(let n=0;n<staged;n++){const q=makeQuestion(n,2,p.id);book=recordAnswer(book,q,{choice:q.answer,hints:0,day:'2026-11-07',at:Date.now()});}p.thinkingBook=book;save();}
+}else{const name='絵本の検証用0';const p=getState().profiles.find(p=>p.name===name)||addProfile(name,'e4');switchProfile(p.id);}
+document.getElementById('open').onclick=()=>openThinkingClassroom(currentProfile());openThinkingClassroom(currentProfile());
+</script></body></html>

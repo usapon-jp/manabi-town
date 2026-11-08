@@ -5,7 +5,7 @@
 // - じっくり: 時間なしで 5もん（塔は のぼらない）
 // - ポイントは ひかえめ: ほし1こ 3ポイント、1日 BRAIN_DAY_CAP まで
 // きろくは p.brain = { st: { [ゲーム]: { floor, best, stars, plays } }, days: { [日]: { pts, rounds } } }
-import { h } from './ui.js';
+import { h, toast } from './ui.js';
 import { today, save, gradeBucket } from './store.js';
 import { seededRandom } from './quests.js';
 import { icon } from './icons.js';
@@ -235,7 +235,19 @@ export function openBrain(p, deps) {
       h('p', { class: 'more-meter' }, d.pts >= BRAIN_DAY_CAP
         ? 'きょうの ポイントは いっぱい（力だめしは つづけられるよ）'
         : `ほし1こ ${BRAIN_PER_STAR}ポイント（1日 ${BRAIN_DAY_CAP}ポイントまで${d.pts ? `・あと ${BRAIN_DAY_CAP - d.pts}` : ''}）`),
-      h('button', { type: 'button', class: 'btn primary', onclick: async () => { close(); const m = await import('./thinking.js'); m.openThinkingClassroom(); } }, icon('book-open'), ' ピヨちゃんの考える教室'),
+      h('button', { type: 'button', class: 'btn primary', onclick: async (e) => {
+        const button = e.currentTarget;
+        if (button.disabled) return;
+        button.disabled = true;
+        try {
+          const m = await import('./thinking.js');
+          if (!sheet.isConnected) return;
+          close();
+          m.openThinkingClassroom(p);
+        } catch {
+          if (sheet.isConnected) toast('教室をひらけなかったよ。もう一度ためしてね');
+        } finally { button.disabled = false; }
+      } }, icon('book-open'), ' ピヨちゃんの考える教室'),
       h('button', { class: 'link', type: 'button', onclick: close }, 'とじる')));
   document.body.append(sheet);
 }
