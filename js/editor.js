@@ -86,6 +86,9 @@ const CSS = `
 .wsp { position: absolute; right: 70px; bottom: calc(100% + 6px); display: flex; flex-wrap: wrap-reverse; justify-content: flex-end; gap: 6px; width: max-content; max-width: calc(100vw - 110px - env(safe-area-inset-right, 0px)); }
 .wsp .carry { padding: 6px 11px; border-radius: 14px; background: rgba(255, 250, 235, 0.92); color: #6b4a2b; font-size: 12px; font-weight: 800; white-space: nowrap; border: 2px solid #ffe2a8; }
 .wsp button.txt.more { padding: 5px 7px; }
+.wsp button.txt.pick { display: flex; align-items: center; gap: 4px; padding: 3px 10px 3px 4px; }
+.wsp button.txt.pick img { width: 26px; height: 26px; object-fit: contain; border-radius: 8px; background: rgba(255, 255, 255, 0.75); }
+.wbag .bgrid button.on { background: #e3efd2; border-color: #8aa66a; color: #5a4636; }
 .wsp button.cancel { background: rgba(255, 255, 255, 0.9); color: #6b4a2b; text-shadow: none; }
 .wuse button.wgo.carrying { background: rgba(95, 211, 106, 0.55); border-color: #fff; box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.14), 0 0 14px rgba(95, 211, 106, 0.7); }
 .wbag .bgrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(92px, 1fr)); gap: 8px; }
@@ -245,11 +248,10 @@ export function createEditor({ container, scene, cut, wind, pick, rotate, setWal
       const curOf = () => (kind === 'fence' ? st.fenceStyle : kind === 'part' ? st.part : st.piece);
       const setCur = (v) => { if (kind === 'fence') st.fenceStyle = v; else if (kind === 'part') st.part = v; else st.piece = v; };
       if (!all.includes(curOf())) setCur(all[0]);
-      // とじている時は、いまの1つだけ（タップで ひらく）。ひらいている時は ぜんぶ
-      const show = st.spOpen ? all : [curOf()];
-      spEl.innerHTML = show.map((id) => `<button type="button" class="txt" data-id="${id}" aria-label="${labelOf(id)}">${id.startsWith('bag:') ? 'バッグ: ' : ''}${labelOf(id)}${st.spOpen ? '' : ' ▾'}</button>`).join('');
-      spEl.querySelectorAll('button').forEach((b) => b.classList.toggle('on', st.spOpen && b.dataset.id === curOf()));
-      spEl.hidden = false;
+      // いまの1つだけ（絵つき）。タップで 絵の一覧を ひらいて えらぶ
+      const cur = curOf();
+      spEl.innerHTML = cur ? `<button type="button" class="txt pick" data-pick="${kind}" aria-label="${esc(labelOf(cur))}を かえる">${ITEMS[cur] ? `<img src="${thumbSrc(ITEMS[cur])}" alt="" onerror="this.remove()">` : ''}${esc(labelOf(cur))} ▾</button>` : '';
+      spEl.hidden = !cur;
     } else if (hand.id === 'flower') {
       const have = ownedSeeds(currentProfile());
       const keys = SPECIES_KEYS.filter((k) => !SPECIES[k].gacha || have.has(k));
@@ -263,6 +265,7 @@ export function createEditor({ container, scene, cut, wind, pick, rotate, setWal
   spEl.addEventListener('click', (e) => {
     const b = e.target.closest('button'); if (!b) return;
     if (b.dataset.cancel) { stopCarry(); return; }
+    if (b.dataset.pick) { openBag(b.dataset.pick); return; }
     if (!st.spOpen) { st.spOpen = true; refreshHand(); return; }   // とじている時は、タップで ひらくだけ
     if (b.dataset.sp) st.species = b.dataset.sp;
     else if (b.dataset.id) { if (hand.id === 'fence') st.fenceStyle = b.dataset.id; else if (hand.id === 'part') st.part = b.dataset.id; else st.piece = b.dataset.id; }
@@ -271,7 +274,7 @@ export function createEditor({ container, scene, cut, wind, pick, rotate, setWal
   });
   // えらびが ひらいている時、ほかの所を タップしたら とじる
   document.addEventListener('pointerdown', (e) => {
-    if (st.selTap && !selEl.contains(e.target) && !upBtn.contains(e.target)) closeSelTap();
+    if (st.selTap && !e.target.closest?.('.wopt') && !upBtn.contains(e.target)) closeSelTap();   // 道具の すきまも「外」
     if (!st.spOpen || spEl.contains(e.target)) return;
     st.spOpen = false; refreshHand();
   }, true);
@@ -609,13 +612,17 @@ export function createEditor({ container, scene, cut, wind, pick, rotate, setWal
   // もちもの一覧（おきもの）
   let bagSheet = null;
   function closeBag() { bagSheet?.remove(); bagSheet = null; }
-  function openBag() {
+  function openBag(kind = 'piece') {
     closeBag();
     const placed = new Set(foldAll(ops() || []).eff.filter((o) => o.t === 'place').map((o) => o.k));
     const HOUSE_SVG = toolById('piece').svg;
     // 3Dモデルから撮った絵（ガチャと同じ）。絵がなければ線の絵
     const pic = (id) => (ITEMS[id] ? `<img src="${thumbSrc(ITEMS[id])}" alt="" draggable="false" onerror="this.replaceWith(document.createRange().createContextualFragment(this.dataset.svg))" data-svg="${esc(ITEMS[id].svg || HOUSE_SVG)}">` : HOUSE_SVG);
-    const cards = [
+    const PICK = {
+      fence: { title: '柵の かたちを えらぶ', hint: 'ボタンを おしたまま あるくと のびるよ', cur: () => st.fenceStyle, set: (v) => { st.fenceStyle = v; } },
+      part: { title: 'かざる パーツを えらぶ', hint: '家の そばで ボタンを おしてね', cur: () => st.part, set: (v) => { st.part = v; } },
+    }[kind];
+    const cards = PICK ? ownedOfKind(kind).map((id) => `<button type="button" data-k="${id}" class="${PICK.cur() === id ? 'on' : ''}">${pic(id)}<span>${esc(ITEMS[id]?.label || id)}</span></button>`) : [
       ...ownedOfKind('piece').map((id) => {
         const used = !ITEMS[id]?.own && placed.has(id);   // ガチャで出た物は1こずつ
         return `<button type="button" data-k="${id}" class="${used ? 'used' : ''}">${pic(id)}<span>${esc(ITEMS[id]?.label || id)}</span>${used ? '<small>おいてあるよ</small>' : ''}</button>`;
@@ -624,11 +631,12 @@ export function createEditor({ container, scene, cut, wind, pick, rotate, setWal
     ];
     bagSheet = document.createElement('div');
     bagSheet.className = 'wparts wbag';
-    bagSheet.innerHTML = `<div class="pcard"><p class="ptitle">おきものを えらぶ</p><div class="bgrid">${cards.join('')}</div>
-      <p class="bhint">えらぶと ピヨが もつよ。ガチャで ふえるよ</p><button type="button" class="pclose">とじる</button></div>`;
+    bagSheet.innerHTML = `<div class="pcard"><p class="ptitle">${PICK ? PICK.title : 'おきものを えらぶ'}</p><div class="bgrid">${cards.join('')}</div>
+      <p class="bhint">${PICK ? PICK.hint : 'えらぶと ピヨが もつよ'}。ガチャで ふえるよ</p><button type="button" class="pclose">とじる</button></div>`;
     bagSheet.addEventListener('click', (e) => {
       if (e.target === bagSheet || e.target.closest('.pclose')) { closeBag(); return; }
       const b = e.target.closest('button[data-k]'); if (!b) return;
+      if (PICK) { PICK.set(b.dataset.k); closeBag(); refreshHand(); return; }
       if (b.classList.contains('used')) { say('もう おいてあるよ。うごかすなら「つくる」の「うごかす」で'); return; }
       closeBag();
       startCarry(b.dataset.k);
