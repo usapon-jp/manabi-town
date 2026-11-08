@@ -198,6 +198,7 @@ const timerDeps = {
 const bonusDeps = {
   gain: (p, n, reason, opts) => { gain(p, n, reason, opts); save(); render(); },
   render: () => render(),
+  startDaily: (p) => startDaily(p),   // 作戦会議の あとに すぐ デイリーへ
   celebrate: () => world?.celebrate(),
   openRecommend: () => openRecommend(currentProfile(), recommendations(currentProfile()), bonusDeps),
 };
@@ -733,7 +734,7 @@ function renderQuest(p) {
     todoAdd(p),
     h('div', { class: 'card quest' },
       h('h3', {}, 'きょうのクエスト'),
-      h('p', {}, p.coach?.daily ? `${dailyLabel(p.coach)}。きのう まちがえた問題も もういちど出るよ。せいかい1もん10ポイント、ぜんもんせいかいで +30！` : '漢字・英単語・算数を 3もんずつ。せいかい1もん10ポイント、ぜんもんせいかいで +30！'),
+      h('p', {}, p.coach ? `${dailyLabel(p.coach, p)}。きのう まちがえた問題も もういちど出るよ。せいかい1もん10ポイント、ぜんもんせいかいで +30！` : '漢字・英単語・算数を 3もんずつ。せいかい1もん10ポイント、ぜんもんせいかいで +30！'),
       isAdult(p) ? null : h('button', { class: 'link', onclick: () => openPlanChat(p, bonusDeps) }, '中身を かえる（ピヨ先生と 作戦会議）'),
       result
         ? h('p', { class: 'cleared' }, `きょうは クリアずみ（${result.score} / ${result.total}）`)
@@ -885,7 +886,7 @@ function planCard(p) {
   }
   return h('div', { class: 'card form' },
     h('h3', {}, 'ピヨ先生と 作戦会議'),
-    p.coach ? planSummary(p.coach) : h('p', { class: 'ai-status' }, '進め方・とくい にがて・理解度チェックを、ピヨ先生と いっしょに決めます'),
+    p.coach ? planSummary(p.coach, p) : h('p', { class: 'ai-status' }, '進め方・とくい にがて・理解度チェックを、ピヨ先生と いっしょに決めます'),
     h('button', { class: p.coach ? 'btn' : 'btn primary', onclick: () => openPlanChat(p, bonusDeps) }, p.coach ? 'もういちど 作戦会議' : '作戦会議を はじめる'),
     p.coach?.check?.length ? h('button', { class: 'btn', onclick: () => startCheck(p, bonusDeps) }, '理解度チェック') : null);
 }

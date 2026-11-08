@@ -81,26 +81,60 @@ export const poolKey = (x) => `${x.subject}:${x.topic}`;
 const sizeOf = (x) => x.size || CHUNK;
 const perDayOf = (x) => x.perDay || 3;
 
-// いま有効な extra（until をすぎたものは はずす）
+// テスト前（14日まえから）は、国語・英語・数学の テスト予定から 範囲の一問一答を 自動で足す。
+// 作戦会議で その教科の範囲を 決めていれば そちらを使う。写真は その テストの しりょうフォルダから
+const TEST_DAYS = 14;
+const AUTO_SIZE = 30;
+// デイリーの 決まった教科 → 置きかえる テスト教科
+const BASE_SUBJ = { kanji: /国語|漢字/, english: /英語/, math: /数学|算数/ };
+const subjOf = (x) => Object.keys(BASE_SUBJ).find((b) => BASE_SUBJ[b].test(x.subject) || (b === 'kanji' && /漢字/.test(x.topic)));
+
+function testExtras(p, own) {
+  if (!p.coach || p.grade === 'adult') return [];
+  const t = today();
+  const have = new Set(own.map(subjOf).filter(Boolean));
+  const out = [];
+  p.items.filter((i) => i.type === 'test' && !i.done && i.date >= t && daysUntil(i.date) <= TEST_DAYS)
+    .sort((a, b) => a.date.localeCompare(b.date))
+    .forEach((i) => {
+      const b = subjOf({ subject: i.subject, topic: i.title });
+      if (!b || have.has(b)) return;
+      have.add(b);
+      const days = Math.max(1, daysUntil(i.date));
+      out.push({
+        subject: i.subject, topic: `${i.title}${i.range ? ` ${i.range}` : ''}`.slice(0, 60), until: i.date,
+        size: AUTO_SIZE, perDay: Math.min(10, Math.max(3, Math.ceil((AUTO_SIZE * 3) / days))),
+        photos: (p.photos || []).filter((m) => m.folder === i.id).map((m) => m.id).slice(-3), auto: true,
+      });
+    });
+  return out;
+}
+
+// いま有効な extra（until をすぎたものは はずす）＋ テスト前の 自動の範囲
 export function activeExtras(p) {
   const t = today();
-  return (p.coach?.daily?.extra || []).filter((x) => !x.until || x.until >= t);
+  const own = (p.coach?.daily?.extra || []).filter((x) => !x.until || x.until >= t);
+  return [...own, ...testExtras(p, own)];
 }
 
 // デイリーに入れる 決まった教科（作戦会議で決めていなければ 3つとも）
-// 漢字のテスト範囲（一問一答）が 入っているあいだは、学年の 漢字3もんの かわりに 範囲の問題を出す
-export const isKanjiRange = (x) => /漢字/.test(`${x.subject}${x.topic}`);
+// 範囲の一問一答が ある教科は、学年の 3もんの かわりに 範囲の問題を出す（漢字→国語、英単語→英語、算数→数学）
+export const isKanjiRange = (x) => subjOf(x) === 'kanji';
 export function dailyBase(p) {
   const base = p.coach?.daily ? p.coach.daily.base : BASE.map(([id]) => id);
-  return activeExtras(p).some(isKanjiRange) ? base.filter((b) => b !== 'kanji') : base;
+  const ranged = new Set(activeExtras(p).map(subjOf).filter(Boolean));
+  return base.filter((b) => !ranged.has(b));
 }
 
-export function dailyLabel(c) {
+// p があれば 置きかえ・自動の範囲も入れた いまの デイリー
+export function dailyLabel(c, p) {
   const d = c?.daily;
-  if (!d) return '';
+  if (!d && !p) return '';
+  const base = p ? dailyBase(p) : d.base;
   const t = today();
-  return [...d.base.map((b) => `${BASE.find(([id]) => id === b)[1]} 3もん`),
-    ...d.extra.filter((x) => !x.until || x.until >= t).map((x) => `${x.subject}「${x.topic}」${perDayOf(x)}もん`)].join('・');
+  const extra = p ? activeExtras(p) : d.extra.filter((x) => !x.until || x.until >= t);
+  return [...base.map((b) => `${BASE.find(([id]) => id === b)[1]} 3もん`),
+    ...extra.map((x) => `${x.subject}「${x.topic}」${perDayOf(x)}もん${x.auto ? '（テスト前）' : ''}`)].join('・');
 }
 
 // 一問一答が まだ たりない extra
@@ -351,11 +385,15 @@ export function openPlanChat(p, deps) {
     if (first) deps.gain(p, PLAN_BONUS, '作戦会議'); else save();
     form.remove();
     choices.replaceChildren(...[
-      summary(p.coach),
-      profile.check.length
-        ? h('button', { type: 'button', class: 'btn primary', onclick: (e) => { close(); startCheck(p, deps, e.currentTarget); } }, icon('target'), ' 理解度チェックを する（3もんずつ）')
+      h('p', { class: 'plan-next' }, 'つぎは きょうの クエストで ためしてみよう！'),
+      deps.startDaily
+        ? h('button', { type: 'button', class: 'btn primary', onclick: () => { close(); deps.render(); deps.startDaily(p); } }, icon('play'), ' きょうの クエストを はじめる')
         : null,
-      h('button', { type: 'button', class: 'link', onclick: () => { close(); deps.render(); } }, 'あとで'),
+      profile.check.length
+        ? h('button', { type: 'button', class: deps.startDaily ? 'btn' : 'btn primary', onclick: (e) => { close(); startCheck(p, deps, e.currentTarget); } }, icon('target'), ' 理解度チェックを する（3もんずつ）')
+        : null,
+      summary(p.coach, p),   // ボタンを 先に（まとめが 長くても ボタンが 画面に 見えるように）
+      h('button', { type: 'button', class: 'link', onclick: () => { close(); deps.render(); } }, 'とじる（あとで やる）'),
     ].filter(Boolean));
     if (first) toast(`作戦会議 できた！ +${PLAN_BONUS}`);
     busy = false;
@@ -387,14 +425,14 @@ export function openPlanChat(p, deps) {
 }
 
 // 決まったことのまとめ（せっていにも出す）
-export function summary(c) {
+export function summary(c, p) {
   const row = (label, text) => (text ? h('div', { class: 'plan-row' }, h('small', {}, label), h('span', {}, text)) : null);
   return h('div', { class: 'plan-sum' },
     row('進め方', [c.style, c.when, c.focusMin ? `${c.focusMin}分 集中` : ''].filter(Boolean).join('・')),
     row('とくい', (c.strong || []).join('、')),
     row('にがて', (c.weak || []).join('、')),
     ...(c.plans || []).map((x) => row(x.subject, x.how)),
-    row('デイリー', dailyLabel(c)),
+    row('デイリー', dailyLabel(c, p)),
     (c.checks || []).length ? row('チェック', c.checks.map((x) => `${x.topic} ${x.score}/${x.total}`).join('、')) : null);
 }
 
