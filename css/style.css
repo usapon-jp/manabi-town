@@ -1791,3 +1791,19 @@ input.pin { font-size: 26px; letter-spacing: 0.5em; text-align: center; }
 @media (prefers-reduced-motion: reduce) { .test-stamp { animation: none; } }
 .piyo-judge { width: 100%; }
 .piyo-judge[hidden] { display: none; }
+/* 書きとりの テストモード */
+.write-mode { grid-template-columns: repeat(3, 1fr); }
+.test-skip { display: block; margin: 2px auto 0; }
+.runner-card.tm .q-box { text-align: left; }
+.tm-note { margin: 4px 0 10px; font-size: 14px; color: var(--muted, #8a7a66); }
+.tm-list { display: grid; gap: 10px; }
+.tm-row { display: grid; grid-template-columns: 84px 1fr 44px; gap: 10px; align-items: center; padding: 8px; border: 1.5px solid var(--line); border-radius: 16px; background: #fff; }
+.tm-img { width: 84px; height: 48px; object-fit: contain; border-radius: 10px; background: #fff; border: 1px solid var(--line); }
+.tm-blank { display: grid; place-items: center; font-size: 13px; color: #a0907c; }
+.tm-text { display: grid; gap: 2px; min-width: 0; }
+.tm-text b { font-family: var(--kyokasho, inherit); font-size: 22px; color: var(--navy); }
+.tm-text small { font-size: 12px; color: #8a7a66; overflow-wrap: anywhere; }
+.tm-mark { width: 44px; height: 44px; border-radius: 50%; font: inherit; font-size: 24px; font-weight: 800; border: 2px solid; background: #fff; cursor: pointer; }
+.tm-mark.ok { color: #7f985e; border-color: #7f985e; }
+.tm-mark.ng { color: #d0604f; border-color: #d0604f; }
+.runner-card.tm { overflow-y: auto; }
