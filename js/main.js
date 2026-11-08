@@ -667,7 +667,7 @@ async function startDaily(p) {
   // きのうまでに まちがえた 一問一答は、さいしょに もういちど
   const again = dueForTopics(p, activeExtras(p).map((x) => x.topic));
   const againSet = new Set(again);
-  const fresh = extraQuestions(p, key).filter((q) => !again.some((a) => a.prompt === q.prompt && a.topic === q.topic));
+  const fresh = extraQuestions(p, key).filter((q) => !again.some((a) => a.prompt === q.prompt && a.big === q.big && a.topic === q.topic));
   const qs = [...again, ...buildDaily(gradeBucket(p), `${p.id}:${key}`, dailyBase(p)), ...fresh];
   if (!qs.length) { toast('デイリーの 問題が まだ ないよ。作戦会議で きめてね'); return; }
   runQuestions('きょうのクエスト', qs, (score, total, results) => {

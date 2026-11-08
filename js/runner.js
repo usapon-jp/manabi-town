@@ -262,6 +262,31 @@ function writeArea(q, pads, onJudge) {
       check.hidden = true;
       tools.hidden = true;
       pad.el.classList.add('done');
+      if (q.selfCheck) {
+        // テスト範囲の漢字は お手本を 重ねて 自分で ○×
+        showAnswer = true;
+        pad.redraw();
+        answer.hidden = false;
+        status.hidden = false;
+        status.className = 'write-status';
+        status.textContent = 'お手本と くらべて ○×を つけてね';
+        judgeRow.hidden = false;
+        piyo.hidden = false;
+        return;
+      }
+      await piyoJudge();
+    });
+
+    // ピヨちゃんに 見てもらう（自分で ○× の問題は、ボタンを おしたときだけ）
+    const piyo = h('button', { class: 'btn piyo-judge', hidden: true }, icon('sparkles'), ' ピヨちゃんに 見てもらう');
+    judgeRow.addEventListener('click', (e) => { if (e.target.closest('button')) piyo.hidden = true; });
+    piyo.addEventListener('click', async () => {
+      piyo.hidden = true;
+      judgeRow.hidden = true;
+      await piyoJudge();
+    });
+
+    async function piyoJudge() {
       const image = snapshot(pad.el);
       status.hidden = false;
       status.className = 'write-status loading';
@@ -282,10 +307,10 @@ function writeArea(q, pads, onJudge) {
         status.textContent = 'いまは ピヨ先生が 見られないみたい。お手本と くらべて ○×を つけてね';
         judgeRow.hidden = false;
       }
-    });
+    }
 
     return [h('div', { class: `write-frame ${en ? 'en' : ''}`, style: `--n:${en ? 3 : chars.length}` }, pad.el),
-      tools, check, status, answer, judgeRow, fix];
+      tools, check, status, answer, judgeRow, piyo, fix];
   }
 
   draw();
