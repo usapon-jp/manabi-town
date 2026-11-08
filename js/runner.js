@@ -89,6 +89,12 @@ export function runQuestions(title, questions, onFinish, opts = {}) {
           ? `ピヨ先生「${comment}」`
           : ok ? `ピヨ先生「${PRAISE[index % PRAISE.length]}」` : 'ピヨ先生「お手本を見て、ノートに3回書いてみよう」';
         next.hidden = false;
+      }, (image, job) => {
+        // テストモード: 採点は あとで まとめて。いまは つぎへ
+        const r = { q, ok: false, image, wait: true };
+        results.push(r);
+        r.job = job.then((res) => { r.wait = false; r.judged = !!res; r.ok = !!res?.ok; r.comment = res?.comment || ''; });
+        next.click();
       });
     } else {
       kind = 'number';
@@ -129,7 +135,40 @@ export function runQuestions(title, questions, onFinish, opts = {}) {
     ));
   }
 
-  function finish() {
+  // テストモードで 書いた問題が あれば、採点を まって まとめて 見せる（○×は なおせる）
+  async function finish() {
+    if (finished) return;
+    const tested = results.filter((r) => 'image' in r);
+    if (tested.length) {
+      finished = true;
+      cleanup();
+      clearInterval(clockId);
+      layer.replaceChildren(h('div', { class: 'runner-card result' },
+        h('div', { class: 'q-box' }, h('p', { class: 'prompt' }, 'ピヨ先生が まとめて 採点してるよ…'), h('div', { class: 'write-status loading' }))));
+      await Promise.all(tested.map((r) => r.job));
+      if (!layer.isConnected || layer.hidden) return;
+      const rows = tested.map((r) => {
+        const mark = h('button', { class: `tm-mark ${r.ok ? 'ok' : 'ng'}`, 'aria-label': 'まるばつを かえる' }, r.ok ? '○' : '×');
+        mark.addEventListener('click', () => { r.ok = !r.ok; mark.className = `tm-mark ${r.ok ? 'ok' : 'ng'}`; mark.textContent = r.ok ? '○' : '×'; });
+        return h('div', { class: 'tm-row' },
+          r.image ? h('img', { class: 'tm-img', src: r.image, alt: '' }) : h('span', { class: 'tm-img tm-blank' }, 'とばした'),
+          h('div', { class: 'tm-text' }, h('small', {}, r.q.big || ''), h('b', {}, r.q.answerText),
+            r.comment ? h('small', {}, r.comment) : !r.judged && r.image ? h('small', {}, '○×を 自分で つけてね') : null),
+          mark);
+      });
+      layer.replaceChildren(h('div', { class: 'runner-card result tm' },
+        h('div', { class: 'q-box' },
+          h('p', { class: 'prompt' }, 'テストの 答え合わせ'),
+          h('p', { class: 'tm-note' }, 'お手本と くらべて ちがったら ○× を おして なおしてね'),
+          h('div', { class: 'tm-list' }, rows)),
+        h('button', { class: 'btn primary next', onclick: () => { score = results.filter((x) => x.ok).length; showResult(); } }, 'けっかを見る')));
+      return;
+    }
+    finished = true;
+    showResult();
+  }
+
+  function showResult() {
     finished = true;
     cleanup();
     clearInterval(clockId);
@@ -173,16 +212,18 @@ function burst(box, count = 8) {
 //   紙に書く   … ノートに書いて「こたえを見る」→ 書けた／書けなかった を自分で押す
 //   スマホに書く … 指やペンでマスに書いて、ピヨ先生（AI）が ○× を つける。
 //                  つながらないときは お手本を重ねて 自分で ○× にする
+//   テスト     … スマホに書いて すぐ つぎへ。ピヨ先生は 裏で 採点して、さいごに まとめて ○×
 const WRITE_MODES = [
-  { id: 'phone', label: 'スマホに書く', ic: 'smartphone' },
-  { id: 'paper', label: '紙に書く', ic: 'notebook-pen' },
+  { id: 'phone', label: 'スマホ', ic: 'smartphone' },
+  { id: 'paper', label: '紙', ic: 'notebook-pen' },
+  { id: 'test', label: 'テスト', ic: 'timer' },
 ];
 const EN_FONT = '"Hiragino Maru Gothic ProN", "Arial Rounded MT Bold", ui-rounded, sans-serif';
 
-function writeArea(q, pads, onJudge) {
+function writeArea(q, pads, onJudge, onDefer) {
   const en = q.lang === 'en';
   const p = currentProfile();
-  let mode = p?.writeMode === 'phone' ? 'phone' : 'paper';
+  let mode = ['phone', 'test'].includes(p?.writeMode) ? p.writeMode : 'paper';
   let locked = false;   // 答え合わせを はじめたら、書き方は かえられない
   const body = h('div', { class: 'write-body' });
   const switches = WRITE_MODES.map((m) => h('button', { type: 'button', class: m.id === mode ? 'on' : '', onclick: () => {
@@ -198,7 +239,7 @@ function writeArea(q, pads, onJudge) {
   function draw() {
     // まえの板を かたづける
     for (let i = pads.length - 1; i >= 0; i -= 1) if (pads[i].writePad) { pads[i].destroy(); pads.splice(i, 1); }
-    body.replaceChildren(...(mode === 'phone' ? phoneBody() : paperBody()));
+    body.replaceChildren(...(mode === 'phone' ? phoneBody() : mode === 'test' && onDefer ? testBody() : paperBody()));
   }
 
   // ○× の2つのボタン（紙のときと、ピヨ先生が見られなかったとき）
@@ -311,6 +352,34 @@ function writeArea(q, pads, onJudge) {
 
     return [h('div', { class: `write-frame ${en ? 'en' : ''}`, style: `--n:${en ? 3 : chars.length}` }, pad.el),
       tools, check, status, answer, judgeRow, piyo, fix];
+  }
+
+  // テスト: 書いたら すぐ つぎへ。採点は 裏で（さいごに まとめて 見る）
+  function testBody() {
+    const chars = [...q.answerText];
+    const pad = createInkPad({
+      className: 'write-pad',
+      size: en ? 6 : 9,
+      drawBackground: (ctx, w, hgt) => (en ? enLines(ctx, w, hgt, false) : kanjiCells(ctx, w, hgt, chars, false)),
+    });
+    pad.writePad = true;
+    pads.push(pad);
+    const undo = h('button', { class: 'btn small', onclick: () => pad.undo() }, '1つもどす');
+    const clear = h('button', { class: 'btn small', onclick: () => pad.clear() }, 'ぜんぶけす');
+    const done = h('button', { class: 'btn primary', disabled: true }, '書けた！ つぎへ');
+    const skip = h('button', { class: 'link test-skip' }, 'わからない（とばす）');
+    pad.onChange(() => { done.disabled = locked || pad.isEmpty(); });
+    done.addEventListener('click', () => {
+      if (locked || pad.isEmpty()) return;
+      lock();
+      const image = snapshot(pad.el);
+      const job = askAI({ action: 'judge', image, expected: q.answerText, reading: q.big || '', lang: en ? 'en' : 'ja' }, { timeout: 60000 })
+        .then((r) => (r && typeof r.ok === 'boolean' ? r : null)).catch(() => null);
+      onDefer(image, job);
+    });
+    skip.addEventListener('click', () => { if (locked) return; lock(); onDefer(null, Promise.resolve({ ok: false, comment: '' })); });
+    return [h('div', { class: `write-frame ${en ? 'en' : ''}`, style: `--n:${en ? 3 : chars.length}` }, pad.el),
+      h('div', { class: 'write-tools' }, undo, clear), done, skip];
   }
 
   draw();
