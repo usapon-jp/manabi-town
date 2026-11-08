@@ -211,21 +211,22 @@ function burst(box, count = 8) {
 
 // ---- 漢字・英単語を書く --------------------------------------------------------
 // 書き方は2つから えらべる（えらんだ方を おぼえておく。つぎの問題からも同じ）
-//   紙に書く   … ノートに書いて「こたえを見る」→ 書けた／書けなかった を自分で押す
-//   スマホに書く … 指やペンでマスに書いて、ピヨ先生（AI）が ○× を つける。
-//                  つながらないときは お手本を重ねて 自分で ○× にする
+//   ピヨ採点 … スマホに書いて「こたえあわせ」で ピヨ先生（AI）が ○×（つながらないときは 自分で）
+//   自己採点 … スマホに書いて、お手本を重ねて 自分で ○×
 //   テスト     … スマホに書いて すぐ つぎへ。ピヨ先生は 裏で 採点して、さいごに まとめて ○×
 const WRITE_MODES = [
-  { id: 'phone', label: 'スマホ', ic: 'smartphone' },
-  { id: 'paper', label: '紙', ic: 'notebook-pen' },
+  { id: 'piyo', label: 'ピヨ採点', ic: 'sparkles' },
+  { id: 'self', label: '自己採点', ic: 'circle-check' },
   { id: 'test', label: 'テスト', ic: 'timer' },
 ];
+// まえの よびかた（スマホ=ピヨ先生が判定、紙=自分で）も そのまま つかえるように
+const LEGACY_MODE = { phone: 'piyo', paper: 'self' };
 const EN_FONT = '"Hiragino Maru Gothic ProN", "Arial Rounded MT Bold", ui-rounded, sans-serif';
 
 function writeArea(q, pads, onJudge, onDefer) {
   const en = q.lang === 'en';
   const p = currentProfile();
-  let mode = ['phone', 'test'].includes(p?.writeMode) ? p.writeMode : 'paper';
+  let mode = LEGACY_MODE[p?.writeMode] || (WRITE_MODES.some((m) => m.id === p?.writeMode) ? p.writeMode : 'self');
   let locked = false;   // 答え合わせを はじめたら、書き方は かえられない
   const body = h('div', { class: 'write-body' });
   const switches = WRITE_MODES.map((m) => h('button', { type: 'button', class: m.id === mode ? 'on' : '', onclick: () => {
@@ -241,7 +242,7 @@ function writeArea(q, pads, onJudge, onDefer) {
   function draw() {
     // まえの板を かたづける
     for (let i = pads.length - 1; i >= 0; i -= 1) if (pads[i].writePad) { pads[i].destroy(); pads.splice(i, 1); }
-    body.replaceChildren(...(mode === 'phone' ? phoneBody() : mode === 'test' && onDefer ? testBody() : paperBody()));
+    body.replaceChildren(...(mode === 'test' && onDefer ? testBody() : phoneBody(mode === 'piyo')));
   }
 
   // ○× の2つのボタン（紙のときと、ピヨ先生が見られなかったとき）
@@ -257,27 +258,8 @@ function writeArea(q, pads, onJudge, onDefer) {
     return row;
   }
 
-  function paperBody() {
-    const chars = [...q.answerText];
-    const model = en
-      ? h('div', { class: 'model en', 'aria-hidden': 'true' }, h('b', {}, q.answerText))
-      : h('div', { class: 'model', 'aria-hidden': 'true' }, chars.map((c) => h('span', { class: 'cell' }, h('b', {}, c))));
-    const reveal = h('button', { class: 'btn primary' }, 'こたえを見る');
-    const judgeRow = selfJudge('書けた！', '書けなかった');
-    const note = h('div', { class: 'notebook' },
-      h('span', { class: 'note-ic', 'aria-hidden': 'true' }, icon('notebook-pen')),
-      h('p', {}, 'ノートに 書いてみよう'));
-    reveal.addEventListener('click', () => {
-      lock();
-      reveal.hidden = true;
-      note.hidden = true;
-      model.classList.add('show');
-      judgeRow.hidden = false;
-    });
-    return [note, model, reveal, judgeRow];
-  }
-
-  function phoneBody() {
+  // auto: ピヨ採点（こたえあわせで すぐ ピヨ先生が 見る）／ でなければ 自己採点
+  function phoneBody(auto) {
     const chars = [...q.answerText];
     let showAnswer = false;
     const pad = createInkPad({
@@ -305,8 +287,9 @@ function writeArea(q, pads, onJudge, onDefer) {
       check.hidden = true;
       tools.hidden = true;
       pad.el.classList.add('done');
-      if (q.selfCheck) {
-        // テスト範囲の漢字は お手本を 重ねて 自分で ○×
+      if (auto) { await piyoJudge(); return; }
+      {
+        // 自己採点: お手本を 重ねて 自分で ○×
         showAnswer = true;
         pad.redraw();
         answer.hidden = false;
@@ -314,19 +297,7 @@ function writeArea(q, pads, onJudge, onDefer) {
         status.className = 'write-status';
         status.textContent = 'お手本と くらべて ○×を つけてね';
         judgeRow.hidden = false;
-        piyo.hidden = false;
-        return;
       }
-      await piyoJudge();
-    });
-
-    // ピヨちゃんに 見てもらう（自分で ○× の問題は、ボタンを おしたときだけ）
-    const piyo = h('button', { class: 'btn piyo-judge', hidden: true }, icon('sparkles'), ' ピヨちゃんに 見てもらう');
-    judgeRow.addEventListener('click', (e) => { if (e.target.closest('button')) piyo.hidden = true; });
-    piyo.addEventListener('click', async () => {
-      piyo.hidden = true;
-      judgeRow.hidden = true;
-      await piyoJudge();
     });
 
     async function piyoJudge() {
@@ -353,7 +324,7 @@ function writeArea(q, pads, onJudge, onDefer) {
     }
 
     return [h('div', { class: `write-frame ${en ? 'en' : ''}`, style: `--n:${en ? 3 : chars.length}` }, pad.el),
-      tools, check, status, answer, judgeRow, piyo, fix];
+      tools, check, status, answer, judgeRow, fix];
   }
 
   // テスト: 書いたら すぐ つぎへ。採点は 裏で（さいごに まとめて 見る）
