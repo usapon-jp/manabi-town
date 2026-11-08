@@ -7,7 +7,7 @@
 import { h, toast } from './ui.js';
 import { getState, onChange, save, today, toISO, daysUntil } from './store.js';
 import { routineReminders, isAdult } from './adult.js';
-import { buildSteps } from './planner.js';
+import { buildSteps, homeworkPages } from './planner.js';
 import { icon } from './icons.js';
 import { loggedIn, accessToken, userId } from './sync.js';
 
@@ -38,7 +38,9 @@ export function homeworkReminders(p) {
       const left = Math.max(0, total - Math.min(i.stepsDone || 0, total));
       return {
         id: `h-${p.id}-${i.id}`.slice(0, 80), kind: 'due', title: `あした ていしゅつ：${i.title}`.slice(0, 60), time: dueTime(p),
-        body: left && total > 1 ? `${p.name}さん、あと ${left}ページ。きょうの うちに やろう` : `${p.name}さん、あした だす日だよ。わすれずに かばんに 入れよう`,
+        body: !left ? `${p.name}さん、あした だす日だよ。わすれずに かばんに 入れよう`
+          : homeworkPages(i).length ? `${p.name}さん、あと ${left}ページ。きょうの うちに やろう`
+            : `${p.name}さん、まだ おわってないよ。きょうの うちに やろう`,
         on, skipUntil: on < t ? t : on, days: [before.getDay()], url: '',
       };
     });
