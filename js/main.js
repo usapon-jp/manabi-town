@@ -950,7 +950,7 @@ function renderSettings(p) {
       h('button', { class: 'btn', type: 'button', onclick: () => openSubjectEditor(p, render) }, icon('pencil'), ' へんしゅうする')),
 
     syncCard(afterLogin),
-    isAdult(p) ? notifyCard(p, { rerender: () => render() }) : null,
+    notifyCard(p, { rerender: () => render() }),
 
     h('div', { class: 'card form' },
       h('h3', {}, 'とりこみ'),

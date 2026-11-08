@@ -2,10 +2,12 @@
 // - 端末ごとに「通知をオン」にする。オンにした人（プロフィール）の お知らせだけ、この端末に届く
 // - 時刻になったら Supabase（manabi-push）から送るので、アプリを閉じていても届く
 // - iPhone・iPad は「ホーム画面に追加」したアイコンから開いたときだけ オンにできる（iOS 16.4 から）
-// - お知らせの元（sources）: いまは おとなのルーティーン。宿題・勉強のお知らせは ここに足せば同じしくみで届く
+// - お知らせの元（sources）: おとなのルーティーン と 宿題の「あした ていしゅつ」（前の日の夕方）
+// - 子どもの宿題は、おとなの端末でも「◯◯の宿題」をオンにすれば いっしょに届く
 import { h, toast } from './ui.js';
-import { getState, onChange } from './store.js';
-import { routineReminders } from './adult.js';
+import { getState, onChange, save, today, toISO, daysUntil } from './store.js';
+import { routineReminders, isAdult } from './adult.js';
+import { buildSteps } from './planner.js';
 import { icon } from './icons.js';
 import { loggedIn, accessToken, userId } from './sync.js';
 
@@ -14,8 +16,36 @@ const ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZ
 const KEY = 'manabi-push';      // { device, secret, profiles: [id], pendingOff } この端末だけの記録（同期しない）
 const SENT_KEY = 'manabi-push-sent'; // { rem, sub } さいごに送った中身（同じなら送らない）
 
+// 宿題の「あした ていしゅつ」お知らせ。p.dueNotify = { time: 'HH:MM', off: true } （同期される）
+export const DUE_TIME = '18:00';
+export const dueTime = (p) => (/^([01]\d|2[0-3]):[0-5]\d$/.test(p?.dueNotify?.time || '') ? p.dueNotify.time : DUE_TIME);
+export const dueOn = (p) => !p?.dueNotify?.off;
+const dayBefore = (iso) => { const [y, m, d] = iso.split('-').map(Number); return new Date(y, m - 1, d - 1); };
+
+// 出していない宿題で、前の日が きょう〜2週間先のもの。前の日の dueTime に1回だけ
+// （on はサーバーが「この日だけ」に使う。skipUntil・days は 古いサーバーでも ほぼ前の日だけになるよう そえておく）
+export function homeworkReminders(p) {
+  if (!dueOn(p)) return [];
+  const t = today();
+  return (p.items || [])
+    .filter((i) => i.type === 'homework' && !i.done && i.date && daysUntil(i.date) >= 1 && daysUntil(i.date) <= 15)
+    .sort((a, b) => a.date.localeCompare(b.date))
+    .slice(0, 20)
+    .map((i) => {
+      const before = dayBefore(i.date);
+      const on = toISO(before);
+      const total = buildSteps(i).length;
+      const left = Math.max(0, total - Math.min(i.stepsDone || 0, total));
+      return {
+        id: `h-${p.id}-${i.id}`.slice(0, 80), kind: 'due', title: `あした ていしゅつ：${i.title}`.slice(0, 60), time: dueTime(p),
+        body: left && total > 1 ? `${p.name}さん、あと ${left}ページ。きょうの うちに やろう` : `${p.name}さん、あした だす日だよ。わすれずに かばんに 入れよう`,
+        on, skipUntil: on < t ? t : on, days: [before.getDay()], url: '',
+      };
+    });
+}
+
 // プロフィールから お知らせを集める。kind ごとに足していける
-const SOURCES = [routineReminders];
+const SOURCES = [routineReminders, homeworkReminders];
 
 const readK = (k) => { try { return JSON.parse(localStorage.getItem(k) || 'null'); } catch { return null; } };
 const writeK = (k, v) => { try { if (v) localStorage.setItem(k, JSON.stringify(v)); else localStorage.removeItem(k); } catch { /* 保存できなくても続ける */ } };
@@ -152,33 +182,60 @@ const errText = (e) => {
   const m = String(e?.message || e);
   if (m === 'need-home') return 'iPhone・iPad は「ホーム画面に追加」した アイコンから ひらいてね';
   if (m === 'unsupported') return 'このブラウザでは お知らせが つかえません';
-  if (m === 'denied') return '通知が「ゆるさない」に なっています。端末の せっていで ゆるしてね';
+  if (m === 'denied') return '通知が「ゆるさない」に なっています。スマホの せっていで ゆるしてね';
   if (!navigator.onLine || /failed to fetch|network/i.test(m)) return 'インターネットに つながっていないみたい';
   return `うまくいかなかった（${m.slice(0, 60)}）`;
 };
 
+// 子ども: 宿題の お知らせの 時間（前の日の 何時か）と、オン・オフ
+function dueSettings(p, redraw) {
+  const time = h('input', { type: 'time', value: dueTime(p), step: 300, 'aria-label': 'お知らせの 時間' });
+  time.onchange = () => {
+    if (!/^\d{2}:\d{2}$/.test(time.value)) return;
+    p.dueNotify = { ...(p.dueNotify || {}), time: time.value };
+    save();
+    toast(`前の日の ${time.value} に お知らせするよ`);
+  };
+  const sw = h('button', { class: 'link' }, dueOn(p) ? '宿題の お知らせを 止める' : '宿題の お知らせを また出す');
+  sw.onclick = () => { p.dueNotify = { ...(p.dueNotify || {}), off: dueOn(p) || undefined }; save(); redraw(); };
+  return h('div', { class: 'due-notify' },
+    dueOn(p) ? h('label', { class: 'row' }, '前の日の', time, 'に') : null,
+    sw);
+}
+
+// おとな: 子どもの「あした ていしゅつ」も この端末で うけとる
+function kidsSettings(busy) {
+  const kids = getState().profiles.filter((k) => !isAdult(k));
+  if (!kids.length) return null;
+  return h('div', { class: 'kid-due' },
+    h('p', {}, '子どもの「あした ていしゅつ」も この端末に とどける'),
+    h('div', { class: 'row' }, kids.map((k) => {
+      const on = pushState(k) === 'on';
+      const b = h('button', { class: `btn small ${on ? 'primary' : ''}`, 'aria-pressed': on ? 'true' : 'false' },
+        on ? icon('check') : icon('bell'), ` ${k.name}`);
+      b.onclick = busy(b, async () => {
+        if (on) { await disablePush(k); toast(`${k.name}さんの お知らせを オフにしました`); }
+        else { await enablePush(k); toast(`${k.name}さんの 宿題も とどきます（前の日の ${dueTime(k)}）`); }
+      });
+      return b;
+    })),
+    h('small', {}, '時間は 子どもの せってい（前の日の 何時か）で きまります'));
+}
+
 // お知らせカード（ルーティーンのタブ・せってい で共通）
 export function notifyCard(p, { rerender } = {}) {
   const st = pushState(p);
+  const adult = isAdult(p);
   const box = h('div', { class: `card notify-card ${st}` });
+  const redraw = rerender || (() => box.replaceWith(notifyCard(p, { rerender })));
   const busy = (btn, fn) => async () => {
     btn.disabled = true;
     try { await fn(); } catch (e) { toast(errText(e), 4000); }
     btn.disabled = false;
-    (rerender || (() => box.replaceWith(notifyCard(p, { rerender }))))();
+    redraw();
   };
   const head = h('h3', {}, icon('bell'), ' スマホに お知らせ');
-  if (st === 'on') {
-    const test = h('button', { class: 'btn' }, 'ためしに 送る');
-    test.onclick = busy(test, async () => { await testPush(); toast('送りました。すこし まってね'); });
-    const off = h('button', { class: 'link' }, 'オフにする');
-    off.onclick = busy(off, async () => { await disablePush(p); toast('この端末の お知らせを オフにしました'); });
-    const n = routineReminders(p).length;
-    box.append(head,
-      h('p', {}, `この端末に とどきます（${n ? `時刻つき ${n}こ` : 'まだ時刻つきの ルーティーンは ありません。「なおす」で時刻を入れてね'}）`),
-      h('div', { class: 'row' }, test, off));
-    return box;
-  }
+  const here = adult ? 'この端末' : 'この スマホ';
   if (st === 'need-home') {
     box.append(head,
       h('p', {}, 'iPhone・iPad は、Safari の ', h('b', {}, '共有ボタン'), ' →「', h('b', {}, 'ホーム画面に追加'), '」で アイコンを作って、そこから ひらくと オンにできます。'),
@@ -189,9 +246,33 @@ export function notifyCard(p, { rerender } = {}) {
     return box;
   }
   if (st === 'unsupported') { box.append(head, h('p', {}, 'このブラウザでは お知らせが つかえません。Chrome（Android）か、ホーム画面に追加した Safari（iPhone・iPad）で ためしてね')); return box; }
-  if (st === 'denied') { box.append(head, h('p', {}, '通知が「ゆるさない」に なっています。端末の せってい → 通知 → まなびタウン で ゆるしてから、もういちど ひらいてね')); return box; }
-  const on = h('button', { class: 'btn primary' }, icon('bell'), ' この端末で オンにする');
-  on.onclick = busy(on, async () => { await enablePush(p); toast('オンにしました。時刻になったら お知らせします'); });
-  box.append(head, h('p', {}, '時刻を入れた ルーティーンを、その時間に この端末へ お知らせします（アプリを とじていても とどきます）'), on);
+  if (st === 'denied') { box.append(head, h('p', {}, '通知が「ゆるさない」に なっています。スマホの せってい → 通知 → まなびタウン で ゆるしてから、もういちど ひらいてね')); return box; }
+  if (st === 'on') {
+    const test = h('button', { class: 'btn' }, 'ためしに 送る');
+    test.onclick = busy(test, async () => { await testPush(); toast('送りました。すこし まってね'); });
+    const off = h('button', { class: 'link' }, 'オフにする');
+    off.onclick = busy(off, async () => { await disablePush(p); toast(`${here}の お知らせを オフにしました`); });
+    let what;
+    if (adult) {
+      const n = routineReminders(p).length;
+      what = `${here}に とどきます（${n ? `時刻つきの ルーティーン ${n}こ` : 'まだ時刻つきの ルーティーンは ありません。「なおす」で時刻を入れてね'}）`;
+    } else {
+      const n = homeworkReminders(p).length;
+      what = dueOn(p)
+        ? `「あした ていしゅつ」の 宿題を、前の日に お知らせします（いま ${n}こ）`
+        : '宿題の お知らせは 止めています';
+    }
+    box.append(...[head, h('p', {}, what), adult ? null : dueSettings(p, redraw),
+      h('div', { class: 'row' }, test, off), adult ? kidsSettings(busy) : null].filter(Boolean));
+    return box;
+  }
+  const on = h('button', { class: 'btn primary' }, icon('bell'), ` ${here}で オンにする`);
+  on.onclick = busy(on, async () => { await enablePush(p); toast(adult ? 'オンにしました。時刻になったら お知らせします' : 'オンにしたよ。あした ていしゅつの 宿題を 前の日に お知らせするね'); });
+  box.append(...[head,
+    h('p', {}, adult
+      ? '時刻を入れた ルーティーンを、その時間に この端末へ お知らせします（アプリを とじていても とどきます）'
+      : 'あした ていしゅつの 宿題を、前の日の 夕方に お知らせするよ（アプリを とじていても とどきます）'),
+    adult ? null : dueSettings(p, redraw),
+    on, adult ? kidsSettings(busy) : null].filter(Boolean));
   return box;
 }
