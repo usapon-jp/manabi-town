@@ -18,8 +18,8 @@ export function openThinkingClassroom(profile = currentProfile()) {
   const close=()=>{
     overlay.remove();
     siblings.forEach(({el,inert})=>{if(el.isConnected)el.inert=inert;});
-    if(previousFocus?.isConnected)previousFocus.focus();
-    else document.querySelector('.puzzle-btn')?.focus();
+    if(previousFocus?.isConnected&&previousFocus!==document.body)previousFocus.focus();
+    else Array.from(document.querySelectorAll('.puzzle-btn, .bz-card-home button, [data-tab="quest"]')).find(el=>el.getClientRects().length)?.focus();
     window.removeEventListener('manabi-synced',onSync);
   };
   const top=h('header',{class:'sb-top'},

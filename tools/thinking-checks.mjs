@@ -72,7 +72,7 @@ class El{
  click(){this.listeners.click?.({target:this,currentTarget:this});}
  set textContent(s){this.children=[];this.text=s;}get textContent(){return this.text||this.children.map(c=>c.textContent).join('');}
 }
-const document={};document.body=new El('body',document);document.createElement=t=>new El(t,document);document.createTextNode=text=>Object.assign(new El('#text',document),{text});document.querySelector=s=>document.body.querySelector(s);
+const document={};document.body=new El('body',document);document.createElement=t=>new El(t,document);document.createTextNode=text=>Object.assign(new El('#text',document),{text});document.querySelector=s=>document.body.querySelector(s);document.querySelectorAll=s=>document.body.querySelectorAll(s);
 const p={id:'test-p',name:'test',grade:'e4',points:15},other={id:'other',name:'other',grade:'adult',points:30};let active=p,fail=false,persisted=null,saveCount=0;
 const notices=[],events={};const window={addEventListener:(k,f)=>events[k]=f,removeEventListener:k=>delete events[k]};
 const globals={document,window,Node:El,icon:()=>new El('svg',document),toast:t=>notices.push(t),currentProfile:()=>active,getState:()=>({profiles:[p,other]}),save:()=>{saveCount++;if(fail)return false;persisted=JSON.stringify(p);return true;},today:()=> '2026-11-07',readBook,nextStage,recordAnswer,dayCount,STAGES,CHAPTERS:[{title:'Forest',scene:'forest',intro:'intro',sub:'sub',end:'end'},{title:'Lake',scene:'lake',intro:'intro',sub:'sub',end:'end'},{title:'Stars',scene:'stars',intro:'intro',sub:'sub',end:'end'}],makeQuestion,STOPS:Array.from({length:12},(_,i)=>({x:i,y:i})),sceneSvg:()=>'',matchMedia:()=>({matches:true})};
@@ -94,6 +94,7 @@ assert.equal(dayCount(readBook(p),'2026-11-07'),3);assert.equal(p.points,15);ass
 assert.ok(find('もう少し進む'));find('足あとを見る').click();assert.ok(document.body.textContent.includes('ここまで考えてきたね'));
 const close=()=>document.body.querySelectorAll('button').find(b=>b.attrs['aria-label']==='教室をとじる').click();close();assert.equal(opener.inert,false);
 Object.assign(p,JSON.parse(persisted));ctx.open(p);assert.ok(document.body.textContent.includes('3 / 36'));active=other;events['manabi-synced']();assert.equal(document.querySelector('.thinking-overlay'),null);
+active=p;document.body.focus();const launcher=new El('button',document);launcher.className='puzzle-btn';document.body.append(launcher);ctx.open(p);close();assert.equal(document.activeElement,launcher);
 console.log(`PASS: real classroom UI on isolated DOM — onboarding, two hints, duplicate clicks, save-failure retry, 3 stamps, journal, reopen, profile switch and no reward changes (${saveCount} save calls).`);
 const rand=randomFor('legacy');for(const name of ['icepath','blocks','origami','pattern','section']){const{default:g}=await import(`../js/brain/${name}.js`);for(let level=0;level<9;level++)for(let n=0;n<10;n++){const x=g.make(level,rand);if(name==='icepath')assert.equal(new Set(x.solution).size,x.solution.length);else assert.ok(x.answer>=0&&x.answer<x.options.length);}}
 console.log('PASS: 450 existing puzzle generations.');
