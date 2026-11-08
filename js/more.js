@@ -11,7 +11,7 @@ import { runQuestions } from './runner.js';
 import { recordResults } from './review.js';
 import { isAdult } from './adult.js';
 import { icon } from './icons.js';
-import { uniqPool } from './coach.js';
+import { uniqPool, activeExtras, ensurePools, poolKey, isKanjiRange, kanjiWrite } from './coach.js';
 
 export const MORE_PER_CORRECT = 2;
 export const MORE_DAY_CAP = 40;
@@ -40,20 +40,10 @@ export function practicePoints(p, score, total, label, deps) {
 
 export const moreStats = (p) => ({ ...dayLog(p), left: Math.max(0, MORE_DAY_CAP - dayLog(p).pts) });
 
-// テスト範囲の一問一答（作戦会議で作ったもの）。キーは「教科:範囲」
-function poolList(p) {
-  const pools = p.coach?.pools || {};
-  return Object.entries(pools)
-    .filter(([, qs]) => Array.isArray(qs) && qs.some((q) => q && q.q && Array.isArray(q.options)))
-    .map(([key, qs]) => {
-      const i = key.indexOf(':');
-      return { key, subject: i > 0 ? key.slice(0, i) : key, topic: i > 0 ? key.slice(i + 1) : '', qs };
-    });
-}
-
 function poolQuestions(pool, rand) {
   return shuffle(uniqPool(pool, pool.qs.filter((q) => q && q.q && Array.isArray(q.options))), rand).slice(0, ROUND)
-    .map((q) => ({ kind: 'choice', subject: pool.subject, prompt: q.q, options: q.options, answer: q.answer, topic: pool.topic, test: true }));
+    .map((q) => ({ ...(isKanjiRange(pool) && kanjiWrite(q) || { kind: 'choice', prompt: q.q, options: q.options, answer: q.answer }),
+      subject: pool.subject, topic: pool.topic, test: true }));
 }
 
 const mathLabel = (p) => (gradeBucket(p) === 'j' ? '数学' : '算数');
@@ -86,7 +76,13 @@ export function openMore(p, deps) {
   const opt = (ic, title, sub, onclick, cls = '') => h('button', { type: 'button', class: `piyo-opt ${cls}`, onclick },
     h('span', { class: 'piyo-ic' }, icon(ic)), h('b', {}, title), h('small', {}, sub));
 
-  const pools = poolList(p);
+  // テスト範囲（いま有効な 範囲だけ。問題が まだ なければ ここで 作る）を いちばん上に
+  const ranges = activeExtras(p);
+  const rangeQs = (x) => async () => {
+    if (!((p.coach?.pools || {})[poolKey(x)] || []).length) { toast('ピヨ先生が 範囲の問題を作り中…', 8000); await ensurePools(p); }
+    const pool = { subject: x.subject, topic: x.topic, qs: (p.coach?.pools || {})[poolKey(x)] || [] };
+    return poolQuestions(pool, seededRandom(seed()));
+  };
   const aiSubjects = deps.aiSubjects ? deps.aiSubjects(p) : [];
   const aiPick = h('select', { class: 'more-subj', 'aria-label': '教科' }, aiSubjects.map((s) => h('option', { value: s }, s)));
 
@@ -94,12 +90,14 @@ export function openMore(p, deps) {
     h('div', { class: 'sheet-card piyo-menu' },
       h('div', { class: 'coach' }, h('img', { src: 'assets/icons/icon-192.png', alt: '', width: 48, height: 48 }),
         h('p', {}, cleared ? 'きょうの分 クリア！ もっと やる？' : 'なにを 勉強する？')),
+      ranges.length ? h('p', { class: 'more-sec' }, icon('target'), ' テスト範囲') : null,
+      ...ranges.map((x) => opt('target', `${x.subject}`, x.topic, () => start(`${x.subject} テスト範囲`, rangeQs(x)), 'range')),
+      ranges.length ? h('p', { class: 'more-sec' }, 'ふだんの れんしゅう（学年の問題）') : null,
       h('div', { class: 'more-grid' },
         opt('pen-line', '漢字', '書く・読む', () => start('漢字', local('kanji'))),
         opt('languages', '英単語', 'つづり・いみ', () => start('英単語', local('english'))),
         opt('calculator', mathLabel(p), 'けいさん', () => start(mathLabel(p), local('math')))),
-      ...pools.map((pool) => opt('target', `${pool.subject}の 一問一答`, pool.topic || 'テスト範囲',
-        () => start(`${pool.subject} 一問一答`, () => poolQuestions(pool, seededRandom(seed()))))),
+
       deps.makeAI && aiSubjects.length ? h('div', { class: 'piyo-opt more-ai' },
         h('span', { class: 'piyo-ic' }, icon('sparkles')),
         h('b', {}, 'ピヨ先生が 作る'),
@@ -127,7 +125,7 @@ export function moreCard(p, deps) {
       h('img', { src: 'assets/icons/icon-192.png', alt: '', width: 44, height: 44 }),
       h('div', {},
         h('h3', {}, 'ピヨちゃんと 勉強する'),
-        h('p', {}, cleared ? 'きょうの分は クリア！ もっと やってみよう' : '漢字・英単語・計算・テスト範囲を すきなだけ'))),
+        h('p', {}, cleared ? 'きょうの分は クリア！ もっと やってみよう' : 'テスト範囲・漢字・英単語・計算を すきなだけ'))),
     st.rounds ? h('p', { class: 'more-meter' }, `きょう ${st.rounds}回・${st.n}もん`) : null,
     h('button', { class: `btn ${cleared ? 'primary' : ''}`, onclick: () => openMore(p, deps) }, icon('sparkles'), cleared ? ' もっと やる！' : ' えらぶ'));
 }

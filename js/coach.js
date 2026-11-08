@@ -177,14 +177,23 @@ const termsOf = (q) => [...String(q.q).matchAll(/[「『]([^」』]{1,12})[」�
 const KANA = /^[ぁ-んァ-ヶー]+$/;
 const HAS_KANJI = /[一-龯々]/;
 export function kanjiWrite(q) {
-  const term = (String(q.q).match(/[「『]([^」』]{1,12})[」』]/) || [])[1]?.trim();
+  // 例文つきで 作った問題（s: ことばを ＿ にした文、r: よみ、w: 漢字）
+  if (q.s && q.r && q.w && KANA.test(q.r) && HAS_KANJI.test(q.w)) {
+    return { kind: 'write', prompt: 'かんじで 書けるかな？', big: q.r, answerText: q.w, context: q.s, selfCheck: true };
+  }
+  // 「鉄がさびる」の「さび」を… → 聞いている ことばは さいごの「」、例文は それを ふくむ ほかの「」
+  const quotes = (String(q.q).match(/[「『][^」』]{1,30}[」』]/g) || []).map((m) => m.slice(1, -1).trim());
+  const term = quotes.length ? quotes[quotes.length - 1] : '';
   const ans = String(q.options?.[q.answer] ?? '').trim();
-  if (!term || !ans || ans.length > 8) return null;
+  if (!term || term.length > 12 || !ans || ans.length > 8) return null;
   let reading; let word;
   if (KANA.test(term) && HAS_KANJI.test(ans)) { reading = term; word = ans; }
   else if (HAS_KANJI.test(term) && KANA.test(ans) && term.length <= 8) { reading = ans; word = term; }
   else return null;
-  return { kind: 'write', prompt: 'かんじで 書けるかな？', big: reading, answerText: word, selfCheck: true };
+  // 例文が ないと 同じ読みの漢字（錆・寂など）と 区別できないので、問題文に 文が あるときだけ 書きとりに
+  const sentence = quotes.find((m) => m !== term && m.includes(term));
+  if (!sentence) return null;
+  return { kind: 'write', prompt: 'かんじで 書けるかな？', big: reading, answerText: word, context: sentence.replace(term, '＿'), selfCheck: true };
 }
 
 export function uniqPool(x, pool) {
@@ -217,11 +226,12 @@ async function fillPool(p, x, images = []) {
     const have = poolOf(p, x);
     const need = sizeOf(x) - have.length;
     if (need <= 0) return true;
-    const r = await askAI({ action: 'quiz', pool: true, subject: x.subject, grade: gradeLabel(p), topic: x.topic, count: Math.min(CHUNK, need),
+    const r = await askAI({ action: 'quiz', pool: true, kanji: isKanjiRange(x), subject: x.subject, grade: gradeLabel(p), topic: x.topic, count: Math.min(CHUNK, need),
       avoid: ((isKanjiRange(x) ? '（漢字は 1つの ことばを 1回だけ。範囲の いろいろな ことばから。下の ことばは もう使わない）\n' : '') + have.map((q) => q.q).join('\n')).slice(0, 2500), ...(images.length ? { images: images.slice(0, 3) } : {}) }, { timeout: 90000 });
     const seen = new Set(have.map((q) => q.q));
     const qs = (r.questions || []).filter(okQ)
-      .map((q) => ({ q: String(q.q).slice(0, 200), options: q.options.slice(0, 4).map((o) => String(o).slice(0, 60)), answer: q.answer }))
+      .map((q) => ({ q: String(q.q).slice(0, 200), options: q.options.slice(0, 4).map((o) => String(o).slice(0, 60)), answer: q.answer,
+        ...(typeof q.s === 'string' && q.s.includes('＿') ? { s: q.s.slice(0, 60), r: String(q.r || '').slice(0, 12), w: String(q.w || '').slice(0, 8) } : {}) }))
       .filter((q) => !seen.has(q.q));
     if (!qs.length) return have.length > 0;
     p.coach.pools = { ...(p.coach.pools || {}), [poolKey(x)]: uniqPool(x, [...have, ...qs]) };

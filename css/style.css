@@ -1807,3 +1807,8 @@ input.pin { font-size: 26px; letter-spacing: 0.5em; text-align: center; }
 .tm-mark.ok { color: #7f985e; border-color: #7f985e; }
 .tm-mark.ng { color: #d0604f; border-color: #d0604f; }
 .runner-card.tm { overflow-y: auto; }
+.more-sec { margin: 10px 0 6px; font-size: 14px; font-weight: 800; color: var(--accent-dark); display: flex; align-items: center; gap: 4px; }
+.more-sec .ic { width: 16px; height: 16px; }
+.piyo-opt.range { border-color: #d0604f; }
+.piyo-opt.range .piyo-ic { color: #c4513f; }
+.piyo-opt.range small { overflow-wrap: anywhere; }
