@@ -95,6 +95,18 @@ const subjOf = (x) => Object.keys(BASE_SUBJ).find((b) => BASE_SUBJ[b].test(x.sub
 const subjKey = (x) => subjOf(x) || String(x.subject || '').trim();
 const addDays = (d, n) => new Date(Date.parse(`${d}T00:00:00Z`) + n * 86400000).toISOString().slice(0, 10);
 
+// 「その他」で 入れた テスト（保健体育・音楽・美術・技術家庭など）は タイトルから 教科名を とる
+const OTHER_NAMES = ['保健体育', '技術家庭', '技術・家庭', '音楽', '美術', '保体', '技家', '家庭科', '技術', '家庭', '体育', '保健', '道徳', '書写'];
+function subjName(i) {
+  const s = String(i.subject || '').trim();
+  if (s && s !== 'その他') return s;
+  return OTHER_NAMES.find((n) => String(i.title || '').includes(n)) || String(i.title || s).replace(/^\S*期末\s*|^\S*中間\s*/, '').trim().slice(0, 10) || s;
+}
+
+// 国語は 漢字の範囲を 先に（長い範囲で 漢字の所が 切れないように）
+const rangeText = (r, core) => (core !== 'kanji' ? r
+  : String(r).split(/[／/]/).sort((a, b) => Number(/漢字/.test(b)) - Number(/漢字/.test(a))).join('／'));
+
 function testExtras(p, own) {
   if (!p.coach || p.grade === 'adult') return [];
   const t = today();
@@ -104,14 +116,15 @@ function testExtras(p, own) {
   (p.items || []).filter((i) => i.type === 'test' && !i.done && i.date >= t && i.subject && daysUntil(i.date) <= TEST_DAYS)
     .sort((a, b) => a.date.localeCompare(b.date))
     .forEach((i) => {
-      const core = subjOf({ subject: i.subject, topic: i.title });
-      const k = core || i.subject.trim();
+      const subject = subjName(i);
+      const core = subjOf({ subject, topic: i.title });
+      const k = core || subject;
       if (!k || have.has(k)) return;
       const days = Math.max(1, daysUntil(i.date));
       if (!core && days > OTHER_DAYS) return;
       have.add(k);
       out.push({
-        subject: i.subject, topic: `${i.title}${i.range ? ` ${i.range}` : ''}`.slice(0, 60), until: i.date,
+        subject, topic: `${i.title}${i.range ? ` ${rangeText(i.range, core)}` : ''}`.slice(0, 60), until: i.date,
         ...(core
           ? { size: AUTO_SIZE, perDay: Math.min(10, Math.max(3, Math.ceil((AUTO_SIZE * 3) / days))) }
           : { size: OTHER_SIZE, perDay: 3, from: addDays(i.date, -OTHER_DAYS) }),
@@ -153,8 +166,38 @@ export function dailyLabel(c, p) {
 
 // 一問一答が まだ たりない extra
 export function missingPools(p) {
-  return activeExtras(p).filter((x) => ((p.coach.pools || {})[poolKey(x)] || []).length < sizeOf(x));
+  return activeExtras(p).filter((x) => poolOf(p, x).length < sizeOf(x));
 }
+
+// 漢字の範囲は 1つの ことばを 1回だけ（「循環」ばかり 何度も 出ないように）
+// 問題文の「…」の ことばと 正解の ことばで くらべる
+const termsOf = (q) => [...String(q.q).matchAll(/[「『]([^」』]{1,12})[」』]/g)].map((m) => m[1].trim())
+  .concat(String(q.options?.[q.answer] ?? '').trim()).filter((w) => w.length >= 2);
+// 漢字の範囲の 一問一答は「スマホ(紙)に 書く → お手本 → 自分で ○×」に（読みと 漢字が とれるときだけ）
+const KANA = /^[ぁ-んァ-ヶー]+$/;
+const HAS_KANJI = /[一-龯々]/;
+export function kanjiWrite(q) {
+  const term = (String(q.q).match(/[「『]([^」』]{1,12})[」』]/) || [])[1]?.trim();
+  const ans = String(q.options?.[q.answer] ?? '').trim();
+  if (!term || !ans || ans.length > 8) return null;
+  let reading; let word;
+  if (KANA.test(term) && HAS_KANJI.test(ans)) { reading = term; word = ans; }
+  else if (HAS_KANJI.test(term) && KANA.test(ans) && term.length <= 8) { reading = ans; word = term; }
+  else return null;
+  return { kind: 'write', prompt: 'かんじで 書けるかな？', big: reading, answerText: word, selfCheck: true };
+}
+
+export function uniqPool(x, pool) {
+  if (!isKanjiRange(x)) return pool;
+  const seen = new Set();
+  return pool.filter((q) => {
+    const ws = termsOf(q);
+    if (ws.some((w) => seen.has(w))) return false;
+    ws.forEach((w) => seen.add(w));
+    return true;
+  });
+}
+const poolOf = (p, x) => uniqPool(x, (p.coach?.pools || {})[poolKey(x)] || []);
 
 const okQ = (q) => q && q.q && Array.isArray(q.options) && q.options.length >= 2 && Number.isInteger(q.answer) && q.answer >= 0 && q.answer < q.options.length;
 
@@ -171,17 +214,17 @@ async function fillPool(p, x, images = []) {
   const saved = await rangePhotos(x);
   if (saved.length) images = saved;
   for (let i = 0; i < 5; i++) {
-    const have = (p.coach.pools || {})[poolKey(x)] || [];
+    const have = poolOf(p, x);
     const need = sizeOf(x) - have.length;
     if (need <= 0) return true;
     const r = await askAI({ action: 'quiz', pool: true, subject: x.subject, grade: gradeLabel(p), topic: x.topic, count: Math.min(CHUNK, need),
-      avoid: have.map((q) => q.q).join('\n').slice(0, 2500), ...(images.length ? { images: images.slice(0, 3) } : {}) }, { timeout: 90000 });
+      avoid: ((isKanjiRange(x) ? '（漢字は 1つの ことばを 1回だけ。範囲の いろいろな ことばから。下の ことばは もう使わない）\n' : '') + have.map((q) => q.q).join('\n')).slice(0, 2500), ...(images.length ? { images: images.slice(0, 3) } : {}) }, { timeout: 90000 });
     const seen = new Set(have.map((q) => q.q));
     const qs = (r.questions || []).filter(okQ)
       .map((q) => ({ q: String(q.q).slice(0, 200), options: q.options.slice(0, 4).map((o) => String(o).slice(0, 60)), answer: q.answer }))
       .filter((q) => !seen.has(q.q));
     if (!qs.length) return have.length > 0;
-    p.coach.pools = { ...(p.coach.pools || {}), [poolKey(x)]: [...have, ...qs] };
+    p.coach.pools = { ...(p.coach.pools || {}), [poolKey(x)]: uniqPool(x, [...have, ...qs]) };
     save();
   }
   return true;
@@ -207,17 +250,18 @@ export const isTestRange = (x) => !!(x.auto || x.until);
 export function extraQuestions(p, key = today()) {
   const day = Math.floor(Date.parse(`${key}T00:00:00Z`) / 86400000);
   return activeExtras(p).flatMap((x) => {
-    const pool = (p.coach.pools || {})[poolKey(x)] || [];
+    const pool = poolOf(p, x);
     if (!pool.length) return [];
     const n = Math.min(perDayOf(x), pool.length);
     const start = (day * n) % pool.length;
     return Array.from({ length: n }, (_, i) => pool[(start + i) % pool.length])
-      .map((q) => ({ kind: 'choice', subject: x.subject, prompt: q.q, options: q.options, answer: q.answer, topic: x.topic, ...(isTestRange(x) ? { test: true } : {}) }));
+      .map((q) => ({ ...(isKanjiRange(x) && kanjiWrite(q) || { kind: 'choice', prompt: q.q, options: q.options, answer: q.answer }),
+        subject: x.subject, topic: x.topic, ...(isTestRange(x) ? { test: true } : {}) }));
   });
 }
 
 // ---- まちがえた問題の ストック → テスト前の 見直しワーク ----------------------
-const missKey = (q) => `${q.topic}|${q.prompt}`;
+const missKey = (q) => `${q.topic}|${q.prompt}|${q.big || ''}`;
 
 // デイリーで まちがえた 一問一答を ためる（同じ問題は 回数だけ ふやす）
 export function stockMisses(p, results) {

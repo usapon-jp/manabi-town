@@ -1789,3 +1789,5 @@ input.pin { font-size: 26px; letter-spacing: 0.5em; text-align: center; }
 @keyframes test-stamp-in { 0% { transform: scale(1.7) rotate(-30deg); opacity: 0; } 100% { transform: rotate(-12deg); opacity: 1; } }
 .q-box.has-stamp .prompt { padding-right: 46px; }
 @media (prefers-reduced-motion: reduce) { .test-stamp { animation: none; } }
+.piyo-judge { width: 100%; }
+.piyo-judge[hidden] { display: none; }

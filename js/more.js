@@ -11,6 +11,7 @@ import { runQuestions } from './runner.js';
 import { recordResults } from './review.js';
 import { isAdult } from './adult.js';
 import { icon } from './icons.js';
+import { uniqPool } from './coach.js';
 
 export const MORE_PER_CORRECT = 2;
 export const MORE_DAY_CAP = 40;
@@ -51,7 +52,7 @@ function poolList(p) {
 }
 
 function poolQuestions(pool, rand) {
-  return shuffle(pool.qs.filter((q) => q && q.q && Array.isArray(q.options)), rand).slice(0, ROUND)
+  return shuffle(uniqPool(pool, pool.qs.filter((q) => q && q.q && Array.isArray(q.options))), rand).slice(0, ROUND)
     .map((q) => ({ kind: 'choice', subject: pool.subject, prompt: q.q, options: q.options, answer: q.answer, topic: pool.topic, test: true }));
 }
 
