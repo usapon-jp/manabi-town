@@ -27,7 +27,7 @@ function topLayer() {
 function closeLayer(el) {
   if (el.classList.contains('sheet')) el.dispatchEvent(new MouseEvent('click', { bubbles: true }));   // 外がわタップと同じ
   if (!el.isConnected || el.hidden) return;
-  const btn = el.querySelector('.chat-close, button.close, button[aria-label*="とじる"]')
+  const btn = el.querySelector('button[aria-label*="とじる"]:not(.chat-voice), button.close:not(.chat-voice)')
     || [...el.querySelectorAll('button')].find((b) => /^(とじる|もどる|キャンセル)$/.test(b.textContent.trim()));
   btn?.click();
 }
