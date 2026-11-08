@@ -12,8 +12,8 @@ import { createBuilds, STAMP_STEP, loopLength, LOOP_MIN } from './builds.js';
 import { SPECIES, SPECIES_KEYS } from './plants.js';
 import { TOOLS, toolById } from './tools.js';
 import { ITEMS, ownedOfKind, isOwned } from './catalog.js';
-import { ownedSeeds } from './gacha.js';
-import { HOUSES, houseParts } from './pieces.js';
+import { ownedSeeds, thumbSrc } from './gacha.js';
+import { HOUSES, houseParts, buildPiece } from './pieces.js';
 import { foldParts, foldAll } from './builds.js';
 import { buildingArt } from './townart.js';
 import { BRIDGE_MIN } from './structures.js';
@@ -73,7 +73,9 @@ const CSS = `
 .wuse .wundo { position: absolute; right: 70px; top: 11px; width: 40px; height: 40px; }
 .wuse .wundo[hidden] { display: none; }
 .wuse .wundo svg { width: 22px; height: 22px; }
-.wuse .wup { position: absolute; top: -22px; left: 50%; transform: translateX(-50%); color: #fff; opacity: 0.85; pointer-events: none; }
+.wuse button.wup { position: absolute; top: -34px; left: 50%; transform: translateX(-50%); width: 48px; height: 32px; border-radius: 16px; background: none; border: 0; box-shadow: none; -webkit-backdrop-filter: none; backdrop-filter: none; color: #fff; opacity: 0.9; touch-action: manipulation; }
+.wsel.tap { pointer-events: auto; }
+.wsel.tap .wopt { cursor: pointer; }
 .wuse .wup svg { width: 22px; height: 22px; stroke-width: 2.2; }
 .wsel { position: absolute; right: 74px; bottom: 72px; display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; width: min(340px, calc(100vw - 160px)); pointer-events: none; }
 .wsel[hidden], .wsp[hidden] { display: none; }
@@ -81,7 +83,18 @@ const CSS = `
   background: rgba(70, 58, 48, 0.55); border: 1.5px solid rgba(255, 255, 255, 0.6); text-shadow: 0 1px 3px rgba(0, 0, 0, 0.7); transition: transform 0.1s; }
 .wopt svg { width: 30px; height: 30px; stroke-width: 1.8; }
 .wopt.on { transform: scale(1.18); background: rgba(255, 226, 168, 0.5); border-color: #ffe2a8; box-shadow: 0 0 16px rgba(255, 226, 168, 0.7); }
-.wsp { position: absolute; right: 70px; top: -34px; display: flex; gap: 6px; }
+.wsp { position: absolute; right: 70px; bottom: calc(100% + 6px); display: flex; flex-wrap: wrap-reverse; justify-content: flex-end; gap: 6px; width: max-content; max-width: calc(100vw - 110px - env(safe-area-inset-right, 0px)); }
+.wsp .carry { padding: 6px 11px; border-radius: 14px; background: rgba(255, 250, 235, 0.92); color: #6b4a2b; font-size: 12px; font-weight: 800; white-space: nowrap; border: 2px solid #ffe2a8; }
+.wsp button.txt.more { padding: 5px 7px; }
+.wsp button.cancel { background: rgba(255, 255, 255, 0.9); color: #6b4a2b; text-shadow: none; }
+.wuse button.wgo.carrying { background: rgba(95, 211, 106, 0.55); border-color: #fff; box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.14), 0 0 14px rgba(95, 211, 106, 0.7); }
+.wbag .bgrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(92px, 1fr)); gap: 8px; }
+.wbag .bgrid button { display: grid; justify-items: center; gap: 4px; padding: 10px 4px 8px; border-radius: 16px; text-align: center; font-size: 13px; line-height: 1.25; }
+.wbag .bgrid button svg { width: 40px; height: 40px; stroke-width: 1.6; }
+.wbag .bgrid button img { width: 64px; height: 64px; object-fit: contain; pointer-events: none; }
+.wbag .bgrid button small { font-size: 11px; font-weight: 700; opacity: 0.75; }
+.wbag .bgrid button.used { opacity: 0.5; cursor: default; }
+.wbag .bhint { margin: 10px 0 0; font-size: 12px; font-weight: 700; text-align: center; opacity: 0.8; }
 .wsp button { all: unset; width: 26px; height: 26px; border-radius: 50%; border: 2px solid rgba(255, 255, 255, 0.85); box-shadow: 0 1px 4px rgba(0, 0, 0, 0.3); cursor: pointer; }
 .wsp button.txt { width: auto; height: auto; padding: 5px 9px; border-radius: 12px; background: rgba(70, 58, 48, 0.55); color: #fff; font-size: 11px; font-weight: 800; white-space: nowrap; text-shadow: 0 1px 3px rgba(0, 0, 0, 0.7); }
 .wsp button.txt.on { background: rgba(255, 226, 168, 0.55); }
@@ -128,6 +141,9 @@ export function createEditor({ container, scene, cut, wind, pick, rotate, setWal
     editing: false, tool: 'path', size: 1, stroke: null, loadedId: null, visible: false,
     bedMode: 'plant', species: 'tulip', border: 'log', riverMode: 'line',
     fenceStyle: 'fence:wood', piece: 'piece:raisedbed', part: 'part:door',
+    carry: false,   // おきものを ピヨが もって あるいている
+    spOpen: false,  // 柵のかたち・花の色の えらびが ひらいている
+    selTap: false,  // 道具の一覧を ⌃ の タップで ひらいている
   };
   const builds = createBuilds({ scene, wind, cut, setWalls, setTown: (m) => town?.setOverrides(m) });
 
@@ -193,11 +209,13 @@ export function createEditor({ container, scene, cut, wind, pick, rotate, setWal
   use.innerHTML = `<div class="wsel" hidden></div>
     <div class="wsp" hidden>${SPECIES_KEYS.map((k) => `<button type="button" data-sp="${k}" aria-label="${SPECIES[k].label}" style="background:${DOT[k]}"></button>`).join('')}</div>
     <button type="button" class="wundo" aria-label="ひとつもどす" hidden></button>
-    <span class="wup" aria-hidden="true"></span>
+    <button type="button" class="wup" aria-label="道具を えらぶ"></button>
     <button type="button" class="wgo"></button><span class="tname"></span>`;
   container.appendChild(use);
   const UNDO_SVG = '<svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 14 4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 5.5 5.5 5.5 5.5 0 0 1-5.5 5.5H11"/></svg>';
   use.querySelector('.wundo').innerHTML = UNDO_SVG;
+  const CHECK_SVG = '<svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>';
+  const esc = (t) => String(t).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
   use.querySelector('.wup').innerHTML = '<svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="m17 11-5-5-5 5"/><path d="m17 18-5-5-5 5"/></svg>';
   const selEl = use.querySelector('.wsel');
   selEl.innerHTML = TOOLS.map((t) => `<div class="wopt" data-id="${t.id}">${t.svg}<span>${t.label}</span></div>`).join('');
@@ -206,12 +224,20 @@ export function createEditor({ container, scene, cut, wind, pick, rotate, setWal
   const hand = { id: 'mower' };
   function refreshHand() {
     const t = toolById(hand.id);
-    goBtn.innerHTML = t.svg;
-    goBtn.setAttribute('aria-label', t.label);
-    use.querySelector('.tname').textContent = t.label;
-    // 道具につく小さな選び: 花の色／柵のかたち／おきもの（もっているものだけ）
-    const kind = hand.id === 'fence' ? 'fence' : hand.id === 'piece' ? 'piece' : hand.id === 'part' ? 'part' : null;
-    if (kind) {
+    if (hand.id !== 'piece' && st.carry) stopCarry(true);
+    const carrying = hand.id === 'piece' && st.carry;
+    goBtn.innerHTML = carrying ? CHECK_SVG : t.svg;
+    goBtn.classList.toggle('carrying', carrying);
+    goBtn.setAttribute('aria-label', carrying ? 'ここに おく' : t.label);
+    use.querySelector('.tname').textContent = carrying ? 'ここに おく' : t.label;
+    // 道具につく小さな選び: 花の色／柵のかたち（もっているものだけ）。おきものは もちもの一覧から えらぶ
+    const kind = hand.id === 'fence' ? 'fence' : hand.id === 'part' ? 'part' : null;
+    if (hand.id === 'piece') {
+      if (carrying) {
+        spEl.innerHTML = `<span class="carry">${esc(carryLabel())}を もってるよ</span><button type="button" class="txt cancel" data-cancel="1">やめる</button>`;
+        spEl.hidden = false;
+      } else spEl.hidden = true;
+    } else if (kind) {
       const ids = ownedOfKind(kind);
       const bag = kind === 'piece' ? bagItems() : [];
       const labelOf = (id) => ITEMS[id]?.label || bag.find((b) => b.key === id)?.label || id;
@@ -219,24 +245,36 @@ export function createEditor({ container, scene, cut, wind, pick, rotate, setWal
       const curOf = () => (kind === 'fence' ? st.fenceStyle : kind === 'part' ? st.part : st.piece);
       const setCur = (v) => { if (kind === 'fence') st.fenceStyle = v; else if (kind === 'part') st.part = v; else st.piece = v; };
       if (!all.includes(curOf())) setCur(all[0]);
-      spEl.innerHTML = all.map((id) => `<button type="button" class="txt" data-id="${id}" aria-label="${labelOf(id)}">${id.startsWith('bag:') ? 'バッグ: ' : ''}${labelOf(id)}</button>`).join('');
-      spEl.querySelectorAll('button').forEach((b) => b.classList.toggle('on', b.dataset.id === curOf()));
+      // とじている時は、いまの1つだけ（タップで ひらく）。ひらいている時は ぜんぶ
+      const show = st.spOpen ? all : [curOf()];
+      spEl.innerHTML = show.map((id) => `<button type="button" class="txt" data-id="${id}" aria-label="${labelOf(id)}">${id.startsWith('bag:') ? 'バッグ: ' : ''}${labelOf(id)}${st.spOpen ? '' : ' ▾'}</button>`).join('');
+      spEl.querySelectorAll('button').forEach((b) => b.classList.toggle('on', st.spOpen && b.dataset.id === curOf()));
       spEl.hidden = false;
     } else if (hand.id === 'flower') {
       const have = ownedSeeds(currentProfile());
       const keys = SPECIES_KEYS.filter((k) => !SPECIES[k].gacha || have.has(k));
       if (!keys.includes(st.species)) st.species = keys[0];
-      spEl.innerHTML = keys.map((k) => `<button type="button" data-sp="${k}" aria-label="${SPECIES[k].label}" style="background:${DOT[k]}"></button>`).join('');
+      const show = st.spOpen ? keys : [st.species];
+      spEl.innerHTML = show.map((k) => `<button type="button" data-sp="${k}" aria-label="${SPECIES[k].label}" style="background:${DOT[k]}"></button>`).join('') + (st.spOpen ? '' : '<button type="button" class="txt more" data-open="1" aria-label="花を えらぶ">▾</button>');
       spEl.querySelectorAll('button').forEach((b) => b.classList.toggle('on', b.dataset.sp === st.species));
       spEl.hidden = false;
     } else spEl.hidden = true;
   }
   spEl.addEventListener('click', (e) => {
     const b = e.target.closest('button'); if (!b) return;
+    if (b.dataset.cancel) { stopCarry(); return; }
+    if (!st.spOpen) { st.spOpen = true; refreshHand(); return; }   // とじている時は、タップで ひらくだけ
     if (b.dataset.sp) st.species = b.dataset.sp;
     else if (b.dataset.id) { if (hand.id === 'fence') st.fenceStyle = b.dataset.id; else if (hand.id === 'part') st.part = b.dataset.id; else st.piece = b.dataset.id; }
+    st.spOpen = false;   // えらんだら とじる
     refreshHand();
   });
+  // えらびが ひらいている時、ほかの所を タップしたら とじる
+  document.addEventListener('pointerdown', (e) => {
+    if (st.selTap && !selEl.contains(e.target) && !upBtn.contains(e.target)) closeSelTap();
+    if (!st.spOpen || spEl.contains(e.target)) return;
+    st.spOpen = false; refreshHand();
+  }, true);
   refreshHand();
 
   const walk = { held: false, id: null, kind: null, pts: null, last: null, seed: 0, startY: 0, sel: false };
@@ -249,13 +287,43 @@ export function createEditor({ container, scene, cut, wind, pick, rotate, setWal
     walk.pts = null; walk.last = null; walk.kind = hand.id;
   }
   // 上にスワイプすると、道具のえらびがひらく。ゆびをよこにすべらせて、はなした所の道具にきまる
+  // 道具から はなれた所（ボタンの上など）で はなすと、何も かえずに とじる（-1）
   function selIndex(x, y) {
     const opts = [...selEl.children];
-    let best = 0; let bd = 1e9;
+    let best = -1; let bd = 1e9;
     opts.forEach((el, i) => { const r = el.getBoundingClientRect(); const d = Math.hypot(x - (r.left + r.width / 2), (y - (r.top + r.height / 2)) * 0.6); if (d < bd) { bd = d; best = i; } });
-    return best;
+    return bd <= 64 ? best : -1;
   }
-  function markSel(i) { [...selEl.children].forEach((el, k) => el.classList.toggle('on', k === i)); walk.selIdx = i; }
+  function markSel(i) {
+    [...selEl.children].forEach((el, k) => el.classList.toggle('on', k === i)); walk.selIdx = i;
+    use.querySelector('.tname').textContent = i < 0 ? 'やめる' : TOOLS[i]?.label || '';
+  }
+  // 道具ごとの、みじかい つかいかた（道具をかえた時に出す）
+  const TOOL_HINT = {
+    mower: 'おしたまま あるくと 草を かるよ', fill: 'おしたまま あるくと 水や あなを うめるよ', seed: 'おしたまま あるくと 草が はえるよ',
+    flower: 'かった 土の上を おしたまま あるくと 花が さくよ', shovel: 'おしたまま あるくと ほれるよ。3回で 水が でるよ',
+    fence: 'おしたまま あるくと 柵が のびるよ', bridge: '岸で おして、むこう岸まで あるいて はなしてね',
+    part: '家の そばで おすと、パーツを つけられるよ', piece: 'ボタンを タップして、おくものを えらんでね',
+  };
+  function chooseTool(id) {
+    if (id === hand.id) { refreshHand(); return; }
+    hand.id = id; st.spOpen = true;
+    refreshHand();
+    if (TOOL_HINT[id]) say(TOOL_HINT[id]);
+  }
+  // ⌃ を タップしても 道具の一覧が ひらく（ゆびで えらぶ。外を タップで とじる）
+  const upBtn = use.querySelector('.wup');
+  function closeSelTap() { if (!st.selTap) return; st.selTap = false; selEl.hidden = true; selEl.classList.remove('tap'); refreshHand(); }
+  upBtn.addEventListener('click', () => {
+    if (st.selTap) { closeSelTap(); return; }
+    st.selTap = true; selEl.classList.add('tap'); selEl.hidden = false;
+    markSel(Math.max(0, TOOLS.findIndex((t) => t.id === hand.id)));
+  });
+  selEl.addEventListener('click', (e) => {
+    const o = e.target.closest('.wopt'); if (!o || !st.selTap) return;
+    st.selTap = false; selEl.hidden = true; selEl.classList.remove('tap');
+    chooseTool(o.dataset.id);
+  });
   function openSel() {
     walk.sel = true;
     if (walk.pts) { walk.pts = null; walk.last = null; replay(); }   // ここまでのなぞりはなかったことに
@@ -276,7 +344,8 @@ export function createEditor({ container, scene, cut, wind, pick, rotate, setWal
     goBtn.classList.remove('hold');
     if (walk.sel) {
       walk.sel = false; selEl.hidden = true;
-      if (e && e.type === 'pointerup') { hand.id = TOOLS[walk.selIdx]?.id || hand.id; refreshHand(); }
+      if (e && e.type === 'pointerup' && walk.selIdx >= 0 && TOOLS[walk.selIdx]) chooseTool(TOOLS[walk.selIdx].id);
+      else refreshHand();
       walk.pts = null; walk.last = null;
       return;
     }
@@ -308,14 +377,22 @@ export function createEditor({ container, scene, cut, wind, pick, rotate, setWal
         op = { t: 'place', k: st.piece, seed, x: pts[0], z: pts[1], rot: pts[2] };
       }
     }
-    if (op && commit(op)) builds.apply(op);
+    let ok = false;
+    if (op && commit(op)) { builds.apply(op); ok = true; }
     clearTrail();
+    return ok;
   }
   function walkCommit() {
     let pts = walk.pts;
     const t = toolById(walk.kind || hand.id);
     walk.pts = null; walk.last = null;
-    if (t.op === 'place' && !pts) pts = [round(here.x), round(here.z), Math.round(here.rot * 100) / 100];
+    if (t.op === 'place') {
+      // おきもの: もっていなければ もちもの一覧をひらく。もっていれば、みどりの わっかの所に おく
+      if (!st.carry) { openBag(); return; }
+      if (!carryAt) return;
+      if (commitBuild(t, carryAt)) { stopCarry(); say('おいたよ！'); }
+      return;
+    }
     if (t.op === 'attach') { commitAttach(); return; }
     if (t.op === 'fence' || t.op === 'bridge' || t.op === 'place') { commitBuild(t, pts); return; }
     if (!pts || pts.length < 2) return;   // 1点だけ（その場で1回おした）でも、1つの操作として保存する
@@ -334,7 +411,7 @@ export function createEditor({ container, scene, cut, wind, pick, rotate, setWal
     if (!msgEl) { msgEl = document.createElement('div'); msgEl.className = 'wedit-msg'; document.body.appendChild(msgEl); }
     msgEl.textContent = text; msgEl.hidden = false;
     clearTimeout(msgTimer);
-    msgTimer = setTimeout(() => { msgEl.hidden = true; }, 1800);
+    msgTimer = setTimeout(() => { msgEl.hidden = true; }, 2600);
   }
   function refreshButtons() {
     q('toggle').classList.toggle('on', st.editing);
@@ -480,6 +557,83 @@ export function createEditor({ container, scene, cut, wind, pick, rotate, setWal
     const t = walk.attachNow; walk.attachNow = null;
     if (!t) { say('はめられる 場所に ちかづいてね（光る玉）'); return; }
     if (commit({ t: 'parts', hx: t.h.ox, hz: t.h.oz, socket: t.sid, part: st.part })) replay();
+  }
+
+  // ---- おきものを もって あるく ----
+  // 一覧でえらぶ → ピヨの前に その おきもの（とわっか）が ついてくる → 「ここに おく」で おく
+  let carryAt = null;              // いま おく場所 [x, z, rot]（おけない所なら null）
+  const previews = new Map();      // おきものの見本（種類ごとに1つ作って つかいまわす）
+  let preview = null;
+  function carryLabel() {
+    return ITEMS[st.piece]?.label || bagItems().find((b) => b.key === st.piece)?.label || 'おきもの';
+  }
+  function previewFor(key) {
+    const k = key.startsWith('bag:piece:') ? bagItems().find((b) => b.key === key)?.h?.k : key.startsWith('bag:') ? null : key;
+    if (!k) return null;
+    if (!previews.has(k)) {
+      let m = null;
+      try { m = buildPiece({ k, x: 0, z: 0, rot: 0, seed: 7 })?.mesh || null; } catch (_) { m = null; }
+      if (m) { m.visible = false; scene.add(m); }
+      previews.set(k, m);
+    }
+    return previews.get(k);
+  }
+  function startCarry(key) {
+    st.piece = key; st.carry = true; carryAt = null;
+    if (preview) preview.visible = false;
+    preview = previewFor(key);
+    refreshHand();
+    say('あるいて 場所を きめてね。わっかが みどりの所で「おく」');
+  }
+  function stopCarry(quiet) {
+    st.carry = false; carryAt = null;
+    if (preview) preview.visible = false;
+    preview = null;
+    hideGhost();
+    if (!quiet) refreshHand();
+  }
+  function carryTick(pos, heading) {
+    const sel = pieceSel();
+    const g = ahead(pos, heading, Math.min(3.4, Math.max(1.5, sel.r + 0.8)));   // 大きい物でも、画面の中に輪が見えるように、まえに出しすぎない
+    const ok = sel.allowed && validPlace(g.x, g.z, sel.r, sel.selfId, sel.h);
+    showGhost(g.x, g.z, sel.r, ok);
+    carryAt = ok ? [round(g.x), round(g.z), Math.round(heading * 100) / 100] : null;
+    goBtn.classList.toggle('carrying', ok);
+    if (preview) {
+      const bob = Math.sin(performance.now() / 260) * 0.05;
+      preview.position.set(g.x, heightAt(g.x, g.z) + 0.18 + bob, g.z);   // すこし うかせて「もっている」かんじに
+      preview.rotation.y = heading;
+      preview.visible = true;
+    }
+  }
+  // もちもの一覧（おきもの）
+  let bagSheet = null;
+  function closeBag() { bagSheet?.remove(); bagSheet = null; }
+  function openBag() {
+    closeBag();
+    const placed = new Set(foldAll(ops() || []).eff.filter((o) => o.t === 'place').map((o) => o.k));
+    const HOUSE_SVG = toolById('piece').svg;
+    // 3Dモデルから撮った絵（ガチャと同じ）。絵がなければ線の絵
+    const pic = (id) => (ITEMS[id] ? `<img src="${thumbSrc(ITEMS[id])}" alt="" draggable="false" onerror="this.replaceWith(document.createRange().createContextualFragment(this.dataset.svg))" data-svg="${esc(ITEMS[id].svg || HOUSE_SVG)}">` : HOUSE_SVG);
+    const cards = [
+      ...ownedOfKind('piece').map((id) => {
+        const used = !ITEMS[id]?.own && placed.has(id);   // ガチャで出た物は1こずつ
+        return `<button type="button" data-k="${id}" class="${used ? 'used' : ''}">${pic(id)}<span>${esc(ITEMS[id]?.label || id)}</span>${used ? '<small>おいてあるよ</small>' : ''}</button>`;
+      }),
+      ...bagItems().map((b) => `<button type="button" data-k="${b.key}">${b.kind === 'piece' ? pic(b.h.k) : HOUSE_SVG}<span>${esc(b.label)}</span><small>しまった物</small></button>`),
+    ];
+    bagSheet = document.createElement('div');
+    bagSheet.className = 'wparts wbag';
+    bagSheet.innerHTML = `<div class="pcard"><p class="ptitle">おきものを えらぶ</p><div class="bgrid">${cards.join('')}</div>
+      <p class="bhint">えらぶと ピヨが もつよ。ガチャで ふえるよ</p><button type="button" class="pclose">とじる</button></div>`;
+    bagSheet.addEventListener('click', (e) => {
+      if (e.target === bagSheet || e.target.closest('.pclose')) { closeBag(); return; }
+      const b = e.target.closest('button[data-k]'); if (!b) return;
+      if (b.classList.contains('used')) { say('もう おいてあるよ。うごかすなら「つくる」の「うごかす」で'); return; }
+      closeBag();
+      startCarry(b.dataset.k);
+    });
+    document.body.appendChild(bagSheet);
   }
 
   const here = { x: 0, z: 0, rot: 0 };   // いまのピヨの場所とむき（おきものを、タップだけで置くとき）
@@ -802,18 +956,11 @@ export function createEditor({ container, scene, cut, wind, pick, rotate, setWal
   // 毎フレーム呼ばれる。ボタンをおしたまま歩くと、ピヨの足もとが道具のとおりに変わる（はやく走っているあいだは効かない）
   function tick(dt, pos, speedy, heading = 0) {
     here.x = pos.x; here.z = pos.z; here.rot = heading;
+    if (st.carry && hand.id === 'piece' && !st.editing && !walk.sel) carryTick(pos, heading);
     if (!walk.held || walk.sel || st.editing) return;
     const t = toolById(walk.kind);
     const x = pos.x; const z = pos.z;
-    if (t.op === 'place') {
-      // おきもの: ピヨの前に「おける？」の わっかが出る。みどり＝おける、あか＝おけない。はなすと、そこに置く
-      const sel = pieceSel();
-      const g = ahead(pos, heading, Math.min(3.4, Math.max(1.5, sel.r + 0.8)));   // 大きい物でも、画面の中に輪が見えるように、まえに出しすぎない
-      const ok = sel.allowed && validPlace(g.x, g.z, sel.r, sel.selfId, sel.h);
-      showGhost(g.x, g.z, sel.r, ok);
-      walk.pts = [round(g.x), round(g.z), Math.round(heading * 100) / 100];
-      return;
-    }
+    if (t.op === 'place') return;   // おきものは carryTick（もって あるいている間ずっと）
     if (t.op === 'attach') { attachTick(pos, heading); return; }
     if (t.op === 'fence' || t.op === 'bridge') {
       if (speedy) return;
@@ -892,7 +1039,7 @@ export function createEditor({ container, scene, cut, wind, pick, rotate, setWal
     setVisible(on) {
       st.visible = on;
       root.hidden = !on;
-      if (!on) { setEditing(false); walkEnd(null); }
+      if (!on) { setEditing(false); walkEnd(null); if (st.carry) stopCarry(); closeSelTap(); }
       refreshButtons();
       if (on) showLevel();
     },

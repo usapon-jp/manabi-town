@@ -222,7 +222,7 @@ function openItem(it, have) {
     h('p', { class: 'sheet-title' }, have ? it.label : '？？？'),
     stars(it.rarity),
     h('p', { class: 'sheet-sub' }, `${KINDS[it.kind]?.label || ''}・${RARITY[it.rarity].label}`),
-    have ? h('p', { class: 'g-soon' }, it.kind === 'seed' ? '「つくる」の 花のタネで うえられるよ' : it.kind === 'chara' ? '街に すんでくれるよ' : it.kind === 'part' ? '家を タップして つけられるよ' : `「つくる」の ${it.kind === 'fence' ? '柵' : 'おきもの'}で つかえるよ`) : h('p', { class: 'g-soon' }, 'まだ もっていないよ'),
+    have ? h('p', { class: 'g-soon' }, it.kind === 'seed' ? '道具の「花のタネ」で うえられるよ' : it.kind === 'chara' ? '街に すんでくれるよ' : it.kind === 'part' ? '家を タップして つけられるよ' : `道具の「${it.kind === 'fence' ? '柵' : 'おきもの'}」で つかえるよ`) : h('p', { class: 'g-soon' }, 'まだ もっていないよ'),
     h('button', { class: 'link', onclick: () => sp.close() }, 'とじる'));
 }
 
@@ -245,7 +245,7 @@ function showResult(p, deps, list) {
         h('p', { class: 'sheet-title' }, top === 3 ? 'とても めずらしいのが 出た！' : one ? 'もらった！' : `${list.length}こ もらった！`),
         h('ul', { class: `g-got ${one ? '' : 'many'}` }, list.map((it, i) => h('li', { class: `r${it.rarity}`, style: `--i:${i}` },
           thumb(it), h('i', { class: 'g-new' }, 'NEW'), h('b', {}, it.label), stars(it.rarity)))),
-        one ? h('p', { class: 'sheet-sub' }, one.kind === 'fence' ? '「つくる」の 柵で たてられるよ' : one.kind === 'piece' ? '「つくる」の おきもので おけるよ' : one.kind === 'part' ? '家を タップして つけられるよ' : '') : null,
+        one ? h('p', { class: 'sheet-sub' }, one.kind === 'fence' ? '道具の「柵」で たてられるよ' : one.kind === 'piece' ? '道具の「おきもの」で おけるよ' : one.kind === 'part' ? '家を タップして つけられるよ' : '') : null,
         h('button', { class: 'btn primary', onclick: () => { s.close(); openGacha(p, deps); } }, 'OK'),
       ].filter(Boolean));
     }, 420);
