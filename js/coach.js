@@ -133,7 +133,7 @@ export function dailyLabel(c, p) {
   if (!d && !p) return '';
   const base = p ? dailyBase(p) : d.base;
   const t = today();
-  const extra = p ? activeExtras(p) : d.extra.filter((x) => !x.until || x.until >= t);
+  const extra = p ? activeExtras(p) : d.extra.filter((x) => (!x.until || x.until >= t) && (!x.from || x.from <= t));
   const later = (d?.extra || []).filter((x) => x.from && x.from > t && (!x.until || x.until >= t));
   const md = (s) => `${Number(s.slice(5, 7))}/${Number(s.slice(8, 10))}`;
   return [...base.map((b) => `${BASE.find(([id]) => id === b)[1]} 3もん`),
