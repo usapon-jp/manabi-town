@@ -82,29 +82,39 @@ export const poolKey = (x) => `${x.subject}:${x.topic}`;
 const sizeOf = (x) => x.size || CHUNK;
 const perDayOf = (x) => x.perDay || 3;
 
-// テスト前（14日まえから）は、国語・英語・数学の テスト予定から 範囲の一問一答を 自動で足す。
+// テスト前は、テスト予定（9教科ぜんぶ）から 範囲の一問一答を 自動で足す。
+// 国語・英語・数学は 14日まえから（デイリーの 学年3もんと 入れかえ）、ほかの教科は 7日まえから 1日3もん。
 // 作戦会議で その教科の範囲を 決めていれば そちらを使う。写真は その テストの しりょうフォルダから
 const TEST_DAYS = 14;
+const OTHER_DAYS = 7;
 const AUTO_SIZE = 30;
+const OTHER_SIZE = 15;
 // デイリーの 決まった教科 → 置きかえる テスト教科
 const BASE_SUBJ = { kanji: /国語|漢字/, english: /英語/, math: /数学|算数/ };
 const subjOf = (x) => Object.keys(BASE_SUBJ).find((b) => BASE_SUBJ[b].test(x.subject) || (b === 'kanji' && /漢字/.test(x.topic)));
+const subjKey = (x) => subjOf(x) || String(x.subject || '').trim();
+const addDays = (d, n) => new Date(Date.parse(`${d}T00:00:00Z`) + n * 86400000).toISOString().slice(0, 10);
 
 function testExtras(p, own) {
   if (!p.coach || p.grade === 'adult') return [];
   const t = today();
-  const have = new Set(own.map(subjOf).filter(Boolean));
+  // 作戦会議で 決めた範囲（先の日から はじめるものも）が ある教科は 自動にしない
+  const have = new Set([...own, ...(p.coach.daily?.extra || []).filter((x) => !x.until || x.until >= t)].map(subjKey).filter(Boolean));
   const out = [];
-  p.items.filter((i) => i.type === 'test' && !i.done && i.date >= t && daysUntil(i.date) <= TEST_DAYS)
+  (p.items || []).filter((i) => i.type === 'test' && !i.done && i.date >= t && i.subject && daysUntil(i.date) <= TEST_DAYS)
     .sort((a, b) => a.date.localeCompare(b.date))
     .forEach((i) => {
-      const b = subjOf({ subject: i.subject, topic: i.title });
-      if (!b || have.has(b)) return;
-      have.add(b);
+      const core = subjOf({ subject: i.subject, topic: i.title });
+      const k = core || i.subject.trim();
+      if (!k || have.has(k)) return;
       const days = Math.max(1, daysUntil(i.date));
+      if (!core && days > OTHER_DAYS) return;
+      have.add(k);
       out.push({
         subject: i.subject, topic: `${i.title}${i.range ? ` ${i.range}` : ''}`.slice(0, 60), until: i.date,
-        size: AUTO_SIZE, perDay: Math.min(10, Math.max(3, Math.ceil((AUTO_SIZE * 3) / days))),
+        ...(core
+          ? { size: AUTO_SIZE, perDay: Math.min(10, Math.max(3, Math.ceil((AUTO_SIZE * 3) / days))) }
+          : { size: OTHER_SIZE, perDay: 3, from: addDays(i.date, -OTHER_DAYS) }),
         photos: (p.photos || []).filter((m) => m.folder === i.id).map((m) => m.id).slice(-3), auto: true,
       });
     });
@@ -191,6 +201,9 @@ export function ensurePools(p, images = []) {
 }
 
 // きょうの extra の問題。日にちで perDay もんずつ ずらして、ぜんぶ出たら また はじめから（何周も）
+// テストの範囲（テスト日まで の範囲・テスト予定から 自動）→ 問題に「テストに出るよ」ハンコ
+export const isTestRange = (x) => !!(x.auto || x.until);
+
 export function extraQuestions(p, key = today()) {
   const day = Math.floor(Date.parse(`${key}T00:00:00Z`) / 86400000);
   return activeExtras(p).flatMap((x) => {
@@ -199,7 +212,7 @@ export function extraQuestions(p, key = today()) {
     const n = Math.min(perDayOf(x), pool.length);
     const start = (day * n) % pool.length;
     return Array.from({ length: n }, (_, i) => pool[(start + i) % pool.length])
-      .map((q) => ({ kind: 'choice', subject: x.subject, prompt: q.q, options: q.options, answer: q.answer, topic: x.topic }));
+      .map((q) => ({ kind: 'choice', subject: x.subject, prompt: q.q, options: q.options, answer: q.answer, topic: x.topic, ...(isTestRange(x) ? { test: true } : {}) }));
   });
 }
 

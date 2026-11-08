@@ -52,7 +52,7 @@ function poolList(p) {
 
 function poolQuestions(pool, rand) {
   return shuffle(pool.qs.filter((q) => q && q.q && Array.isArray(q.options)), rand).slice(0, ROUND)
-    .map((q) => ({ kind: 'choice', subject: pool.subject, prompt: q.q, options: q.options, answer: q.answer, topic: pool.topic }));
+    .map((q) => ({ kind: 'choice', subject: pool.subject, prompt: q.q, options: q.options, answer: q.answer, topic: pool.topic, test: true }));
 }
 
 const mathLabel = (p) => (gradeBucket(p) === 'j' ? '数学' : '算数');

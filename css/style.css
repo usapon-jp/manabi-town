@@ -1774,3 +1774,18 @@ input.pin { font-size: 26px; letter-spacing: 0.5em; text-align: center; }
 .notify-card .kid-due p { margin: 0 0 6px; }
 .notify-card .kid-due small { display: block; margin-top: 6px; opacity: 0.7; }
 .plan-next { width: 100%; margin: 4px 0 0; text-align: center; font-weight: 600; color: var(--accent-dark); }
+
+/* テスト範囲の問題に「テストに出るよ」ハンコ */
+.test-stamp {
+  position: absolute; top: -12px; right: -6px; z-index: 1;
+  width: 58px; height: 58px; border-radius: 50%;
+  display: grid; place-items: center; text-align: center;
+  border: 2.5px solid #d0604f; outline: 1px solid #d0604f; outline-offset: -6px;
+  background: rgba(255, 250, 240, 0.94); color: #c4513f;
+  font-size: 11px; font-weight: 800; line-height: 1.25; letter-spacing: 0.02em;
+  transform: rotate(-12deg); pointer-events: none;
+  animation: test-stamp-in 0.45s cubic-bezier(.3,1.6,.5,1) 0.25s backwards;
+}
+@keyframes test-stamp-in { 0% { transform: scale(1.7) rotate(-30deg); opacity: 0; } 100% { transform: rotate(-12deg); opacity: 1; } }
+.q-box.has-stamp .prompt { padding-right: 46px; }
+@media (prefers-reduced-motion: reduce) { .test-stamp { animation: none; } }
