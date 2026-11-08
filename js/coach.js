@@ -12,7 +12,7 @@ import { weakList } from './tests.js';
 import { icon } from './icons.js';
 import { pickPhoto } from './pickphoto.js';
 import { shrink } from './scan.js';
-import { openPhotos } from './photos.js';
+import { openPhotos, addPhoto, getData, movePhoto } from './photos.js';
 
 export const PLAN_BONUS = 50;     // 作戦会議をさいごまでやった
 const CHECK_PER_CORRECT = 5;
@@ -71,6 +71,7 @@ function cleanDaily(d) {
       subject: String(x.subject).slice(0, 10), topic: String(x.topic).slice(0, 60),
       until: /^\d{4}-\d{2}-\d{2}$/.test(String(x.until)) ? String(x.until) : '',
       perDay: clampN(x.perDay, 1, 30, 5), size: clampN(x.size, 10, 60, 20),
+      photo: x.photo === true,   // この会議で 見せた写真が この範囲のもの
     }));
   if (!base.length && !extra.length) return null;
   return { base: [...new Set(base)], extra };
@@ -87,8 +88,11 @@ export function activeExtras(p) {
 }
 
 // デイリーに入れる 決まった教科（作戦会議で決めていなければ 3つとも）
+// 漢字のテスト範囲（一問一答）が 入っているあいだは、学年の 漢字3もんの かわりに 範囲の問題を出す
+export const isKanjiRange = (x) => /漢字/.test(`${x.subject}${x.topic}`);
 export function dailyBase(p) {
-  return p.coach?.daily ? p.coach.daily.base : BASE.map(([id]) => id);
+  const base = p.coach?.daily ? p.coach.daily.base : BASE.map(([id]) => id);
+  return activeExtras(p).some(isKanjiRange) ? base.filter((b) => b !== 'kanji') : base;
 }
 
 export function dailyLabel(c) {
@@ -106,8 +110,18 @@ export function missingPools(p) {
 
 const okQ = (q) => q && q.q && Array.isArray(q.options) && q.options.length >= 2 && Number.isInteger(q.answer) && q.answer >= 0 && q.answer < q.options.length;
 
+// 範囲に ひもづけた しりょうの写真（作戦会議で 見せたもの）を 読み出す
+async function rangePhotos(x) {
+  const out = [];
+  for (const id of (x.photos || []).slice(-3)) { const d = await getData(id).catch(() => null); if (d) out.push(d); }
+  return out;
+}
+
 // 1つの範囲を size もんまで 作る（15もんずつ。前に作った問題は さけてもらう）
+// 写真は 範囲に ひもづけた しりょう（x.photos）を使う。この端末に まだ なければ images（作戦会議の その場の写真）
 async function fillPool(p, x, images = []) {
+  const saved = await rangePhotos(x);
+  if (saved.length) images = saved;
   for (let i = 0; i < 5; i++) {
     const have = (p.coach.pools || {})[poolKey(x)] || [];
     const need = sizeOf(x) - have.length;
@@ -180,10 +194,24 @@ export function daysToTest(p) {
   return ds.length ? Math.round((Date.parse(ds[0]) - Date.parse(t)) / 86400000) : null;
 }
 
+// 作戦会議の とちゅうの会話は p.planChat に のこす（とじても つづきから。写真は しりょうに入れて id だけ）
+// p.planChat = { at: 'YYYY-MM-DD', messages: [{ role, text, photoId? }], choices: [] }
+const CHAT_KEEP_DAYS = 21;
+const SEND_PHOTOS = 3;     // 受け口に わたす 写真は 新しい 3まいまで
+
+function savedChat(p) {
+  const c = p.planChat;
+  if (!c || !Array.isArray(c.messages) || !c.messages.length) return null;
+  if (Math.round((Date.parse(today()) - Date.parse(c.at)) / 86400000) > CHAT_KEEP_DAYS) return null;
+  return c;
+}
+
 export function openPlanChat(p, deps) {
-  const messages = [];          // { role: 'assistant'|'user', text, photo?: images の番号 }
-  const images = [];            // 送った写真（範囲のプリント・ワークの目次 など。さいだい3まい）
+  const messages = [];          // { role: 'assistant'|'user', text, photoId? }
+  const pics = new Map();       // photoId → dataUrl（この会議で 見せた写真）
+  let lastChoices = [];
   let photo = null;             // まだ送っていない写真
+  let photoId = null;           // しりょうから えらんだときは その id（もういちど しりょうに 入れない）
   let busy = false;
   const log = h('div', { class: 'chat-log' });
   const choices = h('div', { class: 'chat-choices' });
@@ -192,20 +220,18 @@ export function openPlanChat(p, deps) {
   const thumb = h('div', { class: 'ask-thumb', hidden: true });
   const showThumb = () => {
     thumb.hidden = !photo;
-    thumb.replaceChildren(...(photo ? [h('img', { src: photo, alt: '' }), h('button', { type: 'button', 'aria-label': '写真をはずす', onclick: () => { photo = null; showThumb(); } }, icon('x'))] : []));
+    thumb.replaceChildren(...(photo ? [h('img', { src: photo, alt: '' }), h('button', { type: 'button', 'aria-label': '写真をはずす', onclick: () => { photo = null; photoId = null; showThumb(); } }, icon('x'))] : []));
   };
   const takePhoto = async (f) => {
     if (!f) return;
-    try { photo = await shrink(f); } catch { toast('この写真は 開けなかった'); return; }
+    try { photo = await shrink(f); photoId = null; } catch { toast('この写真は 開けなかった'); return; }
     showThumb();
   };
   const camBtn = h('button', { type: 'button', class: 'chat-cam', 'aria-label': '写真を 入れる', onclick: () => {
-    if (images.length >= 3) { toast('写真は 3まいまで だよ'); return; }
     pickPhoto(takePhoto, { title: '範囲の プリントや ワークの 写真' });
   } }, icon('camera'));
   const libBtn = h('button', { type: 'button', class: 'chat-cam', 'aria-label': 'しりょうから えらぶ', onclick: () => {
-    if (images.length >= 3) { toast('写真は 3まいまで だよ'); return; }
-    openPhotos(p, { pick: 1, onPick: (urls) => { if (urls[0]) { photo = urls[0]; showThumb(); } } });
+    openPhotos(p, { pick: 1, onPick: (urls, ids) => { if (urls[0]) { photo = urls[0]; photoId = ids?.[0] || null; showThumb(); } } });
   } }, icon('folder'));
   const form = h('form', { class: 'chat-input', onsubmit: (e) => { e.preventDefault(); say(input.value); } }, camBtn, libBtn, input, send);
   const close = () => { layer.remove(); document.body.classList.remove('running'); };
@@ -225,17 +251,42 @@ export function openPlanChat(p, deps) {
     return b;
   }
 
+  // とちゅうの会話を のこす（とじても、つぎに ひらいたら つづきから）
+  function keep() {
+    p.planChat = { at: today(), messages: messages.slice(-40).map((m) => ({ role: m.role, text: m.text, ...(m.photoId ? { photoId: m.photoId } : {}) })), choices: lastChoices };
+    save();
+  }
+
+  function showChoices(list) {
+    lastChoices = list || [];
+    choices.replaceChildren(...lastChoices.map((c) => h('button', { type: 'button', class: 'pick', onclick: () => say(c) }, c)));
+  }
+
+  // 受け口に わたす形: 新しい写真 3まいだけ 画像で、それより前の写真は「（前に見せた写真）」と ことばで
+  function payload() {
+    const ids = [...new Set(messages.filter((m) => m.photoId && pics.get(m.photoId)).map((m) => m.photoId))].slice(-SEND_PHOTOS);
+    const images = ids.map((id) => pics.get(id));
+    const msgs = messages.map((m) => {
+      const i = m.photoId ? ids.indexOf(m.photoId) : -1;
+      if (i >= 0) return { role: m.role, text: m.text, photo: i };
+      return { role: m.role, text: m.photoId ? `（前に見せた写真）${m.text}` : m.text };
+    });
+    return { msgs, images };
+  }
+
   async function turn() {
     busy = true;
     choices.replaceChildren();
     const wait = bubble('assistant thinking', 'かんがえ中…');
     try {
-      const r = await askAI({ action: 'plan', today: today(), name: p.name, grade: gradeLabel(p), items: itemsText(p), profile: coachText(p.coach), messages, images }, { timeout: images.length ? 90000 : 45000 });
+      const { msgs, images } = payload();
+      const r = await askAI({ action: 'plan', today: today(), name: p.name, grade: gradeLabel(p), items: itemsText(p), profile: coachText(p.coach), messages: msgs, images }, { timeout: images.length ? 90000 : 45000 });
       wait.remove();
       if (!r.say && !(r.done && r.profile)) throw new Error('empty');
       if (r.say) { messages.push({ role: 'assistant', text: r.say }); bubble('assistant', r.say); }
       if (r.done && r.profile) { finish(cleanProfile(r.profile)); return; }
-      choices.replaceChildren(...(r.choices || []).map((c) => h('button', { type: 'button', class: 'pick', onclick: () => say(c) }, c)));
+      showChoices(r.choices || []);
+      keep();
     } catch (e) {
       wait.remove();
       const again = h('button', { type: 'button', class: 'pick', onclick: () => turn() }, 'もういちど');
@@ -245,24 +296,58 @@ export function openPlanChat(p, deps) {
     busy = false;
   }
 
-  function say(text) {
+  async function say(text) {
     const t = String(text || '').trim();
     if ((!t && !photo) || busy) return;
+    busy = true;
     input.value = '';
     const img = photo;
-    photo = null; showThumb();
+    let id = photoId;
+    photo = null; photoId = null; showThumb();
     const m = { role: 'user', text: t || '（写真を 見て）' };
-    if (img) { images.push(img); m.photo = images.length - 1; }
+    if (img) {
+      // 撮った写真は しりょう（ほかの しりょう）に入れておく。範囲が きまったら テストの フォルダへ うつす
+      if (!id) { try { id = await addPhoto(p, { dataUrl: img, label: '作戦会議' }); } catch { id = `tmp-${Date.now()}`; } }
+      pics.set(id, img);
+      m.photoId = id;
+    }
     messages.push(m);
     bubble('user', t, img);
+    keep();
+    busy = false;
     turn();
   }
 
+  // 作戦会議で 見せた写真（新しい順に 3まい）
+  const chatPhotoIds = () => [...new Set(messages.filter((m) => m.photoId && !m.photoId.startsWith('tmp-')).map((m) => m.photoId))].slice(-SEND_PHOTOS);
+
   function finish(profile) {
     const first = !p.coach;
+    const prevExtra = p.coach?.daily?.extra || [];
+    const pools = { ...(p.coach?.pools || {}) };
+    const ids = chatPhotoIds();
+    const daily = profile.daily || p.coach?.daily || null;
+    // 範囲（extra）に 写真を ひもづける。ピヨ先生が「この写真の範囲」と言った範囲には この会議の写真、ほかは 前の写真を そのまま
+    if (profile.daily) {
+      daily.extra = daily.extra.map((x) => {
+        const old = prevExtra.find((o) => poolKey(o) === poolKey(x));
+        const photos = x.photo && ids.length ? ids : (old?.photos || []);
+        delete x.photo;
+        // 写真が かわった範囲は、前に作った問題を すてて 写真から 作りなおす
+        if (photos.join() !== (old?.photos || []).join()) delete pools[poolKey(x)];
+        return { ...x, photos };
+      });
+      // 写真は テストの フォルダへ（テストの日が 同じ 予定が あれば）
+      daily.extra.forEach((x) => {
+        const test = x.until && p.items.find((i) => i.type === 'test' && !i.done && i.date === x.until);
+        if (test) x.photos.forEach((id) => { const meta = (p.photos || []).find((m) => m.id === id); if (meta && meta.folder === 'other') movePhoto(p, id, test.id); });
+      });
+    }
     // デイリーの話をしなかったときは 前の きまりを そのまま。作った一問一答も のこす
-    p.coach = { ...profile, daily: profile.daily || p.coach?.daily || null, pools: p.coach?.pools || {}, misses: p.coach?.misses || [], checks: p.coach?.checks || [], at: new Date().toISOString().slice(0, 10) };
-    if (activeExtras(p).length) ensurePools(p, images).then((ok) => toast(ok ? 'デイリーの 問題が できたよ！' : 'デイリーの 問題が うまく作れなかった…クエストを ひらくと もういちど 作るよ'));
+    p.coach = { ...profile, daily, pools, misses: p.coach?.misses || [], checks: p.coach?.checks || [], at: today() };
+    p.planChat = null;   // まとまったので 会話は おしまい（決まったことは p.coach に のこる）
+    const imgs = ids.map((id) => pics.get(id)).filter(Boolean);
+    if (activeExtras(p).length) ensurePools(p, imgs).then((ok) => toast(ok ? 'デイリーの 問題が できたよ！' : 'デイリーの 問題が うまく作れなかった…クエストを ひらくと もういちど 作るよ'));
     if (first) deps.gain(p, PLAN_BONUS, '作戦会議'); else save();
     form.remove();
     choices.replaceChildren(...[
@@ -276,7 +361,29 @@ export function openPlanChat(p, deps) {
     busy = false;
   }
 
-  turn();
+  // 前の とちゅうの会話が あれば、つづきから
+  const prev = savedChat(p);
+  if (!prev) { turn(); return; }
+  (async () => {
+    busy = true;
+    for (const m of prev.messages) {
+      let img = null;
+      if (m.photoId) { img = await getData(m.photoId).catch(() => null); if (img) pics.set(m.photoId, img); }
+      messages.push({ role: m.role === 'assistant' ? 'assistant' : 'user', text: String(m.text || ''), ...(m.photoId ? { photoId: m.photoId } : {}) });
+      bubble(m.role === 'assistant' ? 'assistant' : 'user', m.role === 'user' && m.text === '（写真を 見て）' ? '' : m.text, img);
+    }
+    log.append(h('div', { class: 'msg assistant' }, 'このまえの つづきから はなそう。はじめから にしたいときは 下の ボタンでね'));
+    log.scrollTop = log.scrollHeight;
+    busy = false;
+    const restart = h('button', { type: 'button', class: 'pick', onclick: () => {
+      if (busy) return;
+      messages.length = 0; pics.clear(); p.planChat = null; save();
+      log.replaceChildren(); turn();
+    } }, 'はじめから やりなおす');
+    showChoices(prev.choices || []);
+    choices.append(restart);
+    if (messages[messages.length - 1]?.role === 'user') turn();   // 返事を まっていた ところで とじていたら
+  })();
 }
 
 // 決まったことのまとめ（せっていにも出す）
