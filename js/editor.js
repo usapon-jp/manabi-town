@@ -1015,6 +1015,8 @@ export function createEditor({ container, scene, cut, wind, pick, rotate, setWal
     tick,
     update(t) { builds.update(t); },
     get active() { return st.editing; },
+    // タップだけで決まる道具（パーツ・うごかす）。2本指の ピンチと まちがえないよう、指を はなしてから うごかす
+    get tapOnly() { return st.tool === 'parts' || st.tool === 'move'; },
     pointer,
     // 柵の道具のとき、置いた柵をタップするとしまえる（「もどす」で もどせる）
     tapWorld(e) {

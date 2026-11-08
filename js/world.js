@@ -95,7 +95,8 @@ export function createWorld(container) {
   let wasEditing = false; let savedDist = 0;
   const touches = new Map();
   let pinch = null;          // { d0, dist0, h0 }
-  let multi = false;         // 2本指に なったら、指が ぜんぶ はなれるまで なぞらない
+  let multi = false;
+  let tapDown = null;        // パーツ・うごかす の タップ（指を はなすまで まつ）         // 2本指に なったら、指が ぜんぶ はなれるまで なぞらない
   const fingerGap = () => { const [a, b] = [...touches.values()]; return Math.hypot(a.x - b.x, a.y - b.y) || 1; };
   function zoomTo(dist) {
     const d = Math.min(26, Math.max(6, dist));
@@ -107,11 +108,14 @@ export function createWorld(container) {
     try { canvas.setPointerCapture(e.pointerId); } catch (_) { /* 古い端末 */ }
     if (touches.size >= 2) {
       if (editor.active && !multi) editor.pointer('cancel');   // かきかけの 1本目は なかったことに
-      multi = true; drag = null;
+      multi = true; drag = null; tapDown = null;
       pinch = { d0: fingerGap(), dist0: view.dist };
       return;
     }
-    if (editor.active) { editor.pointer('down', e); return; }
+    if (editor.active) {
+      if (editor.tapOnly) { tapDown = e; return; }   // 指を はなすまで まつ（2本指に なったら やめる）
+      editor.pointer('down', e); return;
+    }
     drag = { x: e.clientX, y: e.clientY, angle: view.angle, h0: view.height, moved: false };
   });
   const lift = (e) => { touches.delete(e.pointerId); if (touches.size < 2) pinch = null; if (!touches.size) multi = false; };
@@ -133,12 +137,15 @@ export function createWorld(container) {
     const wasMulti = multi;
     lift(e);
     if (wasMulti) { drag = null; return; }
-    if (editor.active) { editor.pointer('up', e); return; }
+    if (editor.active) {
+      if (tapDown) { const d = tapDown; tapDown = null; editor.pointer('down', d); }
+      editor.pointer('up', e); return;
+    }
     // タップした場所へ歩く機能は なし（2026-11-02 フミオさん）。ドラッグでまわすだけ
     if (drag && !drag.moved) editor.tapWorld?.(e);   // 柵の道具を持っているとき、置いた柵をタップでしまう
     drag = null;
   });
-  canvas.addEventListener('pointercancel', (e) => { lift(e); drag = null; if (editor.active) editor.pointer('cancel'); });
+  canvas.addEventListener('pointercancel', (e) => { lift(e); drag = null; tapDown = null; if (editor.active) editor.pointer('cancel'); });
   // パソコン: ホイールで ちかづける／はなす
   canvas.addEventListener('wheel', (e) => { e.preventDefault(); zoomTo(view.dist * (e.deltaY > 0 ? 1.1 : 1 / 1.1)); }, { passive: false });
 
