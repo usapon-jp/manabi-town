@@ -70,7 +70,8 @@ const CSS = `
 .wuse button.hold { transform: scale(0.94); background: rgba(255, 226, 168, 0.36); border-color: #ffe2a8; box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.14), 0 0 14px rgba(255, 226, 168, 0.55); }
 .wuse svg { width: 30px; height: 30px; stroke-width: 1.8; filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.5)); }
 .wuse .tname { font-size: 11px; font-weight: 800; color: #fff; text-shadow: 0 1px 3px rgba(0, 0, 0, 0.7); pointer-events: none; }
-.wuse .wundo { position: absolute; right: 70px; top: 11px; width: 40px; height: 40px; }
+/* ひとつもどす: 下の操作ボタンの近くだと おしまちがえるので、上の「つくる」の下に */
+.wuse .wundo { position: fixed; right: calc(15px + env(safe-area-inset-right, 0px)); top: calc(env(safe-area-inset-top, 0px) + 132px); width: 44px; height: 44px; }
 .wuse .wundo[hidden] { display: none; }
 .wuse .wundo svg { width: 22px; height: 22px; }
 .wuse button.wup { position: absolute; top: -34px; left: 50%; transform: translateX(-50%); width: 48px; height: 32px; border-radius: 16px; background: none; border: 0; box-shadow: none; -webkit-backdrop-filter: none; backdrop-filter: none; color: #fff; opacity: 0.9; touch-action: manipulation; }
@@ -289,14 +290,7 @@ export function createEditor({ container, scene, cut, wind, pick, rotate, setWal
     try { goBtn.setPointerCapture(e.pointerId); } catch (_) { /* 古い端末 */ }
     walk.pts = null; walk.last = null; walk.kind = hand.id;
   }
-  // 上にスワイプすると、道具のえらびがひらく。ゆびをよこにすべらせて、はなした所の道具にきまる
-  // 道具から はなれた所（ボタンの上など）で はなすと、何も かえずに とじる（-1）
-  function selIndex(x, y) {
-    const opts = [...selEl.children];
-    let best = -1; let bd = 1e9;
-    opts.forEach((el, i) => { const r = el.getBoundingClientRect(); const d = Math.hypot(x - (r.left + r.width / 2), (y - (r.top + r.height / 2)) * 0.6); if (d < bd) { bd = d; best = i; } });
-    return bd <= 64 ? best : -1;
-  }
+  // 上に はじくと、道具の 一覧が ひらく（はなしても 出たまま。タップで えらぶ）
   function markSel(i) {
     [...selEl.children].forEach((el, k) => el.classList.toggle('on', k === i)); walk.selIdx = i;
     use.querySelector('.tname').textContent = i < 0 ? 'やめる' : TOOLS[i]?.label || '';
@@ -336,7 +330,7 @@ export function createEditor({ container, scene, cut, wind, pick, rotate, setWal
   goBtn.addEventListener('pointermove', (e) => {
     if (!walk.held || e.pointerId !== walk.id) return;
     if (!walk.sel && walk.startY - e.clientY > 38) openSel();
-    if (walk.sel) markSel(selIndex(e.clientX, e.clientY));
+    // ひらいたあとは、指を うごかしても まだ えらばない（はなしてから タップで えらぶ）
   });
   function walkEnd(e) {
     if (!walk.held || (e && e.pointerId !== walk.id)) return;
@@ -346,9 +340,13 @@ export function createEditor({ container, scene, cut, wind, pick, rotate, setWal
     hideGhost();
     goBtn.classList.remove('hold');
     if (walk.sel) {
-      walk.sel = false; selEl.hidden = true;
-      if (e && e.type === 'pointerup' && walk.selIdx >= 0 && TOOLS[walk.selIdx]) chooseTool(TOOLS[walk.selIdx].id);
-      else refreshHand();
+      // 指を はなしても 一覧は 出したまま。道具を タップで えらぶ／ほかの所を タップで とじる
+      walk.sel = false;
+      if (e && e.type === 'pointerup') {
+        st.selTap = true; selEl.classList.add('tap'); selEl.hidden = false;
+        refreshHand();
+        markSel(Math.max(0, TOOLS.findIndex((t) => t.id === hand.id)));
+      } else { selEl.hidden = true; refreshHand(); }
       walk.pts = null; walk.last = null;
       return;
     }
