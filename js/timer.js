@@ -2,6 +2,7 @@
 // - 種類（宿題・チャレンジ・自主学習・テスト勉強）と教科を選んで、集中（時間をきめる）か計るだけ
 // - 1分 = 1ポイント。集中を最後までやりきると +10
 // - 時計は「始めた時刻」から数えるので、画面を消しても正しく進む
+// - アプリが落ちても、開きなおすと つづきから（始めた時刻を べつの場所にも とっておく）
 // - 20分ごとに休けいの声かけ（時間は 20・40・60分）。1回は最大90分
 // - ひよこマーク: しつもん・れんしゅう もんだい・20分クイズチャレンジ（js/challenge.js）
 // - 記録はあとから種類・教科・時間を直せる（ポイントも合わせて直る）
@@ -18,12 +19,21 @@ export const KINDS = [
   { id: 'self', label: '自主学習', ic: 'book-open' },
   { id: 'testprep', label: 'テスト勉強', ic: 'target' },
 ];
+// おとなは 今ある しくみ（ルーティーン・TODO・資格）で わける
+export const ADULT_KINDS = [
+  { id: 'routine', label: 'ルーティーン', ic: 'repeat' },
+  { id: 'todo', label: 'TODO', ic: 'list-checks' },
+  { id: 'study', label: '資格・勉強', ic: 'book-open' },
+  { id: 'free', label: 'じゆう', ic: 'sparkles' },
+];
+const isAdultP = (p) => p?.grade === 'adult';
+const kindsFor = (p) => (isAdultP(p) ? ADULT_KINDS : KINDS);
 const PRESETS = [20, 40, 60];
 const MAX_MIN = 90;
 const BREAK_EVERY = 20;
 const BONUS = 10;
 
-const kindOf = (id) => KINDS.find((k) => k.id === id) || KINDS[2];
+const kindOf = (id) => KINDS.find((k) => k.id === id) || ADULT_KINDS.find((k) => k.id === id) || KINDS[2];
 const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
 const mmss = (sec) => `${String(Math.floor(sec / 60)).padStart(2, '0')}:${String(Math.floor(sec % 60)).padStart(2, '0')}`;
 
@@ -31,9 +41,43 @@ function prefs(p) {
   const names = subjectNames(p);
   if (!p.timerPrefs) p.timerPrefs = { kind: 'self', subject: names[0], mode: 'focus', minutes: 25, bgm: true };
   if (!names.includes(p.timerPrefs.subject)) p.timerPrefs.subject = names[0];
+  if (!kindsFor(p).some((k) => k.id === p.timerPrefs.kind)) p.timerPrefs.kind = isAdultP(p) ? 'free' : 'self';
   if (!PRESETS.includes(p.timerPrefs.minutes)) p.timerPrefs.minutes = PRESETS.reduce((a, b) => (Math.abs(b - p.timerPrefs.minutes) < Math.abs(a - p.timerPrefs.minutes) ? b : a));
   return p.timerPrefs;
 }
+
+// 動いているタイマーの写し（人ごと）。iPhone などで アプリが急に消えると、
+// さいごの保存が とぶことがあるので、小さく べつに とっておいて 何回も書く
+const RUN_KEY = 'manabi-timer-run';
+const RUN_MAX_MS = 12 * 3600 * 1000; // 12時間より前のものは もどさない
+function readRuns() { try { return JSON.parse(localStorage.getItem(RUN_KEY) || '{}') || {}; } catch (e) { return {}; } }
+function keepRun(p) {
+  try {
+    const runs = readRuns();
+    if (p.timer) runs[p.id] = p.timer; else delete runs[p.id];
+    if (Object.keys(runs).length) localStorage.setItem(RUN_KEY, JSON.stringify(runs)); else localStorage.removeItem(RUN_KEY);
+  } catch (e) { /* 書けないときは 本体の保存だけ */ }
+}
+// 開いたときに よぶ。本体から タイマーが消えていたら、写しから もどす（もう記録ずみなら もどさない）
+export function restoreTimers(profiles) {
+  const runs = readRuns();
+  let changed = false;
+  (profiles || []).forEach((p) => {
+    const t = runs[p.id];
+    if (p.timer) { if (!t || t.start !== p.timer.start) keepRun(p); return; }
+    if (!t || typeof t.start !== 'number') return;
+    const done = sessions(p).some((s) => s.start === t.start);
+    if (done || Date.now() - t.start > RUN_MAX_MS) { keepRun(p); return; }
+    p.timer = t;
+    changed = true;
+  });
+  if (changed) save();
+  return changed;
+}
+
+// 同期で そろったあとに よぶ。クラウドの中身が正しいので、写しも それに合わせる
+// （ほかの端末で「やめる」したタイマーを、あとで写しから もどさないように）
+export function matchRuns(profiles) { (profiles || []).forEach(keepRun); }
 
 export function sessions(p) { if (!p.sessions) p.sessions = []; return p.sessions; }
 export function minutesOn(p, iso) { return sessions(p).filter((s) => s.date === iso).reduce((n, s) => n + s.minutes, 0); }
@@ -63,7 +107,7 @@ export function renderTimerTab(panel, p, deps) {
 
     h('div', { class: 'card setup' },
       h('p', { class: 'label' }, 'なにをする？'),
-      h('div', { class: 'picks kinds' }, KINDS.map((k) => chip(pf.kind === k.id, [icon(k.ic), ` ${k.label}`], () => set('kind', k.id)))),
+      h('div', { class: 'picks kinds' }, kindsFor(p).map((k) => chip(pf.kind === k.id, [icon(k.ic), ` ${k.label}`], () => set('kind', k.id)))),
       h('div', { class: 'label-row' }, h('p', { class: 'label' }, p.grade === 'adult' ? 'ジャンル' : 'きょうか'), editSubjectsLink(p, rerender)),
       h('div', { class: 'picks subjects' }, subjectNames(p).map((s) => chip(pf.subject === s, s, () => set('subject', s), subjectColor(p, s)))),
       h('div', { class: 'seg' },
@@ -128,7 +172,7 @@ function recordRow(p, s, deps, rerender) {
 }
 
 function editRow(p, s, deps, rerender) {
-  const kind = h('select', {}, KINDS.map((k) => h('option', { value: k.id }, k.label)));
+  const kind = h('select', {}, [...kindsFor(p), ...(kindsFor(p).some((k) => k.id === s.kind) ? [] : [kindOf(s.kind)])].map((k) => h('option', { value: k.id }, k.label)));
   kind.value = s.kind;
   const subject = h('select', {}, [...new Set([...subjectNames(p), s.subject])].map((x) => h('option', { value: x }, x)));
   subject.value = s.subject;
@@ -216,22 +260,41 @@ async function openBgmPicker(onClose, live = false) {
 
 // ---- 計っているところ ----------------------------------------------------------
 
-// opts: { kind, subject, item, stepLabel } 「つぎはこれ」から始めるときに入る
+// やること名から 教科をあてる（「英単語」→英語 など）。わからなければ null
+const SUBJECT_HINTS = [['漢字', '国語'], ['音読', '国語'], ['作文', '国語'], ['単語', '英語'], ['英', '英語'], ['計算', '算数'], ['ドリル', '算数'], ['方程式', '数学'], ['図形', '算数']];
+export function guessSubject(p, text) {
+  const names = subjectNames(p);
+  const hit = names.find((n) => text.includes(n));
+  if (hit) return hit;
+  for (const [k, sub] of SUBJECT_HINTS) {
+    if (!text.includes(k)) continue;
+    const alt = names.find((n) => (sub === '算数' || sub === '数学' ? /算数|数学/.test(n) : n.includes(sub)));
+    if (alt) return alt;
+  }
+  return null;
+}
+
+// opts: { kind, subject, item, stepLabel, mineId, routineId } 「つぎはこれ」から始めるときに入る
+// 教科がわからない やること(TODO・ルーティーン)は、名前から教科をあてる
 export function startTimer(p, opts, deps) {
   const pf = prefs(p);
+  if (!opts.subject && opts.stepLabel) opts = { ...opts, subject: guessSubject(p, opts.stepLabel) };
   p.timer = {
     start: Date.now(), pausedTotal: 0, pausedAt: null,
-    kind: opts.kind || pf.kind, subject: opts.subject || pf.subject,
+    kind: (isAdultP(p) && (opts.routineId ? 'routine' : opts.mineId ? 'todo' : opts.item ? 'study' : null)) || opts.kind || pf.kind, subject: opts.subject || pf.subject,
     mode: pf.mode, planned: pf.mode === 'focus' ? pf.minutes : null,
-    itemId: opts.item?.id || null, stepLabel: opts.stepLabel || null, lastBreak: 0,
+    itemId: opts.item?.id || null, stepLabel: opts.stepLabel || null, mineId: opts.mineId || null, routineId: opts.routineId || null, lastBreak: 0,
   };
   save();
+  keepRun(p);
   if (pf.bgm) bgm.play().catch(() => {});
   openRunning(p, deps);
 }
 
 export function resumeIfRunning(p, deps) {
-  if (p?.timer) openRunning(p, deps);
+  if (!p) return;
+  restoreTimers([p]);
+  if (p.timer && !document.querySelector('.timer-run')) openRunning(p, deps);
 }
 
 const CHEERS = ['ピヨ先生も いっしょに がんばるよ', 'いいしゅうちゅう！', 'こつこつが いちばん つよい', 'あと少し、いいかんじ！', 'のみもの のんでもいいよ'];
@@ -283,21 +346,26 @@ function openRunning(p, deps) {
   });
   pauseBtn.addEventListener('click', () => {
     if (t.pausedAt) { t.pausedTotal += Date.now() - t.pausedAt; t.pausedAt = null; bgm.resume(); } else { t.pausedAt = Date.now(); bgm.pause(); }
-    save(); tick();
+    save(); keepRun(p); tick();
   });
   doneBtn.addEventListener('click', () => finish(false));
   let armed = false;
   const reset = layer.querySelector('.reset');
   reset.addEventListener('click', () => {
     if (!armed) { armed = true; reset.textContent = 'ほんとうに やめる？（もう1回おす）'; setTimeout(() => { armed = false; reset.textContent = 'やめる（記録しない）'; }, 3000); return; }
-    ended = true; stopAll(); p.timer = null; save(); deps.render();
+    ended = true; stopAll(); p.timer = null; save(); keepRun(p); deps.render();
   });
 
   let timerId = 0;
   let breakShown = false;
   let ended = false;
+  let keptAt = 0;
   function tick() {
     if (ended) return;
+    // ほかの端末で おわらせて そろったときは、こちらも とじる
+    if (!p.timer) { ended = true; stopAll(); keepRun(p); deps.render(); return; }
+    // 15秒ごとに 写しを書きなおす（急に消えても のこるように）
+    if (Date.now() - keptAt > 15000) { keptAt = Date.now(); keepRun(p); }
     const sec = elapsedSec();
     const min = Math.floor(sec / 60);
     const plannedSec = t.planned ? t.planned * 60 : 0;
@@ -326,13 +394,15 @@ function openRunning(p, deps) {
     const card = h('div', { class: 'sheet' }, h('div', { class: 'sheet-card' },
       h('p', { class: 'sheet-title' }, `${BREAK_EVERY}分 がんばったね！`),
       h('p', { class: 'sheet-sub' }, '5分 ひとやすみする？'),
-      h('button', { class: 'btn primary', onclick: () => { t.lastBreak = Math.floor(elapsedSec() / 60); t.pausedAt = Date.now(); bgm.pause(); save(); card.remove(); breakShown = false; tick(); } }, 'ひとやすみ'),
-      h('button', { class: 'btn', onclick: () => { t.lastBreak = Math.floor(elapsedSec() / 60); save(); card.remove(); breakShown = false; } }, 'まだやる'),
+      h('button', { class: 'btn primary', onclick: () => { t.lastBreak = Math.floor(elapsedSec() / 60); t.pausedAt = Date.now(); bgm.pause(); save(); keepRun(p); card.remove(); breakShown = false; tick(); } }, 'ひとやすみ'),
+      h('button', { class: 'btn', onclick: () => { t.lastBreak = Math.floor(elapsedSec() / 60); save(); keepRun(p); card.remove(); breakShown = false; } }, 'まだやる'),
       h('button', { class: 'link', onclick: () => { card.remove(); finish(false); } }, 'ここで おわる')));
     document.body.append(card);
   }
 
-  function stopAll() { clearInterval(timerId); document.removeEventListener('visibilitychange', tick); bgm.stop(); document.querySelectorAll('.bgm-live').forEach((el) => el.remove()); layer.remove(); }
+  // うらに回る・とじるときにも 写しを書く
+  const keepNow = () => { if (!ended) keepRun(p); };
+  function stopAll() { clearInterval(timerId); document.removeEventListener('visibilitychange', tick); window.removeEventListener('pagehide', keepNow); bgm.stop(); document.querySelectorAll('.bgm-live').forEach((el) => el.remove()); layer.remove(); }
 
   function finish(completed) {
     if (ended) return;
@@ -343,6 +413,7 @@ function openRunning(p, deps) {
     const minutes = Math.min(cap, Math.floor(sec / 60));
     stopAll();
     p.timer = null;
+    keepRun(p);
     if (minutes < 1) { save(); toast('1分より短いので 記録しなかったよ'); deps.render(); return; }
     const bonus = completed && t.mode === 'focus' ? BONUS : 0;
     const s = { id: uid(), date: toISO(new Date(t.start)), start: t.start, minutes, kind: t.kind, subject: t.subject, points: minutes + bonus };
@@ -355,18 +426,22 @@ function openRunning(p, deps) {
   timerId = setInterval(tick, 500);
   tick();
   document.addEventListener('visibilitychange', tick);
+  window.addEventListener('pagehide', keepNow);
 }
 
 function showDone(p, s, t, bonus, deps) {
   const item = t.itemId ? p.items.find((i) => i.id === t.itemId) : null;
   const close = () => { card.remove(); deps.render(); };
+  const own = !!(t.stepLabel && (t.mineId || t.routineId) && deps.completeOwn);
+  const ask = own || !!(item && t.stepLabel);
   const card = h('div', { class: 'sheet' }, h('div', { class: 'sheet-card done-card' },
     h('p', { class: 'big-num' }, `${s.minutes}`, h('small', {}, '分')),
     h('p', { class: 'sheet-title' }, bonus ? 'さいごまで やりきった！' : 'おつかれさま！'),
     h('p', { class: 'reward' }, icon('sprout'), ` +${s.points}${bonus ? `（やりきり +${bonus}）` : ''}`),
-    item && t.stepLabel ? h('p', { class: 'sheet-sub' }, `「${t.stepLabel}」は できた？`) : null,
+    ask ? h('p', { class: 'sheet-sub' }, `「${t.stepLabel}」は できた？`) : null,
     item && t.stepLabel ? h('button', { class: 'btn primary', onclick: () => { card.remove(); deps.completeStepFor(item, t.stepLabel); } }, 'できた！ ', icon('sprout'), '+10') : null,
-    h('button', { class: `btn ${item && t.stepLabel ? '' : 'primary'}`, onclick: close }, item && t.stepLabel ? 'まだ（つづきは あとで）' : 'もどる')));
+    own ? h('button', { class: 'btn primary', onclick: () => { card.remove(); deps.completeOwn(t); } }, 'できた！ ', icon('sprout')) : null,
+    h('button', { class: `btn ${ask ? '' : 'primary'}`, onclick: close }, ask ? 'まだ（つづきは あとで）' : 'もどる')));
   document.body.append(card);
 }
 

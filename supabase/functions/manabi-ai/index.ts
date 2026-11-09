@@ -53,7 +53,10 @@ export function readChatJson(text: string): Record<string, unknown> {
   if (m) {
     try {
       const o = JSON.parse(m[0]);
-      if (o && typeof o === 'object') return { ...o, say: typeof o.say === 'string' ? o.say.trim() : '' };
+      if (o && typeof o === 'object') {
+        const s = [o.say, o.message, o.text, o.reply].find((v) => typeof v === 'string' && v.trim());
+        return { ...o, say: s ? s.trim() : '' };
+      }
     } catch { /* 下で ひろう */ }
   }
   const sayM = t.match(/"say"\s*:\s*"((?:[^"\\]|\\.)*)"/);
@@ -139,6 +142,10 @@ Deno.serve(async (req) => {
         .map((data: string) => ({ type: 'image', source: { type: 'base64', media_type: 'image/jpeg', data } }));
       let sys2 = pics.length ? system + '\n写真に教科書やプリントが写っている。その内容にそった問題だけを作る。読めない所は問題にしない。' +
         (body.pool ? 'ほかの教科の写真が まざっていたら、この教科・範囲に関係する写真だけを使う。' : '') : system;
+      // 漢字の範囲（kanji=true）: 同じ読みの漢字と まちがえないよう、例文を s につける（アプリで 書きとりに使う）
+      if (body.pool && body.kanji) sys2 += '\nこれは漢字の問題。1もんに 1つの ことば。問題文は「〇〇（例文）」の「よみ」を漢字で書くと？ のように 例文の中で聞く。' +
+        '各問題に "s": その ことばを ＿ にした 短い例文（20文字くらい、ことばは ＿ 1つだけ）、"r": ことばの よみ（ひらがな）、"w": 正しい漢字 を つける。' +
+        '同じ読みの ほかの漢字（例: 錆と寂）と 区別できる 例文にする。例: {"q":"「鉄がさびる」の「さび」を漢字で書くと？","options":["錆","寂","鯖"],"answer":0,"s":"鉄が＿る","r":"さび","w":"錆"}';
       // 2回目からは 前に作った問題と かぶらないように（同じ範囲の ちがう所を 聞く）
       if (body.avoid) sys2 += `\nもう作ってある問題（これと同じことは 聞かない。範囲の ほかの所から 作る）:\n${clip(body.avoid, 2500)}`;
       const text = await claude(key, [...pics, { type: 'text', text:
@@ -158,18 +165,25 @@ Deno.serve(async (req) => {
         '8〜12往復くらいで終える。子どもが「おわり」と言ったら すぐまとめる。',
         '「理解度チェック」「判定テスト」を すぐやりたいと言われたら、単元を決めて すぐまとめる（チェックは まとめのあとに アプリが出す）。',
         'デイリー（毎日のクエスト）の中身も 子どもと決められる。ふだんは 漢字・英単語・算数(数学)が 3もんずつ。',
-        '入れる/はずすを えらべる（base）。さらに テスト範囲などの 一問一答を 4つまで 足せる（extra: 教科と範囲。例 理科「化学変化と原子・分子」、社会「地理 世界の諸地域」、漢字「教科書p.156〜219の新出漢字」）。',
+        '入れる/はずすを えらべる（base）。さらに テスト範囲などの 一問一答を 6つまで 足せる（extra: 教科と範囲。例 理科「化学変化と原子・分子」、社会「地理 世界の諸地域」、漢字「教科書p.156〜219の新出漢字」）。',
         '範囲（単元名・ページ・内容）が わからないときは、かってに決めずに「範囲を教えて」と はっきり聞く（プリントやワークの目次を見て、単元名やページを書いてね、など）。わかるまで extra を決めない。',
         'extra の量は「テストに間に合う量」を ピヨ先生が提案する。size=範囲をカバーする問題数（10〜60。広い範囲ほど多く）、perDay=1日の問題数（1〜30）。',
         'テストの日までの日数で、テストまでに 少なくとも3周できるように perDay を計算する（perDay ≒ size×3 ÷ 日数、切り上げ）。多くなってもいい。3もんに しばらない。',
         '「1日○もん、テストまでに○周できるよ」と伝えて、それで いいか 聞く。きびしければ 子どもと 量を相談して決める。',
         'まちがえた問題は つぎの日の デイリーに もういちど出て、テスト前に「見直しワーク」にまとまる（アプリが やる）。このことも 1回つたえる。',
         'extra は テストの日がわかれば until にその日を入れる（すぎたら 自動で はずれる）。テストの日も わからなければ 聞く。',
+        '「3日前から」「来週から」など 始める日を言われたら from に その日（YYYY-MM-DD。今日とテストの日から計算）を入れる。その日から デイリーに出る。perDay は from から until までの日数で 3周できる量にする。言われなければ from は空（今日から）。',
+        'テスト前の 国語・英語・数学は、作戦会議で決めなくても テスト予定の範囲から アプリが自動で デイリーに入れる（2週間前から）。ほかの教科（理科・社会・美術・音楽・保体・技家 など）を やりたいと言われたら extra に足す。',
         'デイリーを かえたいと言われたら、やさしく内容を たしかめて、ほかに決めることが なければ すぐまとめる。前の作戦会議のメモがあれば、決まっていたことは まとめに そのまま入れる。',
         'できないことを たのまれたら、できることを 1つ提案する。だまらない。',
         '子どもが 写真（テスト範囲のプリント・ワークや教科書の目次 など）を見せたら、読みとって 教科・範囲・テストの日に使う。読めない所は 読めないと言って 聞く。範囲を聞くときは「写真でもいいよ」と そえる。',
+        '写真は ちゃんと見えている。「見えない」とは言わない。写真を見たら、写っている単元名・ページ・内容（漢字の問題なら どんな漢字か 2〜3こ）を 1文で言って たしかめる。',
+        '「（前に見せた写真）」は 前に見せてもらった写真（もう画像は ない）。前の会話の内容から わかることを使う。',
+        '写真の範囲を extra に入れるときは その extra に "photo":true をつける（アプリが 写真を しりょうに入れて、その写真から 問題を作る）。topic は 写真から読んだ単元名やページで 具体的に（例「漢字ワーク p.106 新出漢字」）。',
+        '範囲（写真か ことば）がわかっていて「問題だして」「デイリーに入れて」「ファイルにしまって」などと言われたら、ほかの質問は あとまわしにして すぐ まとめ（done）にする。テストの日や量が わからなければ until は空、perDay・size は ピヨ先生が きめてよい。',
+        '前の作戦会議の メモに デイリーの範囲が あれば、はずすと言われないかぎり daily.extra に そのまま入れる（daily を書くときは 前の base と extra も わすれずに）。',
         '返事は JSON だけ。会話中: {"say":"…","choices":["…"],"done":false}',
-        'まとめ: {"say":"まとめのひとこと","done":true,"profile":{"style":"進め方を1文","when":"やる時間","focusMin":集中できる分(数),"strong":["教科"],"weak":["教科"],"plans":[{"subject":"教科","how":"進め方を1文"}],"check":[{"subject":"教科","topic":"単元"}],"daily":{"base":["kanji","english","math"],"extra":[{"subject":"教科","topic":"範囲","until":"YYYY-MM-DD か空","perDay":1日の数,"size":全部の数}]},"memo":"先生が覚えておくこと1〜2文"}}',
+        'まとめ: {"say":"まとめのひとこと","done":true,"profile":{"style":"進め方を1文","when":"やる時間","focusMin":集中できる分(数),"strong":["教科"],"weak":["教科"],"plans":[{"subject":"教科","how":"進め方を1文"}],"check":[{"subject":"教科","topic":"単元"}],"daily":{"base":["kanji","english","math"],"extra":[{"subject":"教科","topic":"範囲","until":"YYYY-MM-DD か空","perDay":1日の数,"size":全部の数,"from":"始める日 YYYY-MM-DD か空","photo":写真の範囲なら true}]},"memo":"先生が覚えておくこと1〜2文"}}',
         'daily は デイリーの話をしたときだけ入れる（話していなければ daily は書かない）。check は 0〜3こ。',
       ].join('\n');
       const ctx = `今日: ${clip(body.today, 10)}\n名前: ${clip(body.name, 20)}\n学年: ${clip(body.grade, 20)}\nいまの予定:\n${clip(body.items, 1500) || '（まだない）'}\n` +
@@ -197,8 +211,15 @@ Deno.serve(async (req) => {
       }
       if (history[history.length - 1].role !== 'user') history.push({ role: 'user', content: '（つづけて）' });
       // 考える量は low。まとめの JSON は長いので max_tokens に よゆうを もたせる
-      const text = await claude(key, [], system, 4000, MODEL_SMART, history, false, 'low');
-      const r = readChatJson(text);
+      let text = await claude(key, [], system, 4000, MODEL_SMART, history, false, 'low');
+      let r = readChatJson(text);
+      // 返事が 読めなかったら（JSON の形が ちがう など）1回だけ やりなおす。何が来たかは ログに のこす
+      if (!r.say && !(r.done && r.profile)) {
+        console.log('plan: unreadable reply', clip(text, 600));
+        text = await claude(key, [], system + '\nかならず {"say":"…","choices":[…],"done":false} の形の JSON だけで 返事する。', 4000, MODEL_SMART, history, false, 'low');
+        r = readChatJson(text);
+        if (!r.say && !(r.done && r.profile)) console.log('plan: unreadable reply (retry)', clip(text, 600));
+      }
       return ok({
         say: clip(r.say, 300) || 'ごめんね、うまく まとまらなかった。もういちど 送ってみてね',
         choices: Array.isArray(r.choices) ? r.choices.slice(0, 4).map((c) => clip(c, 40)) : [],
