@@ -7,7 +7,7 @@ import { runQuestions } from './runner.js';
 import { parseImport } from './importer.js';
 import { h, toast, daysLabel } from './ui.js';
 import { todayTasks, completeStep, undoStep, buildSteps, migrateHomework, urgentHomework } from './planner.js';
-import { homeRangeBar, itemRangeBar, openRangeSheet, rangePanel, nextTestGroup } from './rangebar.js';
+import { homeRangeBar, itemRangeBar, openRangeSheet, rangePanel, nextTestGroup, rangeNeedsRow } from './rangebar.js';
 import { startTutorial } from './tutorial.js';
 import { openRescue } from './rescue.js';
 import { scanButton } from './scan.js';
@@ -449,6 +449,7 @@ function renderHome(p) {
       bar,
       dueCard(p, urgent),
       homeRangeBar(p, rangeDeps(p)),   // テスト範囲の すすみバー（タップで 教科ごと）
+      rangeNeedsRow(p, rangeDeps(p)),  // 範囲が まだの 教科は「テスト範囲を 入れてね」
       h('details', { class: 'all-tasks', open: listOpen || null, ontoggle: (e) => { listOpen = e.target.open; } },
         h('summary', {}, 'きょうのリスト'),
         list,
@@ -542,7 +543,7 @@ function dueCard(p, list) {
 }
 
 // テスト範囲バーの「つぎを タイマーで はじめる」
-const rangeDeps = (p) => ({ startStep: (item, label) => startTimer(p, { kind: kindForItem(item), subject: item.subject, item, stepLabel: label }, timerDeps) });
+const rangeDeps = (p) => ({ openPlan: (ask) => { document.querySelectorAll('.sheet').forEach((s) => s.remove()); openPlanChat(p, { ...bonusDeps, ask }); }, startStep: (item, label) => startTimer(p, { kind: kindForItem(item), subject: item.subject, item, stepLabel: label }, timerDeps) });
 
 // 1つのステップに集中する小さな画面（やったら「できた！」）
 function openStep(p, t, toggle) {

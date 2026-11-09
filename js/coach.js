@@ -516,12 +516,21 @@ export function openPlanChat(p, deps) {
     const prevExtra = p.coach?.daily?.extra || [];
     const pools = { ...(p.coach?.pools || {}) };
     const ids = chatPhotoIds();
-    const daily = profile.daily || p.coach?.daily || null;
-    // 範囲（extra）に 写真を ひもづける。ピヨ先生が「この写真の範囲」と言った範囲には この会議の写真、ほかは 前の写真を そのまま
-    if (profile.daily) {
+    const daily = profile.daily ? profile.daily : (p.coach?.daily ? { ...p.coach.daily, extra: (p.coach.daily.extra || []).map((x) => ({ ...x })) } : null);
+    // 写真を おくったときの ことば（と その前の ことば）に 出てくる 教科 → その教科の 範囲・テストに ひもづける
+    // （ピヨ先生が まとめで photo を つけわすれても、「国語の 漢字の ページ」と 言って 見せた写真は のこる）
+    const said = messages.flatMap((m, k) => (m.photoId && !m.photoId.startsWith('tmp-')
+      ? [{ id: m.photoId, text: `${messages[k - 1]?.role === 'user' ? messages[k - 1].text : ''} ${m.text}` }] : []));
+    const talksAbout = (text, subject, topic = '') => !!subject && (text.includes(subject)
+      || (/国語|漢字/.test(`${subject}${topic}`) && /漢字|国語/.test(text)));
+    const mentioned = (x) => said.filter((s) => talksAbout(s.text, x.subject, x.topic)).map((s) => s.id);
+    // 範囲（extra）に 写真を ひもづける。ピヨ先生が「この写真の範囲」と言った範囲・写真と いっしょに 教科を 言った範囲には この会議の写真、ほかは 前の写真を そのまま
+    if (daily) {
       daily.extra = daily.extra.map((x) => {
         const old = prevExtra.find((o) => poolKey(o) === poolKey(x));
-        const photos = x.photo && ids.length ? ids : (old?.photos || []);
+        const named = mentioned(x);
+        const photos = x.photo && ids.length ? ids
+          : named.length ? [...new Set([...(old?.photos || x.photos || []), ...named])].slice(-SEND_PHOTOS) : (old?.photos || x.photos || []);
         delete x.photo;
         // 写真が かわった範囲は、前に作った問題を すてて 写真から 作りなおす
         if (photos.join() !== (old?.photos || []).join()) delete pools[poolKey(x)];
@@ -530,9 +539,19 @@ export function openPlanChat(p, deps) {
       // 写真は テストの フォルダへ（テストの日が 同じ 予定が あれば）
       daily.extra.forEach((x) => {
         const test = x.until && p.items.find((i) => i.type === 'test' && !i.done && i.date === x.until);
+        // 範囲が 空の テストには 作戦会議で 決めた 範囲を 書いておく（ホームの「テスト範囲を 入れてね」が きえる）
+        if (test && !String(test.range || '').trim() && (!test.subject || test.subject === x.subject || test.subject === 'その他')) test.range = x.topic;
         if (test) x.photos.forEach((id) => { const meta = (p.photos || []).find((m) => m.id === id); if (meta && meta.folder === 'other') movePhoto(p, id, test.id); });
       });
     }
+    // 教科を 言って 見せた写真は、その教科の テストの しりょうへ（テスト予定から 自動で 作る 範囲も 写真から 作れるように）
+    said.forEach((s) => {
+      const meta = (p.photos || []).find((m) => m.id === s.id);
+      if (!meta || meta.folder !== 'other') return;
+      const test = p.items.filter((i) => i.type === 'test' && !i.done && daysUntil(i.date) >= 0 && talksAbout(s.text, i.subject && i.subject !== 'その他' ? i.subject : i.title))
+        .sort((x, y) => x.date.localeCompare(y.date))[0];
+      if (test) movePhoto(p, s.id, test.id);
+    });
     // 漢字の 出し方を 話したときだけ かえる（話さなければ 前のまま）
     if (profile.kanji) p.kanjiStyle = profile.kanji;
     // デイリーの話をしなかったときは 前の きまりを そのまま。作った一問一答も のこす
@@ -557,6 +576,8 @@ export function openPlanChat(p, deps) {
     busy = false;
   }
 
+  // 「範囲を 入れてね」から ひらいたときは、言うことを 入れておく（写真を そえて おくるだけ）
+  if (deps.ask) input.value = deps.ask;
   // 前の とちゅうの会話が あれば、つづきから
   const prev = savedChat(p);
   if (!prev) { turn(); return; }

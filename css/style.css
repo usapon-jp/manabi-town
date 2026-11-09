@@ -1842,3 +1842,8 @@ input.pin { font-size: 26px; letter-spacing: 0.5em; text-align: center; }
 .tab-badge.inline { position: static; display: inline-block; margin-left: 8px; vertical-align: 1px; }
 .bz-3d{padding:8px 12px}
 .bz-cutbtn{all:unset;box-sizing:border-box;cursor:pointer;padding:8px 20px;border-radius:20px;background:#fff;border:1.5px solid var(--line);box-shadow:var(--soft);font-weight:700;font-size:15px;color:var(--navy)}
+/* 範囲が まだの 教科「テスト範囲を 入れてね」 */
+.range-needs { display: grid; gap: 6px; }
+.range-need { display: flex; align-items: center; gap: 8px; width: 100%; text-align: left; font: inherit; font-size: 14px; color: var(--navy); background: #fff7e0; border: 2px dashed #e0b44c; border-radius: 14px; padding: 7px 12px; cursor: pointer; }
+.range-need .ic { flex-shrink: 0; color: #c98a1a; }
+.range-need:active { transform: scale(0.98); }

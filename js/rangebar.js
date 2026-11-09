@@ -99,7 +99,35 @@ export function rangePanel(p, deps = {}) {
       h('b', {}, `${pct(g.done, g.total)}%`),
       h('small', {}, `${daysLabel(g.days)}・${g.done} / ${g.total} できた`)),
     rangeBar(g.done, g.total),
+    rangeNeedsRow(p, deps),
     h('ul', { class: 'prog-items' }, rows));
+}
+
+// 範囲が まだ とどいていない テスト（2週間いない）。「テスト範囲を 入れてね」と 教える
+// - 範囲が 空 → 範囲を 入れてね
+// - 漢字の範囲が ページ番号だけで 写真が ない → 漢字の ページを 見せてね（中身が わからないと 範囲外の 漢字が 出る）
+const NEED_DAYS = 14;
+const hasPhotos = (p, i) => (p.photos || []).some((m) => m.folder === i.id)
+  || (p.coach?.daily?.extra || []).some((x) => (x.photos || []).length && (x.until === i.date || x.subject === i.subject) && /漢字|国語/.test(`${x.subject}${x.topic}`));
+export function rangeNeeds(p) {
+  if (isAdult(p)) return [];
+  return (p.items || []).filter((i) => i.type === 'test' && !i.done && daysUntil(i.date) >= 0 && daysUntil(i.date) <= NEED_DAYS)
+    .sort((a, b) => a.date.localeCompare(b.date))
+    .flatMap((i) => {
+      const name = i.subject && i.subject !== 'その他' ? i.subject : i.title;
+      if (!String(i.range || '').trim()) return [{ item: i, kind: 'range', text: `${name}の テスト範囲を 入れてね`, ask: `${name}の テスト範囲を 入れたい` }];
+      if (/国語|漢字/.test(`${i.subject}${i.title}`) && /漢字/.test(i.range) && /[PpＰｐ]\s*\d|ページ/.test(i.range) && !hasPhotos(p, i)) {
+        return [{ item: i, kind: 'photo', text: `${name}の 漢字の ページを 写真で 見せてね`, ask: `${name}の 漢字の範囲の ページの 写真を 見せるね` }];
+      }
+      return [];
+    });
+}
+// deps.openPlan(ask) で 作戦会議を ひらく
+export function rangeNeedsRow(p, deps = {}) {
+  const needs = rangeNeeds(p);
+  if (!needs.length || !deps.openPlan) return null;
+  return h('div', { class: 'range-needs' }, needs.slice(0, 4).map((n) => h('button', { type: 'button', class: `range-need ${n.kind}`, onclick: () => deps.openPlan(n.ask) },
+    icon(n.kind === 'photo' ? 'camera' : 'pencil'), h('span', {}, n.text))));
 }
 
 export function openRangeSheet(p, deps = {}) {
