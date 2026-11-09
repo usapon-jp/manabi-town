@@ -28,7 +28,7 @@ export function openStory(story, { onDone } = {}) {
     h('p', {}, 'これで ながれは おしまい！'),
     h('button', { type: 'button', class: 'btn primary', onclick: (e) => { e.stopPropagation(); close(); onDone?.(); } }, 'とじて 問題に すすむ'),
     h('button', { type: 'button', class: 'link', onclick: (e) => { e.stopPropagation(); go(0); } }, 'もう一度 見る'));
-  const el = h('div', { class: 'story', onclick: () => { if (!ended) togglePause(); } }, top, stage, endBox, dots, piyo, bar);
+  const el = h('div', { class: 'story', lang: 'ja', onclick: () => { if (!ended) togglePause(); } }, top, stage, endBox, dots, piyo, bar);
   document.body.append(el);
 
   function close() { clearTimeout(timer); voice.stopSpeak(); el.remove(); }

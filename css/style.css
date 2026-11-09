@@ -29,7 +29,7 @@ html, body {
   height: 100%;
   background: var(--bg);
   color: var(--ink);
-  font-family: "Hiragino Maru Gothic ProN", "Hiragino Sans", "M PLUS Rounded 1c", "Noto Sans JP", system-ui, sans-serif;
+  font-family: "Hiragino Maru Gothic ProN", "Hiragino Sans", "M PLUS Rounded 1c", "Noto Sans JP", "Noto Sans CJK JP", "Yu Gothic", Meiryo, system-ui, sans-serif;
   -webkit-tap-highlight-color: transparent;
   overflow: hidden;
 }
@@ -246,7 +246,7 @@ textarea { resize: vertical; }
     linear-gradient(90deg, var(--grid) 1px, transparent 1px);
   background-size: 22px 22px;
   padding: calc(env(safe-area-inset-top) + 12px) max(16px, env(safe-area-inset-right)) calc(env(safe-area-inset-bottom) + 16px) max(16px, env(safe-area-inset-left));
-  font-family: "M PLUS Rounded 1c", "Hiragino Maru Gothic ProN", "Hiragino Sans", "Noto Sans JP", system-ui, sans-serif;
+  font-family: "M PLUS Rounded 1c", "Hiragino Maru Gothic ProN", "Hiragino Sans", "Noto Sans JP", "Noto Sans CJK JP", "Yu Gothic", Meiryo, system-ui, sans-serif;
 }
 .runner-card {
   width: 100%;
