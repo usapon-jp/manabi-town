@@ -11,6 +11,7 @@ import { isAdult } from './adult.js';
 // おとなには 子ども用のドリルを出さない
 const drillsFor = (p) => (isAdult(p) ? [] : ALL_DRILLS);
 import { runQuestions } from './runner.js';
+import { rangeFor, rangeDrill } from './coach.js';
 import { buildSteps } from './planner.js';
 import { levelOf, streak, week } from './progress.js';
 import { minutesOn, sessions } from './timer.js';
@@ -52,14 +53,14 @@ function goals(p) {
   const routineDays = dates.filter((d) => Object.keys(p.routineLog?.[d] || {}).length).length;
   return {
     daily: [
-      { id: 'min30', ic: 'clock-3', label: 'タイマーで 30分 勉強', now: minutesOn(p, today()), goal: 30, reward: 15 },
+      { id: 'min30', ic: 'clock-3', label: 'タイマーで 30分 勉強', tab: 'timer', now: minutesOn(p, today()), goal: 30, reward: 15 },
     ],
     weekly: [
-      { id: 'stamp5', ic: 'calendar-check', label: 'スタンプを 5日 あつめる', now: stamps, goal: 5, reward: 50 },
-      { id: 'min120', ic: 'timer', label: '今週 120分 勉強', now: weekMin, goal: 120, reward: 50 },
+      { id: 'stamp5', ic: 'calendar-check', label: 'スタンプを 5日 あつめる', tab: 'home', now: stamps, goal: 5, reward: 50 },
+      { id: 'min120', ic: 'timer', label: '今週 120分 勉強', tab: 'timer', now: weekMin, goal: 120, reward: 50 },
       adult
-        ? { id: 'routine5', ic: 'trophy', label: 'ルーティーンを 5日 やる', now: routineDays, goal: 5, reward: 30 }
-        : { id: 'quest5', ic: 'trophy', label: 'まいにちクエストを 5回', now: quests, goal: 5, reward: 30 },
+        ? { id: 'routine5', ic: 'trophy', label: 'ルーティーンを 5日 やる', tab: 'quest', now: routineDays, goal: 5, reward: 30 }
+        : { id: 'quest5', ic: 'trophy', label: 'まいにちクエストを 5回', tab: 'quest', now: quests, goal: 5, reward: 30 },
     ],
   };
 }
@@ -83,7 +84,7 @@ function lookReward(p, key, deps) {
   const { day } = state(p);
   if (day[key]) return;
   day[key] = true;
-  deps.gain(p, LOOK_POINTS, key === 'lookRec' ? 'きょうのおすすめを見た' : 'すすみ表を見た', { study: false });
+  deps.gain(p, LOOK_POINTS, key === 'lookRec' ? 'きょうのおすすめを見た' : '進み具合を見た', { study: false });
 }
 
 function sheet(cls, ...kids) {
@@ -103,19 +104,19 @@ export function openBonus(p, deps) {
   const { day, wk } = state(p);
   const g = goals(p);
 
-  const row = ({ ic, label, sub, reward, done, ready, onTap, progress }) => h('li', { class: `quest-row ${done ? 'done' : ''} ${ready ? 'ready' : ''}` },
+  const row = ({ ic, label, sub, reward, done, ready, onTap, progress }) => h('li', { class: `quest-row ${done ? 'done' : ''} ${ready ? 'ready' : ''}`, ...(done ? {} : { onclick: onTap, style: 'cursor:pointer' }) },
     h('span', { class: 'q-ic' }, icon(ic)),
     h('span', { class: 'q-main' }, h('b', {}, label), progress || (sub ? h('small', {}, sub) : null)),
     done
       ? h('span', { class: 'q-done' }, icon('check'))
-      : h('button', { class: `q-go ${ready ? 'claim' : ''}`, onclick: onTap }, ready ? 'うけとる' : [icon('sprout'), `${reward}`]));
+      : h('button', { class: `q-go ${ready ? 'claim' : ''}`, 'aria-label': label }, ready ? 'うけとる' : [icon('sprout'), `${reward}`]));
 
   const reopen = () => { s.close(); deps.render(); openBonus(p, deps); };
 
   const look = [
     row({ ic: 'eye', label: 'きょうのおすすめを 見る', reward: LOOK_POINTS, done: day.lookRec,
       onTap: () => { s.close(); deps.openRecommend(); } }),
-    row({ ic: 'chart-column', label: 'すすみ表を 見る', reward: LOOK_POINTS, done: day.lookProg,
+    row({ ic: 'chart-column', label: '進み具合を 見る', reward: LOOK_POINTS, done: day.lookProg,
       onTap: () => { s.close(); openProgress(p, deps); } }),
   ];
 
@@ -144,7 +145,12 @@ export function openBonus(p, deps) {
     return row({ ic: x.ic, label: x.label, reward: x.reward, done, ready,
       progress: h('span', { class: 'q-prog' }, bar(x.now, x.goal), h('small', {}, `${Math.min(x.now, x.goal)} / ${x.goal}`)),
       onTap: () => {
-        if (!ready) { toast(`あと ${x.goal - x.now}${x.id.startsWith('min') ? '分' : ''}！`); return; }
+        if (!ready) {   // まだなら、そのページへ とぶ
+          s.close();
+          deps.goTab?.(x.tab);
+          toast(`あと ${x.goal - x.now}${x.id.startsWith('min') ? '分' : ''}！`);
+          return;
+        }
         store[x.id] = true;
         deps.gain(p, x.reward, `ボーナス: ${x.label}`, { study: false });
         reopen();
@@ -164,9 +170,13 @@ export function openBonus(p, deps) {
   s.el.classList.add('bonus-sheet');
 }
 
-export function startDrill(p, d, deps) {
+export async function startDrill(p, d, deps) {
   const key = `drill:${d.id}`;
-  runQuestions(d.label, buildDrill(d.id, gradeBucket(p), `${p.id}:${today()}`), (score, total, results) => {
+  // テスト前は テスト範囲から（範囲の問題が 作れなかったときも 学年の問題には しない）
+  const range = rangeFor(p, d.id);
+  const qs = range ? await rangeDrill(p, range, 5, `${p.id}:${today()}:drill`) : buildDrill(d.id, gradeBucket(p), `${p.id}:${today()}`);
+  if (!qs.length) { toast('テスト範囲の 問題が まだ 作れなかった…インターネットを たしかめて もういちど おしてね', 5000); return; }
+  runQuestions(range ? `${d.label}（テスト範囲）` : d.label, qs, (score, total, results) => {
     recordResults(p, results, d.label);
     const { day } = state(p);
     if (day[key]) { save(); return 'れんしゅうなので ポイントはないよ'; }
@@ -196,8 +206,8 @@ export function openRecommend(p, recs, deps) {
 
 // ---- すすみ表 ------------------------------------------------------------------------
 
-// すすみ表の中身（勉強タブの「進み具合」でも そのまま使う）
-export function progressParts(p) {
+// 進み具合の中身（進み具合タブ）。items: false で テスト・宿題・目標の一覧を はぶく（タブでは べつに出す）
+export function progressParts(p, { items: withItems = true } = {}) {
   const lv = levelOf(p);
   const st = streak(p);
   const weekMin = weekDates().reduce((n, d) => n + minutesOn(p, d), 0);
@@ -221,7 +231,7 @@ export function progressParts(p) {
       h('div', {}, h('b', {}, icon('sprout'), `${p.points}`), h('small', {}, 'ポイント'))),
     h('div', { class: 'week' }, week(p).map((d) => h('div', { class: `day ${d.done ? 'done' : ''} ${d.today ? 'today' : ''} ${d.future ? 'future' : ''}` },
       h('span', { class: 'stamp' }, d.done ? icon('check') : ''), h('small', {}, d.label)))),
-    h('div', { class: 'q-group' }, h('h4', {}, 'テスト・宿題・目標'),
+    withItems ? h('div', { class: 'q-group' }, h('h4', {}, 'テスト・宿題・目標'),
       items.length
         ? h('ul', { class: 'prog-items' }, items.map((i) => {
           const total = buildSteps(i).length;
@@ -232,7 +242,7 @@ export function progressParts(p) {
               h('b', {}, i.title), h('small', {}, daysLabel(daysUntil(i.date)))),
             h('span', { class: 'q-prog' }, bar(done, total), h('small', {}, `${done} / ${total}`)));
         }))
-        : h('p', { class: 'empty' }, 'まだ ないよ')),
+        : h('p', { class: 'empty' }, 'まだ ないよ')) : null,
     subjects.length ? h('div', { class: 'q-group' }, h('h4', {}, '今週の教科'),
       h('ul', { class: 'prog-items' }, subjects.map(([sub, m]) => h('li', { class: 'sub-row' },
         h('span', { class: 'sub-name' }, sub),
@@ -241,7 +251,9 @@ export function progressParts(p) {
   ].filter(Boolean);
 }
 
+// 「進み具合を 見る」: 進み具合タブへ（タブへ とべないときだけ シートで）
 export function openProgress(p, deps) {
+  if (deps.goTab) { deps.goTab('todo'); return; }
   sheet('prog-card', h('p', { class: 'sheet-title' }, icon('chart-column'), ' すすみ表'), ...progressParts(p));
   lookReward(p, 'lookProg', deps);
 }
