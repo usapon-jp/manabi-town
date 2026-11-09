@@ -736,9 +736,11 @@ async function partQuestions(p, part) {
   if (!hasPool(p, part.x)) {
     toast(`${part.label}の 問題を 作り中…`, 8000);
     await ensurePool(p, part.x);
-  }
-  const again = dueForTopics(p, [part.x.topic]);
-  const fresh = extraQuestions(p, key).filter((q) => q.topic === part.x.topic && !again.some((a) => a.prompt === q.prompt && a.big === q.big));
+  } else ensurePool(p, part.x);   // とちゅうまでしか 作れていない 範囲は、うしろで つづきを 作る（いまある 問題で すぐ はじめる）
+  // 同じ topic の 範囲が ほかの教科にも あるときに まざらないよう、教科も くらべる
+  const mine = (q) => q.topic === part.x.topic && (!q.subject || q.subject === part.x.subject);
+  const again = dueForTopics(p, [part.x.topic]).filter(mine);
+  const fresh = extraQuestions(p, key).filter((q) => mine(q) && !again.some((a) => a.prompt === q.prompt && a.big === q.big));
   if (!fresh.length && !again.length) {
     return null;   // 範囲の問題が 作れなかったときも 学年の問題には しない（テスト前に 範囲外が 出ないように）
   }
