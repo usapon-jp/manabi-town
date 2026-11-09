@@ -19,5 +19,5 @@ export function choiceMount(el, puzzle, done) {
     if (typeof o === 'string' && o.startsWith('<svg')) b.innerHTML = o; else b.textContent = o;
     return b;
   });
-  el.append(fig, h('div', { class: `options bz-opts cols-${puzzle.cols || (buttons.length === 4 ? 2 : buttons.length)}` }, buttons));
+  el.append(fig, ...(puzzle.tip ? [h('p', { class: 'bz-tip' }, puzzle.tip)] : []), h('div', { class: `options bz-opts cols-${puzzle.cols || (buttons.length === 4 ? 2 : buttons.length)}` }, buttons));
 }
