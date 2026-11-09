@@ -21,7 +21,7 @@
 .sb-stop.done{color:#fff;background:#829871;border-color:#edf1da}.sb-stop.done .ic{width:20px;height:20px}
 .sb-stop.current{background:#f9e19c;border:3px solid #fff8d9;outline:2px solid #b28d44;color:#735a29}
 .sb-stop:not(:disabled):hover{filter:brightness(1.07)}
-.sb-marker{position:absolute;pointer-events:none;width:62px;height:84px;transform:translate(-50%,calc(-100% - 12px));filter:drop-shadow(1px 4px 2px #4b53353b);z-index:4}
+.sb-marker{position:absolute;pointer-events:none;width:62px;height:84px;transform:translate(-50%,calc(-100% - 12px));filter:drop-shadow(1px 2px 1px #4b533549);z-index:4}
 .sb-marker img{width:100%;height:100%;object-fit:contain;animation:sb-breathe 3s ease-in-out infinite;transform-origin:bottom center}
 .sb-story{max-width:690px;margin:18px auto 16px;line-height:1.65;font-size:14px;color:#625741;line-break:strict;text-wrap:pretty}
 .sb-story p{margin:0}.sb-story p+p{margin-top:3px}
@@ -51,7 +51,7 @@
 .sb-reasoning{padding:18px;border:1px solid #e1d6bd;background:#f1eedf;display:flex;gap:8px;flex-wrap:wrap;border-radius:13px;font-size:13px}
 .sb-reasoning span{padding:5px 9px;background:#fffcf2;border-radius:7px}.sb-reasoning-missing,.sb-reasoning-truth,.sb-reasoning-condition{display:grid}
 .sb-small{font-size:12px;color:#9a8a70}.sb-feedback .sb-go{width:100%;margin-top:8px}
-.sb-welcome{text-align:center;padding-top:38px;max-width:610px}.sb-welcome-piyo{object-fit:contain;filter:drop-shadow(0 7px 5px #a9956c26)}
+.sb-welcome{text-align:center;padding-top:38px;max-width:610px}.sb-welcome-piyo{object-fit:contain;filter:drop-shadow(1px 3px 2px #a9956c3d)}
 .sb-instructions{text-align:left;font-size:14px;line-height:2.1;padding-left:23px;margin:25px 0}.sb-welcome>.sb-text-button{display:flex;margin:12px auto}
 .sb-journal-total{font-size:52px;line-height:1.4;color:#82976d;margin:12px 0}.sb-journal-total small{font-size:16px;color:#ad9f80}
 .sb-skill-list{display:grid;gap:8px;margin:25px 0}.sb-skill-list>span{display:flex;justify-content:space-between;border-bottom:1px solid #e7dfcd;padding:8px 0;font-size:13px}.sb-skill-list b{color:#83966c}

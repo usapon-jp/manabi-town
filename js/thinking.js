@@ -6,6 +6,8 @@ import { CHAPTERS, STAGES, makeQuestion } from './thinking-bank.js';
 import { readBook, nextStage, dayCount, recordAnswer } from './thinking-progress.js';
 import { sceneSvg, STOPS } from './thinking-art.js';
 
+const PAPER_PIYO = 'assets/brain/piyo-paper.svg';
+
 export function openThinkingClassroom(profile = currentProfile()) {
   if (!profile) { toast('先に使う人を選んでね'); return; }
   if (document.querySelector('.thinking-overlay')) return;
@@ -73,7 +75,7 @@ export function openThinkingClassroom(profile = currentProfile()) {
     });
     const at=Math.max(0,Math.min(11,next-start)),pos=STOPS[at];
     const marker=h('div',{class:'sb-marker',style:`left:${pos.x}%;top:${pos.y}%`,'aria-hidden':'true'},
-      h('img',{src:'assets/brain/piyo.webp',alt:'',width:62,height:84}));
+      h('img',{src:PAPER_PIYO,alt:'',width:62,height:84}));
     map.append(marker);illustration.append(map);
     const level=book.stamps.length||p.thinkingBook?book.level:/^(j[123]|adult)$/.test(p.grade)?2:1;
     const chooseLevel=h('select',{'aria-label':'問題のむずかしさ',onchange:e=>{
@@ -106,7 +108,7 @@ export function openThinkingClassroom(profile = currentProfile()) {
   function intro(level) {
     questionOpen=true;
     view.replaceChildren(h('section',{class:'sb-reading sb-welcome'},
-      h('img',{class:'sb-welcome-piyo',src:'assets/brain/piyo.webp',alt:'ピヨちゃん',width:82,height:112}),
+      h('img',{class:'sb-welcome-piyo',src:PAPER_PIYO,alt:'ピヨちゃん',width:82,height:112}),
       h('p',{class:'sb-eyebrow'},'ちいさな一歩が、絵本になる。'),heading('h2','考える道を、いっしょに。'),
       h('p',{},'1問考えて、答え合わせ。考え方がわかったら、ピヨちゃんが1マス進むよ。'),
       h('ol',{class:'sb-instructions'},h('li',{},'まずは自分で。困ったら2段階のヒント。'),h('li',{},'まちがえても大丈夫。解説を読んで進めるよ。'),h('li',{},'1日3問が目安。休んでも足あとは消えないよ。'),h('li',{},'通ったマスを押すと、考えた問題を読み返せるよ。')),

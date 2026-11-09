@@ -1,4 +1,4 @@
-// 紙を切って重ねた景色。ピヨちゃんの既存画像はそのまま使う。
+// 紙を切って重ねた景色。
 const tree=(x,y,s,c)=>`<g transform="translate(${x} ${y}) scale(${s})" filter="url(#paper-shadow)"><path d="M-7 0L-3-120H5L9 0Z" fill="#9d7654"/><path d="M0-208C-70-194-91-136-62-108C-108-50-42-15 0-38C52-10 105-65 65-110C92-151 56-203 0-208Z" fill="${c}"/><path d="M0-175V-42M0-103L-32-128M0-80L34-114" fill="none" stroke="#ffffff" stroke-opacity=".15" stroke-width="3"/></g>`;
 const flower=(x,y,c)=>`<g transform="translate(${x} ${y})"><path d="M0 0L2-20M0-6Q-13-15-13-5Q-7-3 0-6" stroke="#527e56" stroke-width="3" fill="#6c9862"/><path d="M2-21C-15-12-17-33-5-33C-10-49 11-49 11-35C28-36 24-17 13-19C16-7-1-8 2-21" fill="${c}"/><circle cx="5" cy="-28" r="4" fill="#e6b650"/></g>`;
 export const STOPS=Array.from({length:12},(_,i)=>({x:15+(Math.floor(i/4)%2?3-i%4:i%4)*23.3,y:34+Math.floor(i/4)*25}));
