@@ -113,6 +113,7 @@ function bookPool(b) {
   return bookCache.get(b.id);
 }
 const bookKey = (q) => `${q.w}|${q.s}`;
+const BOOK_MAX = 40;   // 1日に 出す ワークの ことばは 40もんまで（よく出る ページから 先に）
 // テストの前の日まで あと何日（きょうも 入れる）
 const bookDaysLeft = (p, b) => Math.max(1, Math.min(...bookTests(p, b).map((i) => daysUntil(i.date))));
 // きょう 出す ワークの ことば（まだ出していない ものから）。1周 おわったら perDay もんずつ 何周も
@@ -120,7 +121,7 @@ function bookToday(p, x, b, key = today()) {
   const pool = poolOf(p, x);
   const seen = new Set(p.coach?.bookSeen?.[b.id] || []);
   const left = pool.filter((q) => !seen.has(bookKey(q)));
-  if (left.length) return left.slice(0, Math.ceil(left.length / bookDaysLeft(p, b)));
+  if (left.length) return left.slice(0, Math.min(BOOK_MAX, Math.ceil(left.length / bookDaysLeft(p, b))));
   const day = Math.floor(Date.parse(`${key}T00:00:00Z`) / 86400000);
   const n = Math.min(perDayOf(x), pool.length);
   const start = (day * n) % pool.length;
