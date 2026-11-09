@@ -406,11 +406,16 @@ textarea { resize: vertical; }
 .coach p { flex: 1; margin: 0; font-weight: 800; font-size: 16px; line-height: 1.45; }
 .fold { border: 0; background: none; font: inherit; font-size: 14px; color: var(--navy); opacity: 0.6; padding: 6px; }
 .today-body { display: grid; gap: 12px; margin-top: 12px; }
-.today-bar { display: flex; align-items: center; gap: 10px; }
+.home-bar { display: flex; align-items: center; gap: 10px; }
 .segs { flex: 1; display: flex; gap: 4px; }
 .segs i { flex: 1; height: 12px; border-radius: 999px; background: #efe5d2; border: 2px solid rgba(94, 74, 53, 0.25); }
 .segs i.on { background: #8fa871; border-color: #7f985e; }
-.today-bar .count { font-weight: 800; font-size: 15px; }
+/* きょうの数が多いときは 1本の バー */
+.segs.one { height: 12px; border-radius: 999px; background: #efe5d2; border: 2px solid rgba(94, 74, 53, 0.25); overflow: hidden; }
+.segs.one i { flex: none; height: 100%; border: 0; border-radius: 999px; }
+.home-bar .count { white-space: nowrap; }
+.hud .who { cursor: pointer; pointer-events: auto; }
+.home-bar .count { font-weight: 800; font-size: 15px; }
 .go {
   display: grid; grid-template-columns: 1fr auto; align-items: center; column-gap: 10px; row-gap: 2px;
   width: 100%; text-align: left;
@@ -601,7 +606,7 @@ button.go:active { transform: scale(0.97); animation: none; }
 
 /* ---- 勉強タイマー ---- */
 .panel .card { }
-.today-bar .mins { border: 1.5px solid var(--line); border-radius: 999px; background: #fff; color: var(--navy); font: inherit; font-weight: 800; font-size: 13px; padding: 2px 8px; }
+.home-bar .mins { border: 1.5px solid var(--line); border-radius: 999px; background: #fff; color: var(--navy); font: inherit; font-weight: 800; font-size: 13px; padding: 2px 8px; }
 .stat3 { display: grid; grid-template-columns: repeat(3, 1fr); text-align: center; gap: 6px; }
 .stat3 > div { display: grid; }
 .stat3 small { font-size: 12px; color: var(--ink-soft); font-weight: 700; }
@@ -699,7 +704,7 @@ button.go:active { transform: scale(0.97); animation: none; }
 }
 @keyframes bonus-wiggle { 0%, 86%, 100% { transform: none; } 90% { transform: rotate(-10deg); } 95% { transform: rotate(8deg); } }
 .coach-face { padding: 0; border: none; background: none; cursor: pointer; flex-shrink: 0; }
-.today-bar .count { background: none; border: none; font: inherit; font-weight: 800; font-size: 15px; color: var(--navy); cursor: pointer; text-decoration: underline dotted; text-underline-offset: 3px; padding: 0; }
+.home-bar .count { background: none; border: none; font: inherit; font-weight: 800; font-size: 15px; color: var(--navy); cursor: pointer; text-decoration: underline dotted; text-underline-offset: 3px; padding: 0; }
 
 .bonus-card, .rec-card, .prog-card { max-height: calc(100dvh - 40px); overflow-y: auto; justify-items: stretch; text-align: left; }
 .bonus-card .sheet-title, .bonus-card .sheet-sub, .rec-card .sheet-title, .prog-card .sheet-title { text-align: center; }
@@ -898,7 +903,7 @@ body:not([data-tab="home"])::before {
 body { line-height: 1.6; letter-spacing: 0.02em; }
 .label, .pick, .seg button, .bgm-name, .bgm-row .link, .stat3 small, .day small, .all-tasks summary,
 .coach p, .sheet-sub, .legend, .rec .what, .min-in, .vol, .bgm-item .name, .face small, .cheer,
-.chart .col small, .go-label, .today-bar .count, .task-label, .memo-head, .runner-top .progress,
+.chart .col small, .go-label, .home-bar .count, .task-label, .memo-head, .runner-top .progress,
 .hud .name, .step-label, .pts { font-weight: 500; }
 .pick.on, .seg button.on, .bgm-item.on .name { font-weight: 700; }
 .label { color: var(--ink-soft); font-size: 12.5px; letter-spacing: 0.08em; }
@@ -1011,7 +1016,7 @@ body:not([data-tab="home"]) .world.loading::after { display: none; }
 .data-out { width: 100%; font-size: 12px; font-family: ui-monospace, monospace; }
 
 /* ---- いそぎの宿題（きょう・あした提出）: 1ページ1マス、できたらスタンプ ---- */
-.card-body > .today-bar { margin-bottom: 12px; }
+.card-body > .home-bar { margin-bottom: 12px; }
 .due-list { display: grid; gap: 10px; margin-bottom: 12px; }
 .due { background: #fff; border: 2px solid var(--line); border-radius: 16px; padding: 10px 12px 12px; }
 .due.hot { border-color: #eaa38f; background: #fff6f1; }

@@ -70,7 +70,7 @@ export function itemRangeBar(p, item) {
 }
 
 // くわしく: 教科ごとの バーと、ステップの チェック一覧（どこにでも おける要素をかえす）
-// deps.startStep(item, label) があれば「つぎを タイマーで はじめる」ボタンを出す。deps.onStart はその前に呼ぶ
+// deps.finish(item) があれば テストの日に「おわった！」ボタン。deps.startStep(item, label) があれば「つぎを タイマーで はじめる」ボタンを出す。deps.onStart はその前に呼ぶ
 export function rangePanel(p, deps = {}) {
   const g = nextTestGroup(p);
   if (!g) return null;
@@ -89,6 +89,7 @@ export function rangePanel(p, deps = {}) {
         h('ol', { class: 'range-steps' }, x.steps.map((s, i) => h('li', { class: i < x.done ? 'on' : i === x.done ? 'now' : '' },
           h('span', { class: 'mark', style: i < x.done ? `background:${color};border-color:${color}` : '' }, i < x.done ? icon('check') : String(i + 1)),
           h('span', {}, s)))),
+        deps.finish && daysUntil(x.item.date) <= 0 ? h('button', { class: 'btn small primary', onclick: () => deps.finish(x.item) }, 'おわった！') : null,
         next && deps.startStep ? h('button', { class: 'btn small', onclick: () => { deps.onStart?.(); deps.startStep(x.item, next); } },
           icon('clock-3'), ' つぎを タイマーで はじめる') : null));
   });
