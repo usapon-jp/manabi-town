@@ -32,6 +32,7 @@ import { startNotify, notifyCard } from './notify.js';
 import { isAdult, todayRoutines, checkRoutine, renderRoutineTab, consultCta, openConsult, ROUTINE_POINTS } from './adult.js';
 import { subjectNames, subjectColor, openSubjectEditor } from './subjects.js';
 import { moreCard } from './more.js';
+import { openStoryList } from './story.js';
 import { brainCard, openBrain } from './brain.js';
 import { openDiary, diaryFab } from './diary.js';
 import { sortPinned, togglePin } from './pins.js';
@@ -880,6 +881,7 @@ function renderQuest(p) {
       isAdult(p) ? null : h('button', { class: 'link', onclick: () => openPlanChat(p, bonusDeps) }, '中身を かえる（ピヨ先生と 作戦会議）')),
     missCard(p),
     moreCard(p, moreDeps),
+    isAdult(p) ? null : h('button', { class: 'btn', onclick: openStoryList }, icon('film'), ' ながれ動画（社会）'),
     brainCard(p, bonusDeps),
     h('details', { class: 'fold-sec' }, h('summary', {}, icon('notebook-pen'), ' やりなおし・小テスト・しつもん'),
     reviewCard(p),
