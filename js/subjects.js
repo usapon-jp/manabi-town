@@ -6,6 +6,7 @@
 import { h, toast } from './ui.js';
 import { SUBJECTS, save } from './store.js';
 import { icon } from './icons.js';
+import { kanjiWriteOnly, setKanjiStyle, kanjiPickMode, setKanjiPick, bookFor } from './coach.js';
 
 export const ADULT_DEFAULT = ['資格・勉強', '仕事', '健康', 'くらし', 'しゅみ', 'その他'];
 const KNOWN = {
@@ -48,6 +49,33 @@ function renameRecords(p, from, to) {
 
 export function editSubjectsLink(p, onChange) {
   return h('button', { type: 'button', class: 'link subj-edit', onclick: () => openSubjectEditor(p, onChange) }, icon('pencil'), ' へんしゅう');
+}
+
+// 漢字の 問題の 出し方（テストが 書きとりだけなら 読みを 出さない）。作戦会議で 言っても かわる
+function kanjiStyleRow(p) {
+  const seg = h('div', { class: 'seg' });
+  const draw = () => {
+    const w = kanjiWriteOnly(p);
+    seg.replaceChildren(
+      h('button', { type: 'button', class: w ? '' : 'on', onclick: () => { setKanjiStyle(p, 'both'); draw(); } }, '書きとりと 読み'),
+      h('button', { type: 'button', class: w ? 'on' : '', onclick: () => { setKanjiStyle(p, 'write'); draw(); toast('漢字は 書きとりだけ に したよ'); } }, '書きとりだけ'));
+  };
+  draw();
+  // 漢字ワーク（前半＝書きとり・後半＝同音異義語など）の 出し方
+  const book = bookFor(p);
+  let pickRow = null;
+  if (book?.choiceFrom) {
+    const seg2 = h('div', { class: 'seg seg4' });
+    const modes = [['pick', 'まぜる'], ['write', '全部 書く'], ['front', '前半だけ'], ['back', '後半だけ']];
+    const draw2 = () => {
+      const m = kanjiPickMode(p);
+      seg2.replaceChildren(...modes.map(([v, label]) =>
+        h('button', { type: 'button', class: m === v ? 'on' : '', onclick: () => { setKanjiPick(p, v); draw2(); } }, label)));
+    };
+    draw2();
+    pickRow = [h('p', {}, ' 漢字ワーク（後半は 同音異義語）'), seg2];
+  }
+  return h('div', { class: 'subj-kanji' }, h('p', {}, icon('pen-line'), ' 漢字の 問題'), seg, ...(pickRow || []));
 }
 
 export function openSubjectEditor(p, onClose) {
@@ -109,6 +137,7 @@ export function openSubjectEditor(p, onClose) {
       h('p', { class: 'sheet-title' }, icon('pencil'), ` ${word}`),
       h('ul', { class: 'subj-list' }, list.map(row)),
       h('div', { class: 'subj-add' }, add, h('button', { type: 'button', class: 'btn small primary', onclick: doAdd }, icon('plus'), ' ついか')),
+      isAdult(p) ? null : kanjiStyleRow(p),
       h('button', { class: 'btn primary', onclick: () => { document.activeElement?.blur?.(); close(); } }, 'できた'),
       edited(p) ? h('button', { class: 'link', onclick: () => {
         if (!confirm('はじめの ならびに もどす？')) return;

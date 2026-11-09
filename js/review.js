@@ -4,9 +4,10 @@
 // 3回つづけて正解したら「おぼえた！」で卒業。まちがえたら次の日からやりなおし。
 import { today, toISO, save } from './store.js';
 import { runQuestions } from './runner.js';
+import { dropKanjiReads } from './coach.js';
 
 const GAPS = [1, 3, 7];       // 何日あけて出すか（だんかいごと）
-const MAX_ITEMS = 60;         // 覚えておく数の上限
+const MAX_ITEMS = 200;        // 覚えておく数の上限
 export const REVIEW_MAX = 5;  // 1回で出す数
 export const REVIEW_PER_CORRECT = 8;
 export const REVIEW_CLEAR = 15;
@@ -36,7 +37,8 @@ export function recordResults(p, results = [], from = '') {
 
 export function dueReview(p) {
   const t = today();
-  return list(p).filter((i) => i.due <= t);
+  // 漢字を 書きとりだけに した人には、前に まちがえた 読みの問題も 出さない
+  return list(p).filter((i) => i.due <= t && dropKanjiReads(p, [i.q]).length);
 }
 
 // デイリーに まぜる やりなおし（作戦会議で足した範囲の 一問一答だけ。きのう まちがえたもの など）

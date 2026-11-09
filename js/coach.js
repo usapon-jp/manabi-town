@@ -14,6 +14,8 @@ import { icon } from './icons.js';
 import { pickPhoto } from './pickphoto.js';
 import { shrink } from './scan.js';
 import { openPhotos, addPhoto, getData, movePhoto } from './photos.js';
+import { KANJI_BOOKS } from './data/kanjibooks.js';
+import { TEXT_BOOKS } from './data/textbooks.js';
 
 export const PLAN_BONUS = 50;     // 作戦会議をさいごまでやった
 const CHECK_PER_CORRECT = 5;
@@ -37,6 +39,10 @@ export function coachText(c) {
     c.memo && `メモ: ${c.memo}`,
   ].filter(Boolean).join('\n');
 }
+// 先生にわたす メモ（漢字の 出し方も。教科の へんしゅうで かえたときも 伝わるように）
+function profileText(p) {
+  return [coachText(p.coach), kanjiWriteOnly(p) && '漢字の出し方: 書きとりだけ（読みの問題は出さない）'].filter(Boolean).join('\n');
+}
 
 const arr = (v, n = 6) => (Array.isArray(v) ? v.filter((x) => typeof x === 'string' && x).slice(0, n) : []);
 
@@ -52,6 +58,8 @@ function cleanProfile(r) {
       .map((x) => ({ subject: String(x.subject).slice(0, 10), topic: String(x.topic).slice(0, 40) })),
     daily: cleanDaily(r.daily),
     memo: String(r.memo || '').slice(0, 160),
+    kanji: r.kanji === 'write' || r.kanji === 'both' ? r.kanji : '',
+    kanjiPick: KANJI_PICKS.includes(r.kanjiPick) ? r.kanjiPick : '',   // 漢字ワークの 出し方（まぜる / 全部書く / 前半だけ / 後半だけ）
   };
 }
 
@@ -82,6 +90,118 @@ function cleanDaily(d) {
 export const poolKey = (x) => `${x.subject}:${x.topic}`;
 const sizeOf = (x) => x.size || CHUNK;
 const perDayOf = (x) => x.perDay || 3;
+
+// ---- 学校の 漢字ワーク（js/data/kanjibooks.js）------------------------------
+// テスト予定の 範囲に「級別漢字 P96〜」などが あれば、漢字の範囲の 問題は ワークの ことばだけで 出す（AI で 作らない）。
+// テストまでに 1周: まだ出していない ことばを のこりの日数で わって 毎日出す（よく出る ページが 先）。
+// まちがえたら その日に もう一度（p.retry）→ つぎの日の はじめに もう一度（review）→ テスト前に 見直しワーク（p.coach.misses）
+function bookTests(p, b) {
+  const t = today();
+  return (p.items || []).filter((i) => i.type === 'test' && !i.done && i.date >= t && b.match.test(String(i.range || '')));
+}
+export function bookFor(p, x) {
+  if (!p || p.grade === 'adult') return null;
+  // 漢字の範囲 → 漢字ワーク、ほかの教科 → 教科書の 一問一答（js/data/textbooks.js）
+  // 教科書の 一問一答は テスト前の 自動の範囲だけ（作戦会議で 写真から 作った範囲は その写真で）
+  const books = !x || isKanjiRange(x) ? KANJI_BOOKS : x.book ? TEXT_BOOKS.filter((b) => b.id === x.book) : [];
+  return books.find((b) => bookTests(p, b).length) || null;
+}
+// テスト予定に 教科書の 一問一答が あるか（あれば 7日前を またずに 出す・写真の おねがいも しない）
+export const textBooksFor = (i) => TEXT_BOOKS.filter((b) => b.match.test(String(i.range || '')));
+const bookCache = new Map();
+// 書きとりと えらぶ問題を 数の わりあいで まぜる（毎日 両方 出るように）
+function mixPools(write, pick) {
+  const out = []; let i = 0; let j = 0;
+  while (i < write.length || j < pick.length) {
+    if (j >= pick.length || (i < write.length && i * pick.length <= j * write.length)) out.push(write[i++]);
+    else out.push(pick[j++]);
+  }
+  return out;
+}
+function bookPool(b, mode = 'pick') {
+  const ck = `${b.id}:${mode}`;
+  if (b.qa) {
+    // 教科書の 一問一答（4つから えらぶ。ならびは 問題ごとに かえる）
+    if (!bookCache.has(b.id)) {
+      bookCache.set(b.id, b.qa.map(([q, a, wrong, page], k) => {
+        const opts = [a, ...wrong];
+        const rot = k % opts.length;
+        const options = [...opts.slice(rot), ...opts.slice(0, rot)];
+        return { q, options, answer: options.indexOf(a), w: a, s: q, bk: b.id, page };
+      }));
+    }
+    return bookCache.get(b.id);
+  }
+  const allWrite = mode === 'write';
+  if (!bookCache.has(ck)) {
+    const hot = new Set(b.hot || []);
+    const words = b.words.map((w, k) => ({ w, k })).sort((a, z) => Number(hot.has(z.w[3])) - Number(hot.has(a.w[3])) || a.k - z.k);
+    // 同訓異字・同音異義語（choiceFrom の ページから）は 同じ読みの ことばから えらぶ（フミオさん 2026-11-09「選択制でいい」）
+    const same = (r, page) => [...new Set(b.words.filter((x) => x[1] === r && x[3] === page).map((x) => x[0]))];
+    const qs = words.map(({ w: [w, r, s, page], k }) => {
+      if (!allWrite && b.choiceFrom && page >= b.choiceFrom) {
+        const opts = same(r, page).slice(0, 4);
+        if (!opts.includes(w)) opts[opts.length - 1] = w;
+        if (opts.length >= 2) {
+          const rot = k % opts.length;
+          const options = [...opts.slice(rot), ...opts.slice(0, rot)];
+          return { q: `「${s.replace('＿', `（${r}）`)}」の（${r}）は どの 漢字？`, options, answer: options.indexOf(w), s, r, w, bk: b.id, page, pick: true };
+        }
+      }
+      return { q: `「${s.replace('＿', w)}」の「${r}」を漢字で書くと？`, options: [w, r], answer: 0, s, r, w, bk: b.id, page };
+    });
+    // front: 前半（書きとりの ページ）だけ / back: 後半（同音異義語などの ページ）だけ
+    const back = (q) => b.choiceFrom && q.page >= b.choiceFrom;
+    const use = qs.filter((q) => (mode === 'front' ? !back(q) : mode === 'back' ? back(q) : true));
+    bookCache.set(ck, mixPools(use.filter((q) => !q.pick), use.filter((q) => q.pick)));
+  }
+  return bookCache.get(ck);
+}
+const bookKey = (q) => `${q.w}|${q.s}`;
+const BOOK_MAX = 999; // テストまでに 全部1周（のこりを 日数で わる・フミオさん 2026-11-09）
+// テストの前の日まで あと何日（きょうも 入れる）
+const bookDaysLeft = (p, b) => Math.max(1, Math.min(...bookTests(p, b).map((i) => daysUntil(i.date))));
+// きょう 出す ワークの ことば（まだ出していない ものから）。1周 おわったら perDay もんずつ 何周も
+function bookToday(p, x, b, key = today()) {
+  const pool = poolOf(p, x);
+  const seen = new Set(p.coach?.bookSeen?.[b.id] || []);
+  const left = pool.filter((q) => !seen.has(bookKey(q)));
+  if (left.length) {
+    // 前半（書きとり）は のこりの 日数で わって テストまでに 1周（毎日 同じくらいの 数）。
+    // テストは 前半から 多く出るので、後半（同音異義語など）は 前半の 半分まで（フミオさん 2026-11-09「後半多めにしないで」）。
+    // 前半が おわったら 後半の のこりを 日数で わる
+    const days = bookDaysLeft(p, b);
+    const back = (q) => b.choiceFrom && q.page >= b.choiceFrom;
+    const fr = left.filter((q) => !back(q)); const bk = left.filter(back);
+    const nf = Math.ceil(fr.length / days);
+    const nb = Math.min(Math.ceil(bk.length / days), fr.length ? Math.ceil(nf / 2) : bk.length);
+    return mixPools(fr.slice(0, nf), bk.slice(0, nb)).slice(0, BOOK_MAX);
+  }
+  const day = Math.floor(Date.parse(`${key}T00:00:00Z`) / 86400000);
+  const n = Math.min(perDayOf(x), pool.length);
+  const start = (day * n) % pool.length;
+  return Array.from({ length: n }, (_, i) => pool[(start + i) % pool.length]);
+}
+// きょうの もん数（ワークの範囲は 1周の わりふり）
+export function perDayFor(p, x) {
+  const b = p && bookFor(p, x);
+  return b ? bookToday(p, x, b).length : perDayOf(x);
+}
+// デイリーで 答えた ワークの ことばを「出した」にする
+function markBookSeen(p, results) {
+  const by = {};
+  results.forEach(({ q }) => { if (q?.bk && q.bkey) (by[q.bk] ||= []).push(q.bkey); });
+  if (!Object.keys(by).length) return;
+  const seen = p.coach.bookSeen || (p.coach.bookSeen = {});
+  Object.entries(by).forEach(([id, keys]) => { seen[id] = [...new Set([...(seen[id] || []), ...keys])]; });
+}
+export function bookProgress(p) {
+  const b = bookFor(p);
+  if (!b) return null;
+  const total = b.words.length;
+  const done = Math.min(total, (p.coach?.bookSeen?.[b.id] || []).length);
+  return { title: b.title, done, total, days: bookDaysLeft(p, b) };
+}
 
 // テスト前は、テスト予定（9教科ぜんぶ）から 範囲の一問一答を 自動で足す。
 // 国語・英語・数学は 14日まえから（デイリーの 学年3もんと 入れかえ）、ほかの教科は 7日まえから 1日3もん。
@@ -120,6 +240,13 @@ function testExtras(p, own) {
       const subject = subjName(i);
       const core = subjOf({ subject, topic: i.title });
       const k = core || subject;
+      // 教科書の 一問一答（地理・歴史など）が ある教科は、本ごとに 14日前から 足す（作戦会議で 範囲を 決めていても）
+      const tbs = core ? [] : textBooksFor(i).filter((b) => b.subject.test(subject) && !have.has(`tb:${b.id}`));
+      tbs.forEach((b) => {
+        have.add(`tb:${b.id}`);
+        out.push({ subject, topic: b.title.slice(0, 60), until: i.date, size: b.qa.length, perDay: 3, book: b.id, photos: [], auto: true });
+      });
+      if (tbs.length) have.add(k);
       if (!k || have.has(k)) return;
       const days = Math.max(1, daysUntil(i.date));
       if (!core && days > OTHER_DAYS) return;
@@ -161,7 +288,7 @@ export function dailyLabel(c, p) {
   const later = (d?.extra || []).filter((x) => x.from && x.from > t && (!x.until || x.until >= t));
   const md = (s) => `${Number(s.slice(5, 7))}/${Number(s.slice(8, 10))}`;
   return [...base.map((b) => `${BASE.find(([id]) => id === b)[1]} 3もん`),
-    ...extra.map((x) => `${x.subject}「${x.topic}」${perDayOf(x)}もん${x.auto ? '（テスト前）' : ''}`),
+    ...extra.map((x) => { const b = p && bookFor(p, x); return `${x.subject}「${b ? b.title : x.topic}」${p ? perDayFor(p, x) : perDayOf(x)}もん${x.auto ? '（テスト前）' : ''}`; }),
     ...later.map((x) => `${x.subject}「${x.topic}」${perDayOf(x)}もん（${md(x.from)}から）`)].join('・');
 }
 
@@ -197,6 +324,50 @@ export function kanjiWrite(q) {
   return { kind: 'write', prompt: 'かんじで 書けるかな？', big: reading, answerText: word, context: sentence.replace(term, '＿'), selfCheck: true };
 }
 
+// ---- 漢字は「書きとりだけ」 ----------------------------------------------
+// 長女 2026-11-09「漢字は 書き取りしか 出ないから 読みは 出さないで」と 作戦会議で 言ったのに 読みが 出た
+// p.kanjiStyle: 'write'（書きとりだけ）| 'both'（読みも）。作戦会議（profile.kanji）か 教科の へんしゅうで きめる。
+// まだ きめていなければ、作戦会議の メモ・進め方の ことばから よみとる（前の会議で 言っていた ときも 効くように）
+const WRITE_ONLY = /(書き取り|書きとり|かきとり)(だけ|のみ|しか)|(読み|よみ)[^。]{0,8}(出さない|ださない|出さず|いらない|なし|出ない|でない|出ません|でません)/;
+export function kanjiWriteOnly(p) {
+  if (!p || p.grade === 'adult') return false;
+  if (p.kanjiStyle) return p.kanjiStyle === 'write';
+  const c = p.coach || {};
+  return WRITE_ONLY.test([c.memo, c.style, ...(c.plans || []).map((x) => `${x.subject} ${x.how}`)].join('\n'));
+}
+// 漢字ワーク（書きとりの 前半＋同訓異字・同音異義語の 後半）の 出し方。p.kanjiPick:
+// 'pick'（ふだん: 後半は えらぶ問題で まぜる）| 'write'（後半も 書く）| 'front'（前半だけ）| 'back'（後半だけ）
+// 作戦会議（profile.kanjiPick）か 教科の へんしゅうで きめる（フミオさん 2026-11-09）
+const KANJI_PICKS = ['pick', 'write', 'front', 'back'];
+export const kanjiPickMode = (p) => (KANJI_PICKS.includes(p?.kanjiPick) ? p.kanjiPick : 'pick');
+export function setKanjiPick(p, v) {
+  p.kanjiPick = KANJI_PICKS.includes(v) ? v : 'pick';
+  save();
+}
+export function setKanjiStyle(p, style) {
+  p.kanjiStyle = style === 'write' ? 'write' : 'both';
+  save();
+}
+// 読みを 聞く 問題（「よみかたは？」・漢字を見せて ひらがなを えらぶ）
+const READ_ASK = /よみかた|読み方|(読み|よみ)(は|を|が|として)|なんと読|何と読|どう読/;
+const QUOTED_KANJI = /[「『][^」』]*[一-龯々][^」』]*[」』]/;
+export function isKanjiRead(q) {
+  if (!q || q.kind !== 'choice') return false;
+  const pr = String(q.prompt || '');
+  if (/(漢字|かんじ)で/.test(pr)) return false;   // 「…を漢字で書くと？」は 書きの問題
+  if (READ_ASK.test(pr)) return true;
+  const opts = (q.options || []).map((o) => String(o).trim());
+  return opts.length > 0 && opts.every((o) => KANA.test(o)) && (HAS_KANJI.test(q.big || '') || QUOTED_KANJI.test(pr));
+}
+// 書きとりだけの 人には 漢字の 読みの問題を 出さない（デイリー・れんしゅう・見直し どこでも）
+export function dropKanjiReads(p, qs) {
+  return kanjiWriteOnly(p) ? qs.filter((q) => !(isKanjiRead(q) && (/漢字|国語/.test(q.subject || '') || q.kind === 'choice' && q.prompt === 'よみかたは？'))) : qs;
+}
+
+// 範囲の 一問一答 → 出す 形（漢字の範囲は 書きとりに できれば 書きとり）
+export const rangeQ = (x, q) => ({ ...(isKanjiRange(x) && !q.pick && kanjiWrite(q) || { kind: 'choice', prompt: q.q, options: q.options, answer: q.answer }),
+  subject: x.subject, topic: x.topic, ...(q.bk ? { bk: q.bk, bkey: `${q.w}|${q.s}` } : {}) });
+
 export function uniqPool(x, pool) {
   if (!isKanjiRange(x)) return pool;
   const seen = new Set();
@@ -207,7 +378,33 @@ export function uniqPool(x, pool) {
     return true;
   });
 }
-const poolOf = (p, x) => uniqPool(x, (p.coach?.pools || {})[poolKey(x)] || []);
+// 書きとりだけの 人の 漢字の範囲は、読みの問題を のぞいて 数える（たりなければ 書きの問題を 作りたす）
+const writeOnlyRange = (p, x) => isKanjiRange(x) && kanjiWriteOnly(p);
+// 作った 一問一答の もと（しりょうの写真・作り方）。かわったら 作りなおす
+// k2: 2026-11-09 漢字の範囲を 作りなおす（「級別漢字 P96〜」の ページ番号だけで 作っていて、小学校の漢字「質問」などが まざっていた）
+const KANJI_POOL_V = 'k2';
+const poolSig = (x) => [isKanjiRange(x) ? KANJI_POOL_V : '', ...(x.photos || [])].filter(Boolean).join('|');
+function rawPool(p, x) {
+  const c = p.coach;
+  if (!c) return [];
+  const b = bookFor(p, x);
+  if (b) return bookPool(b, kanjiPickMode(p));   // 学校の ワークが あれば その ことばだけ
+  const k = poolKey(x);
+  const sig = poolSig(x);
+  if ((c.poolSrc?.[k] ?? '') !== sig) {
+    // テストの しりょうに 写真を 足した・作り方が かわった 範囲は、前の問題を すてて 作りなおす
+    if (c.pools?.[k]) { c.pools = { ...c.pools }; delete c.pools[k]; }
+    c.poolSrc = { ...(c.poolSrc || {}), [k]: sig };
+    save();
+  }
+  return (c.pools || {})[k] || [];
+}
+export const poolOf = (p, x) => {
+  // 読みを のぞいてから 同じ ことばを まとめる（読みの問題に 書きの問題が けされないように）
+  const pool = rawPool(p, x);
+  if (bookFor(p, x)) return pool;   // ワークの ことばは 書きとりだけ・同じ ことばも ちがう例文なので そのまま
+  return uniqPool(x, writeOnlyRange(p, x) ? pool.filter((q) => !isKanjiRead(rangeQ(x, q))) : pool);
+};
 
 const okQ = (q) => q && q.q && Array.isArray(q.options) && q.options.length >= 2 && Number.isInteger(q.answer) && q.answer >= 0 && q.answer < q.options.length;
 
@@ -227,8 +424,9 @@ async function fillPool(p, x, images = []) {
     const have = poolOf(p, x);
     const need = sizeOf(x) - have.length;
     if (need <= 0) return true;
-    const r = await askAI({ action: 'quiz', pool: true, kanji: isKanjiRange(x), subject: x.subject, grade: gradeLabel(p), topic: x.topic, count: Math.min(CHUNK, need),
-      avoid: ((isKanjiRange(x) ? '（漢字は 1つの ことばを 1回だけ。範囲の いろいろな ことばから。下の ことばは もう使わない）\n' : '') + have.map((q) => q.q).join('\n')).slice(0, 2500), ...(images.length ? { images: images.slice(0, 3) } : {}) }, { timeout: 90000 });
+    const r = await askAI({ action: 'quiz', pool: true, kanji: isKanjiRange(x), ...(writeOnlyRange(p, x) ? { writeOnly: true } : {}), subject: x.subject, grade: gradeLabel(p), topic: x.topic, count: Math.min(CHUNK, need),
+      avoid: ((isKanjiRange(x) ? '（漢字は 1つの ことばを 1回だけ。範囲の いろいろな ことばから。下の ことばは もう使わない）\n' : '') +
+        (writeOnlyRange(p, x) ? '（テストは 書きとりだけ。読みを 聞く問題は 作らない。ぜんぶ 例文の よみを 漢字で書く問題に）\n' : '') + have.map((q) => q.q).join('\n')).slice(0, 2500), ...(images.length ? { images: images.slice(0, 3) } : {}) }, { timeout: 90000 });
     const seen = new Set(have.map((q) => q.q));
     const qs = (r.questions || []).filter(okQ)
       .map((q) => ({ q: String(q.q).slice(0, 200), options: q.options.slice(0, 4).map((o) => String(o).slice(0, 60)), answer: q.answer,
@@ -272,8 +470,7 @@ export const rangeFor = (p, core) => (p?.grade === 'adult' ? null : activeExtras
 export async function rangeDrill(p, x, n, seedText) {
   if (!hasPool(p, x)) { toast('ピヨ先生が テスト範囲の問題を 作り中…', 8000); await ensurePool(p, x); }
   return shuffle(poolOf(p, x), seededRandom(seedText)).slice(0, n)
-    .map((q) => ({ ...(isKanjiRange(x) && kanjiWrite(q) || { kind: 'choice', prompt: q.q, options: q.options, answer: q.answer }),
-      subject: x.subject, topic: x.topic, test: true }));
+    .map((q) => ({ ...rangeQ(x, q), test: true }));
 }
 
 // きょうの extra の問題。日にちで perDay もんずつ ずらして、ぜんぶ出たら また はじめから（何周も）
@@ -285,11 +482,11 @@ export function extraQuestions(p, key = today()) {
   return activeExtras(p).flatMap((x) => {
     const pool = poolOf(p, x);
     if (!pool.length) return [];
+    const b = bookFor(p, x);
     const n = Math.min(perDayOf(x), pool.length);
     const start = (day * n) % pool.length;
-    return Array.from({ length: n }, (_, i) => pool[(start + i) % pool.length])
-      .map((q) => ({ ...(isKanjiRange(x) && kanjiWrite(q) || { kind: 'choice', prompt: q.q, options: q.options, answer: q.answer }),
-        subject: x.subject, topic: x.topic, ...(isTestRange(x) ? { test: true } : {}) }));
+    return (b ? bookToday(p, x, b, key) : Array.from({ length: n }, (_, i) => pool[(start + i) % pool.length]))
+      .map((q) => ({ ...rangeQ(x, q), ...(isTestRange(x) ? { test: true } : {}) }));
   });
 }
 
@@ -299,6 +496,7 @@ const missKey = (q) => `${q.topic}|${q.prompt}|${q.big || ''}`;
 // デイリーで まちがえた 一問一答を ためる（同じ問題は 回数だけ ふやす）
 export function stockMisses(p, results) {
   if (!p.coach) return;
+  markBookSeen(p, results);
   const keys = new Set(activeExtras(p).map((x) => x.topic));
   const misses = Array.isArray(p.coach.misses) ? p.coach.misses : (p.coach.misses = []);
   results.filter((r) => !r.ok && r.q?.topic && keys.has(r.q.topic)).forEach(({ q }) => {
@@ -312,7 +510,7 @@ export function stockMisses(p, results) {
 // 見直しワークに出す問題（まだ テスト前の 範囲だけ。たくさん まちがえた順）
 export function missWork(p) {
   const keys = new Set(activeExtras(p).map((x) => x.topic));
-  return (p.coach?.misses || []).filter((m) => keys.has(m.q.topic)).sort((a, b) => b.n - a.n);
+  return (p.coach?.misses || []).filter((m) => keys.has(m.q.topic) && dropKanjiReads(p, [m.q]).length).sort((a, b) => b.n - a.n);
 }
 
 // いちばん近い テストの日まで あと何日（見直しワークを 目立たせる）
@@ -408,7 +606,7 @@ export function openPlanChat(p, deps) {
     const wait = bubble('assistant thinking', 'かんがえ中…');
     try {
       const { msgs, images } = payload();
-      const r = await askAI({ action: 'plan', today: today(), name: p.name, grade: gradeLabel(p), items: itemsText(p), profile: coachText(p.coach), messages: msgs, images }, { timeout: images.length ? 90000 : 45000 });
+      const r = await askAI({ action: 'plan', today: today(), name: p.name, grade: gradeLabel(p), items: itemsText(p), profile: profileText(p), messages: msgs, images }, { timeout: images.length ? 90000 : 45000 });
       wait.remove();
       if (!r.say && !(r.done && r.profile)) throw new Error('empty');
       if (r.say) { messages.push({ role: 'assistant', text: r.say }); bubble('assistant', r.say); }
@@ -454,12 +652,21 @@ export function openPlanChat(p, deps) {
     const prevExtra = p.coach?.daily?.extra || [];
     const pools = { ...(p.coach?.pools || {}) };
     const ids = chatPhotoIds();
-    const daily = profile.daily || p.coach?.daily || null;
-    // 範囲（extra）に 写真を ひもづける。ピヨ先生が「この写真の範囲」と言った範囲には この会議の写真、ほかは 前の写真を そのまま
-    if (profile.daily) {
+    const daily = profile.daily ? profile.daily : (p.coach?.daily ? { ...p.coach.daily, extra: (p.coach.daily.extra || []).map((x) => ({ ...x })) } : null);
+    // 写真を おくったときの ことば（と その前の ことば）に 出てくる 教科 → その教科の 範囲・テストに ひもづける
+    // （ピヨ先生が まとめで photo を つけわすれても、「国語の 漢字の ページ」と 言って 見せた写真は のこる）
+    const said = messages.flatMap((m, k) => (m.photoId && !m.photoId.startsWith('tmp-')
+      ? [{ id: m.photoId, text: `${messages[k - 1]?.role === 'user' ? messages[k - 1].text : ''} ${m.text}` }] : []));
+    const talksAbout = (text, subject, topic = '') => !!subject && (text.includes(subject)
+      || (/国語|漢字/.test(`${subject}${topic}`) && /漢字|国語/.test(text)));
+    const mentioned = (x) => said.filter((s) => talksAbout(s.text, x.subject, x.topic)).map((s) => s.id);
+    // 範囲（extra）に 写真を ひもづける。ピヨ先生が「この写真の範囲」と言った範囲・写真と いっしょに 教科を 言った範囲には この会議の写真、ほかは 前の写真を そのまま
+    if (daily) {
       daily.extra = daily.extra.map((x) => {
         const old = prevExtra.find((o) => poolKey(o) === poolKey(x));
-        const photos = x.photo && ids.length ? ids : (old?.photos || []);
+        const named = mentioned(x);
+        const photos = x.photo && ids.length ? ids
+          : named.length ? [...new Set([...(old?.photos || x.photos || []), ...named])].slice(-SEND_PHOTOS) : (old?.photos || x.photos || []);
         delete x.photo;
         // 写真が かわった範囲は、前に作った問題を すてて 写真から 作りなおす
         if (photos.join() !== (old?.photos || []).join()) delete pools[poolKey(x)];
@@ -468,11 +675,24 @@ export function openPlanChat(p, deps) {
       // 写真は テストの フォルダへ（テストの日が 同じ 予定が あれば）
       daily.extra.forEach((x) => {
         const test = x.until && p.items.find((i) => i.type === 'test' && !i.done && i.date === x.until);
+        // 範囲が 空の テストには 作戦会議で 決めた 範囲を 書いておく（ホームの「テスト範囲を 入れてね」が きえる）
+        if (test && !String(test.range || '').trim() && (!test.subject || test.subject === x.subject || test.subject === 'その他')) test.range = x.topic;
         if (test) x.photos.forEach((id) => { const meta = (p.photos || []).find((m) => m.id === id); if (meta && meta.folder === 'other') movePhoto(p, id, test.id); });
       });
     }
+    // 教科を 言って 見せた写真は、その教科の テストの しりょうへ（テスト予定から 自動で 作る 範囲も 写真から 作れるように）
+    said.forEach((s) => {
+      const meta = (p.photos || []).find((m) => m.id === s.id);
+      if (!meta || meta.folder !== 'other') return;
+      const test = p.items.filter((i) => i.type === 'test' && !i.done && daysUntil(i.date) >= 0 && talksAbout(s.text, i.subject && i.subject !== 'その他' ? i.subject : i.title))
+        .sort((x, y) => x.date.localeCompare(y.date))[0];
+      if (test) movePhoto(p, s.id, test.id);
+    });
+    // 漢字の 出し方を 話したときだけ かえる（話さなければ 前のまま）
+    if (profile.kanji) p.kanjiStyle = profile.kanji;
+    if (profile.kanjiPick) p.kanjiPick = profile.kanjiPick;
     // デイリーの話をしなかったときは 前の きまりを そのまま。作った一問一答も のこす
-    p.coach = { ...profile, daily, pools, misses: p.coach?.misses || [], checks: p.coach?.checks || [], at: today() };
+    p.coach = { ...profile, daily, pools, poolSrc: { ...(p.coach?.poolSrc || {}) }, misses: p.coach?.misses || [], checks: p.coach?.checks || [], at: today() };
     p.planChat = null;   // まとまったので 会話は おしまい（決まったことは p.coach に のこる）
     const imgs = ids.map((id) => pics.get(id)).filter(Boolean);
     if (activeExtras(p).length) ensurePools(p, imgs).then((ok) => toast(ok ? 'デイリーの 問題が できたよ！' : 'デイリーの 問題が うまく作れなかった…クエストを ひらくと もういちど 作るよ'));
@@ -493,6 +713,8 @@ export function openPlanChat(p, deps) {
     busy = false;
   }
 
+  // 「範囲を 入れてね」から ひらいたときは、言うことを 入れておく（写真を そえて おくるだけ）
+  if (deps.ask) input.value = deps.ask;
   // 前の とちゅうの会話が あれば、つづきから
   const prev = savedChat(p);
   if (!prev) { turn(); return; }
