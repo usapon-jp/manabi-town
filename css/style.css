@@ -29,7 +29,7 @@ html, body {
   height: 100%;
   background: var(--bg);
   color: var(--ink);
-  font-family: "Hiragino Maru Gothic ProN", "Hiragino Sans", "M PLUS Rounded 1c", "Noto Sans JP", system-ui, sans-serif;
+  font-family: "Hiragino Maru Gothic ProN", "Hiragino Sans", "M PLUS Rounded 1c", "Noto Sans JP", "Noto Sans CJK JP", "Yu Gothic", Meiryo, system-ui, sans-serif;
   -webkit-tap-highlight-color: transparent;
   overflow: hidden;
 }
@@ -246,7 +246,7 @@ textarea { resize: vertical; }
     linear-gradient(90deg, var(--grid) 1px, transparent 1px);
   background-size: 22px 22px;
   padding: calc(env(safe-area-inset-top) + 12px) max(16px, env(safe-area-inset-right)) calc(env(safe-area-inset-bottom) + 16px) max(16px, env(safe-area-inset-left));
-  font-family: "M PLUS Rounded 1c", "Hiragino Maru Gothic ProN", "Hiragino Sans", "Noto Sans JP", system-ui, sans-serif;
+  font-family: "M PLUS Rounded 1c", "Hiragino Maru Gothic ProN", "Hiragino Sans", "Noto Sans JP", "Noto Sans CJK JP", "Yu Gothic", Meiryo, system-ui, sans-serif;
 }
 .runner-card {
   width: 100%;
@@ -329,7 +329,7 @@ textarea { resize: vertical; }
 .model .cell:first-child { margin-left: 0; border-radius: 8px 0 0 8px; }
 .model .cell:last-child { border-radius: 0 8px 8px 0; }
 .model .cell:only-child { border-radius: 8px; }
-.model b { position: relative; font-family: "UD Digi Kyokasho N-R", "UD デジタル 教科書体 N-R", YuKyokasho, "Klee One", "Hiragino Mincho ProN", serif; font-weight: 500; font-size: min(22vw, 96px); line-height: 1; color: var(--navy); }
+.model b { position: relative; font-family: "UD Digi Kyokasho N-R", "UD デジタル 教科書体 N-R", YuKyokasho, "Klee One", "Hiragino Mincho ProN", "Noto Serif CJK JP", "Noto Serif JP", "Yu Mincho", "MS Mincho", serif; font-weight: 500; font-size: min(22vw, 96px); line-height: 1; color: var(--navy); }
 .write-frame { width: 100%; max-width: min(100%, calc(var(--n) * 190px)); margin: 0 auto; aspect-ratio: var(--n) / 1; border-radius: 6px; }
 .ink { display: block; width: 100%; height: 100%; touch-action: none; }
 .write-pad { border-radius: 6px; box-shadow: 0 0 0 3px var(--navy), 0 5px 0 3px var(--navy); }
@@ -1850,3 +1850,29 @@ input.pin { font-size: 26px; letter-spacing: 0.5em; text-align: center; }
 .range-need { display: flex; align-items: center; gap: 8px; width: 100%; text-align: left; font: inherit; font-size: 14px; color: var(--navy); background: #fff7e0; border: 2px dashed #e0b44c; border-radius: 14px; padding: 7px 12px; cursor: pointer; }
 .range-need .ic { flex-shrink: 0; color: #c98a1a; }
 .range-need:active { transform: scale(0.98); }
+
+/* 社会の ながれ動画（紙芝居） js/story.js */
+.story { position: fixed; inset: 0; z-index: 40; background: linear-gradient(#fbf3e3, #efe3c8); display: flex; flex-direction: column; padding: 16px; padding-bottom: calc(env(safe-area-inset-bottom) + 16px); overflow: hidden; }
+.st-top { display: flex; align-items: center; justify-content: space-between; gap: 8px; font-size: 15px; }
+.st-stage { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; gap: 8px; padding: 0 8px 120px; }
+.st-year { font-size: 18px; font-weight: 800; color: #7f985e; }
+.st-head { word-break: keep-all; text-wrap: balance; margin: 0; font-size: 30px; font-weight: 800; line-height: 1.3; }
+.st-art { font-size: 64px; display: flex; gap: 12px; min-height: 80px; }
+.st-art span { display: inline-block; animation: st-pop 0.6s both; }
+.st-say { word-break: keep-all; overflow-wrap: anywhere; text-wrap: balance; margin: 0; max-width: 28em; font-size: 20px; font-weight: 700; line-height: 1.7; background: #fffdf6; border: 1.5px solid var(--line); border-radius: 18px; padding: 12px 16px; box-shadow: var(--soft); }
+.st-stage.in .st-head, .st-stage.in .st-say { animation: st-in 0.45s both; }
+.st-piyo { position: absolute; left: 14px; bottom: 76px; width: 74px; height: auto; pointer-events: none; animation: st-bob 1.6s ease-in-out infinite; }
+.st-piyo.talk { animation: st-talk 0.4s ease-in-out infinite; }
+.st-dots { position: absolute; left: 0; right: 0; bottom: calc(env(safe-area-inset-bottom) + 68px); display: flex; justify-content: center; gap: 6px; }
+.st-dots i { width: 8px; height: 8px; border-radius: 50%; background: #d9cdb4; }
+.st-dots i.on { background: #7f985e; }
+.st-bar { position: absolute; left: 0; right: 0; bottom: calc(env(safe-area-inset-bottom) + 14px); display: flex; justify-content: center; gap: 12px; }
+.st-btn { min-width: 48px; height: 44px; border-radius: 16px; border: 1.5px solid var(--line); background: #fffdf6; box-shadow: var(--soft); font-size: 18px; font-weight: 800; }
+.st-end { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px; font-size: 22px; font-weight: 800; }
+.st-end[hidden], .st-stage[hidden] { display: none; }
+.story.paused .st-say { outline: 3px dashed #7f985e; }
+@keyframes st-pop { from { transform: scale(0.2) rotate(-12deg); opacity: 0; } to { transform: none; opacity: 1; } }
+@keyframes st-in { from { transform: translateY(14px); opacity: 0; } to { transform: none; opacity: 1; } }
+@keyframes st-bob { 50% { transform: translateY(-6px); } }
+@keyframes st-talk { 50% { transform: translateY(-8px) scaleY(0.94); } }
+@media (prefers-reduced-motion: reduce) { .st-art span, .st-stage.in .st-head, .st-stage.in .st-say, .st-piyo, .st-piyo.talk { animation: none; } }

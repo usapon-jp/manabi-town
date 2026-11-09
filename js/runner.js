@@ -7,7 +7,7 @@ import { askAI, aiErrorText, aiLeft } from './ai.js';
 import { currentProfile, gradeLabel, updateProfile } from './store.js';
 
 const PRAISE = ['せいかい！', 'すごい！', 'やったね！', 'ばっちり！'];
-export const KYOKASHO = '"UD Digi Kyokasho N-R", "UD デジタル 教科書体 N-R", YuKyokasho, "Klee One", "Hiragino Mincho ProN", serif';
+export const KYOKASHO = '"UD Digi Kyokasho N-R", "UD デジタル 教科書体 N-R", YuKyokasho, "Klee One", "Hiragino Mincho ProN", "Noto Serif CJK JP", "Noto Serif JP", "Yu Mincho", "MS Mincho", serif';
 
 export function runQuestions(title, questions, onFinish, opts = {}) {
   const layer = document.getElementById('runner');
