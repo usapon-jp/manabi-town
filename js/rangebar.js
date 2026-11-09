@@ -126,10 +126,7 @@ export function rangeNeeds(p) {
       }
       // 覚える教科（理科・社会など）は 教科書・ワークの 範囲の 写真から 一問一答を 作る（フミオさん 2026-11-09）
       // 教科書の 一問一答（js/data/textbooks.js）が ある所は いらない。のこりの 所（rest）だけ おねがい
-      const tb = TEXT_BOOKS.find((b) => b.match.test(String(i.range || '')));
-      if (tb && !photosFor(p, i, name)) {
-        return tb.rest ? [{ item: i, kind: 'photo', text: `${name}の ${tb.rest}の 写真を 送ってね`, ask: `${name}の ${tb.rest}の 写真を 見せるね` }] : [];
-      }
+      if (TEXT_BOOKS.some((b) => b.match.test(String(i.range || '')))) return [];
       if (!/数学|算数|国語/.test(`${i.subject}${i.title}`) && !photosFor(p, i, name)) {
         return [{ item: i, kind: 'photo', text: `${name}の 教科書や 範囲の 写真を 送ってね`, ask: `${name}の 教科書の 範囲の 写真を 見せるね` }];
       }

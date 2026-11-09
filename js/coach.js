@@ -103,11 +103,11 @@ export function bookFor(p, x) {
   if (!p || p.grade === 'adult') return null;
   // 漢字の範囲 → 漢字ワーク、ほかの教科 → 教科書の 一問一答（js/data/textbooks.js）
   // 教科書の 一問一答は テスト前の 自動の範囲だけ（作戦会議で 写真から 作った範囲は その写真で）
-  const books = !x || isKanjiRange(x) ? KANJI_BOOKS : x.auto ? TEXT_BOOKS.filter((b) => b.subject.test(String(x.subject || ''))) : [];
+  const books = !x || isKanjiRange(x) ? KANJI_BOOKS : x.book ? TEXT_BOOKS.filter((b) => b.id === x.book) : [];
   return books.find((b) => bookTests(p, b).length) || null;
 }
 // テスト予定に 教科書の 一問一答が あるか（あれば 7日前を またずに 出す・写真の おねがいも しない）
-export const textBookFor = (i) => TEXT_BOOKS.find((b) => b.match.test(String(i.range || ''))) || null;
+export const textBooksFor = (i) => TEXT_BOOKS.filter((b) => b.match.test(String(i.range || '')));
 const bookCache = new Map();
 // 書きとりと えらぶ問題を 数の わりあいで まぜる（毎日 両方 出るように）
 function mixPools(write, pick) {
@@ -240,18 +240,21 @@ function testExtras(p, own) {
       const subject = subjName(i);
       const core = subjOf({ subject, topic: i.title });
       const k = core || subject;
-      const tb = !core && textBookFor({ ...i, subject });
-      // 教科書の 一問一答が ある教科は、作戦会議で 写真の範囲（歴史など）を 決めていても 足す
-      if (!k || (have.has(k) && !tb) || have.has(`${k}:tb`)) return;
-      if (tb) have.add(`${k}:tb`);
+      // 教科書の 一問一答（地理・歴史など）が ある教科は、本ごとに 14日前から 足す（作戦会議で 範囲を 決めていても）
+      const tbs = core ? [] : textBooksFor(i).filter((b) => b.subject.test(subject) && !have.has(`tb:${b.id}`));
+      tbs.forEach((b) => {
+        have.add(`tb:${b.id}`);
+        out.push({ subject, topic: b.title.slice(0, 60), until: i.date, size: b.qa.length, perDay: 3, book: b.id, photos: [], auto: true });
+      });
+      if (tbs.length) have.add(k);
+      if (!k || have.has(k)) return;
       const days = Math.max(1, daysUntil(i.date));
-      if (!core && !tb && days > OTHER_DAYS) return;
+      if (!core && days > OTHER_DAYS) return;
       have.add(k);
       out.push({
         subject, topic: `${i.title}${i.range ? ` ${rangeText(i.range, core)}` : ''}`.slice(0, 60), until: i.date,
         ...(core
           ? { size: AUTO_SIZE, perDay: Math.min(10, Math.max(3, Math.ceil((AUTO_SIZE * 3) / days))) }
-          : tb ? { size: tb.qa.length, perDay: 3 }
           : { size: OTHER_SIZE, perDay: 3, from: addDays(i.date, -OTHER_DAYS) }),
         photos: (p.photos || []).filter((m) => m.folder === i.id).map((m) => m.id).slice(-3), auto: true,
       });
