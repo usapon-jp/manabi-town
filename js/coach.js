@@ -536,7 +536,7 @@ export function openPlanChat(p, deps) {
     // 漢字の 出し方を 話したときだけ かえる（話さなければ 前のまま）
     if (profile.kanji) p.kanjiStyle = profile.kanji;
     // デイリーの話をしなかったときは 前の きまりを そのまま。作った一問一答も のこす
-    p.coach = { ...profile, daily, pools, misses: p.coach?.misses || [], checks: p.coach?.checks || [], at: today() };
+    p.coach = { ...profile, daily, pools, poolSrc: { ...(p.coach?.poolSrc || {}) }, misses: p.coach?.misses || [], checks: p.coach?.checks || [], at: today() };
     p.planChat = null;   // まとまったので 会話は おしまい（決まったことは p.coach に のこる）
     const imgs = ids.map((id) => pics.get(id)).filter(Boolean);
     if (activeExtras(p).length) ensurePools(p, imgs).then((ok) => toast(ok ? 'デイリーの 問題が できたよ！' : 'デイリーの 問題が うまく作れなかった…クエストを ひらくと もういちど 作るよ'));
