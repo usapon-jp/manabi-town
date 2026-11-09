@@ -84,7 +84,7 @@ function signpost() {
   const x = c.getContext('2d');
   x.fillStyle = '#fff3c9'; x.fillRect(0, 0, 512, 160);
   x.strokeStyle = '#c98f4a'; x.lineWidth = 14; x.strokeRect(7, 7, 498, 146);
-  x.fillStyle = '#6b4a2b'; x.font = 'bold 76px sans-serif'; x.textAlign = 'center'; x.textBaseline = 'middle';
+  x.fillStyle = '#6b4a2b'; x.lang = 'ja'; x.font = 'bold 76px "Hiragino Maru Gothic ProN", "Hiragino Sans", "Noto Sans JP", "Noto Sans CJK JP", "Yu Gothic", Meiryo, sans-serif'; x.textAlign = 'center'; x.textBaseline = 'middle';
   x.fillText('まなびタウン', 256, 84);
   const tex = new THREE.CanvasTexture(c);
   tex.colorSpace = THREE.SRGBColorSpace;

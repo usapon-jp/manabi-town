@@ -329,7 +329,7 @@ textarea { resize: vertical; }
 .model .cell:first-child { margin-left: 0; border-radius: 8px 0 0 8px; }
 .model .cell:last-child { border-radius: 0 8px 8px 0; }
 .model .cell:only-child { border-radius: 8px; }
-.model b { position: relative; font-family: "UD Digi Kyokasho N-R", "UD デジタル 教科書体 N-R", YuKyokasho, "Klee One", "Hiragino Mincho ProN", serif; font-weight: 500; font-size: min(22vw, 96px); line-height: 1; color: var(--navy); }
+.model b { position: relative; font-family: "UD Digi Kyokasho N-R", "UD デジタル 教科書体 N-R", YuKyokasho, "Klee One", "Hiragino Mincho ProN", "Noto Serif CJK JP", "Noto Serif JP", "Yu Mincho", "MS Mincho", serif; font-weight: 500; font-size: min(22vw, 96px); line-height: 1; color: var(--navy); }
 .write-frame { width: 100%; max-width: min(100%, calc(var(--n) * 190px)); margin: 0 auto; aspect-ratio: var(--n) / 1; border-radius: 6px; }
 .ink { display: block; width: 100%; height: 100%; touch-action: none; }
 .write-pad { border-radius: 6px; box-shadow: 0 0 0 3px var(--navy), 0 5px 0 3px var(--navy); }
