@@ -58,7 +58,7 @@ function cleanProfile(r) {
     daily: cleanDaily(r.daily),
     memo: String(r.memo || '').slice(0, 160),
     kanji: r.kanji === 'write' || r.kanji === 'both' ? r.kanji : '',
-    kanjiPick: r.kanjiPick === 'write' || r.kanjiPick === 'pick' ? r.kanjiPick : '',   // 同音異義語などを 書く / えらぶ   // 漢字の 出し方（書きとりだけ / 読みも）
+    kanjiPick: KANJI_PICKS.includes(r.kanjiPick) ? r.kanjiPick : '',   // 漢字ワークの 出し方（まぜる / 全部書く / 前半だけ / 後半だけ）
   };
 }
 
@@ -112,8 +112,9 @@ function mixPools(write, pick) {
   }
   return out;
 }
-function bookPool(b, allWrite = false) {
-  const ck = `${b.id}:${allWrite ? 'w' : 'm'}`;
+function bookPool(b, mode = 'pick') {
+  const ck = `${b.id}:${mode}`;
+  const allWrite = mode === 'write';
   if (!bookCache.has(ck)) {
     const hot = new Set(b.hot || []);
     const words = b.words.map((w, k) => ({ w, k })).sort((a, z) => Number(hot.has(z.w[3])) - Number(hot.has(a.w[3])) || a.k - z.k);
@@ -131,7 +132,10 @@ function bookPool(b, allWrite = false) {
       }
       return { q: `「${s.replace('＿', w)}」の「${r}」を漢字で書くと？`, options: [w, r], answer: 0, s, r, w, bk: b.id, page };
     });
-    bookCache.set(ck, mixPools(qs.filter((q) => !q.pick), qs.filter((q) => q.pick)));
+    // front: 前半（書きとりの ページ）だけ / back: 後半（同音異義語などの ページ）だけ
+    const back = (q) => b.choiceFrom && q.page >= b.choiceFrom;
+    const use = qs.filter((q) => (mode === 'front' ? !back(q) : mode === 'back' ? back(q) : true));
+    bookCache.set(ck, mixPools(use.filter((q) => !q.pick), use.filter((q) => q.pick)));
   }
   return bookCache.get(ck);
 }
@@ -144,7 +148,17 @@ function bookToday(p, x, b, key = today()) {
   const pool = poolOf(p, x);
   const seen = new Set(p.coach?.bookSeen?.[b.id] || []);
   const left = pool.filter((q) => !seen.has(bookKey(q)));
-  if (left.length) return left.slice(0, Math.min(BOOK_MAX, Math.ceil(left.length / bookDaysLeft(p, b))));
+  if (left.length) {
+    // 前半（書きとり）は のこりの 日数で わって テストまでに 1周（毎日 同じくらいの 数）。
+    // テストは 前半から 多く出るので、後半（同音異義語など）は 前半の 半分まで（フミオさん 2026-11-09「後半多めにしないで」）。
+    // 前半が おわったら 後半の のこりを 日数で わる
+    const days = bookDaysLeft(p, b);
+    const back = (q) => b.choiceFrom && q.page >= b.choiceFrom;
+    const fr = left.filter((q) => !back(q)); const bk = left.filter(back);
+    const nf = Math.ceil(fr.length / days);
+    const nb = Math.min(Math.ceil(bk.length / days), fr.length ? Math.ceil(nf / 2) : bk.length);
+    return mixPools(fr.slice(0, nf), bk.slice(0, nb)).slice(0, BOOK_MAX);
+  }
   const day = Math.floor(Date.parse(`${key}T00:00:00Z`) / 86400000);
   const n = Math.min(perDayOf(x), pool.length);
   const start = (day * n) % pool.length;
@@ -296,10 +310,13 @@ export function kanjiWriteOnly(p) {
   const c = p.coach || {};
   return WRITE_ONLY.test([c.memo, c.style, ...(c.plans || []).map((x) => `${x.subject} ${x.how}`)].join('\n'));
 }
-// 同訓異字・同音異義語を「えらぶ」(ふだん) か「書く」か。p.kanjiPick: 'pick' | 'write'（作戦会議 profile.kanjiPick・教科の へんしゅう）
-export const kanjiPickWrite = (p) => p?.kanjiPick === 'write';
+// 漢字ワーク（書きとりの 前半＋同訓異字・同音異義語の 後半）の 出し方。p.kanjiPick:
+// 'pick'（ふだん: 後半は えらぶ問題で まぜる）| 'write'（後半も 書く）| 'front'（前半だけ）| 'back'（後半だけ）
+// 作戦会議（profile.kanjiPick）か 教科の へんしゅうで きめる（フミオさん 2026-11-09）
+const KANJI_PICKS = ['pick', 'write', 'front', 'back'];
+export const kanjiPickMode = (p) => (KANJI_PICKS.includes(p?.kanjiPick) ? p.kanjiPick : 'pick');
 export function setKanjiPick(p, v) {
-  p.kanjiPick = v === 'write' ? 'write' : 'pick';
+  p.kanjiPick = KANJI_PICKS.includes(v) ? v : 'pick';
   save();
 }
 export function setKanjiStyle(p, style) {
@@ -346,7 +363,7 @@ function rawPool(p, x) {
   const c = p.coach;
   if (!c) return [];
   const b = bookFor(p, x);
-  if (b) return bookPool(b, kanjiPickWrite(p));   // 学校の ワークが あれば その ことばだけ
+  if (b) return bookPool(b, kanjiPickMode(p));   // 学校の ワークが あれば その ことばだけ
   const k = poolKey(x);
   const sig = poolSig(x);
   if ((c.poolSrc?.[k] ?? '') !== sig) {

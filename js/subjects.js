@@ -6,7 +6,7 @@
 import { h, toast } from './ui.js';
 import { SUBJECTS, save } from './store.js';
 import { icon } from './icons.js';
-import { kanjiWriteOnly, setKanjiStyle, kanjiPickWrite, setKanjiPick, bookFor } from './coach.js';
+import { kanjiWriteOnly, setKanjiStyle, kanjiPickMode, setKanjiPick, bookFor } from './coach.js';
 
 export const ADULT_DEFAULT = ['資格・勉強', '仕事', '健康', 'くらし', 'しゅみ', 'その他'];
 const KNOWN = {
@@ -61,19 +61,19 @@ function kanjiStyleRow(p) {
       h('button', { type: 'button', class: w ? 'on' : '', onclick: () => { setKanjiStyle(p, 'write'); draw(); toast('漢字は 書きとりだけ に したよ'); } }, '書きとりだけ'));
   };
   draw();
-  // 漢字ワークに 同音異義語などが あるときは それを えらぶ か 書く か
+  // 漢字ワーク（前半＝書きとり・後半＝同音異義語など）の 出し方
   const book = bookFor(p);
   let pickRow = null;
   if (book?.choiceFrom) {
-    const seg2 = h('div', { class: 'seg' });
+    const seg2 = h('div', { class: 'seg seg4' });
+    const modes = [['pick', 'まぜる'], ['write', '全部 書く'], ['front', '前半だけ'], ['back', '後半だけ']];
     const draw2 = () => {
-      const w = kanjiPickWrite(p);
-      seg2.replaceChildren(
-        h('button', { type: 'button', class: w ? '' : 'on', onclick: () => { setKanjiPick(p, 'pick'); draw2(); } }, 'えらぶ'),
-        h('button', { type: 'button', class: w ? 'on' : '', onclick: () => { setKanjiPick(p, 'write'); draw2(); toast('同音異義語も 書きとりに したよ'); } }, '書く'));
+      const m = kanjiPickMode(p);
+      seg2.replaceChildren(...modes.map(([v, label]) =>
+        h('button', { type: 'button', class: m === v ? 'on' : '', onclick: () => { setKanjiPick(p, v); draw2(); } }, label)));
     };
     draw2();
-    pickRow = [h('p', {}, ' 同音異義語・同訓異字'), seg2];
+    pickRow = [h('p', {}, ' 漢字ワーク（後半は 同音異義語）'), seg2];
   }
   return h('div', { class: 'subj-kanji' }, h('p', {}, icon('pen-line'), ' 漢字の 問題'), seg, ...(pickRow || []));
 }
