@@ -57,7 +57,8 @@ function cleanProfile(r) {
       .map((x) => ({ subject: String(x.subject).slice(0, 10), topic: String(x.topic).slice(0, 40) })),
     daily: cleanDaily(r.daily),
     memo: String(r.memo || '').slice(0, 160),
-    kanji: r.kanji === 'write' || r.kanji === 'both' ? r.kanji : '',   // 漢字の 出し方（書きとりだけ / 読みも）
+    kanji: r.kanji === 'write' || r.kanji === 'both' ? r.kanji : '',
+    kanjiPick: r.kanjiPick === 'write' || r.kanjiPick === 'pick' ? r.kanjiPick : '',   // 同音異義語などを 書く / えらぶ   // 漢字の 出し方（書きとりだけ / 読みも）
   };
 }
 
@@ -102,15 +103,37 @@ export function bookFor(p, x) {
   return KANJI_BOOKS.find((b) => bookTests(p, b).length) || null;
 }
 const bookCache = new Map();
-function bookPool(b) {
-  if (!bookCache.has(b.id)) {
+// 書きとりと えらぶ問題を 数の わりあいで まぜる（毎日 両方 出るように）
+function mixPools(write, pick) {
+  const out = []; let i = 0; let j = 0;
+  while (i < write.length || j < pick.length) {
+    if (j >= pick.length || (i < write.length && i * pick.length <= j * write.length)) out.push(write[i++]);
+    else out.push(pick[j++]);
+  }
+  return out;
+}
+function bookPool(b, allWrite = false) {
+  const ck = `${b.id}:${allWrite ? 'w' : 'm'}`;
+  if (!bookCache.has(ck)) {
     const hot = new Set(b.hot || []);
     const words = b.words.map((w, k) => ({ w, k })).sort((a, z) => Number(hot.has(z.w[3])) - Number(hot.has(a.w[3])) || a.k - z.k);
-    bookCache.set(b.id, words.map(({ w: [w, r, s, page] }) => ({
-      q: `「${s.replace('＿', w)}」の「${r}」を漢字で書くと？`, options: [w, r], answer: 0, s, r, w, bk: b.id, page,
-    })));
+    // 同訓異字・同音異義語（choiceFrom の ページから）は 同じ読みの ことばから えらぶ（フミオさん 2026-11-09「選択制でいい」）
+    const same = (r, page) => [...new Set(b.words.filter((x) => x[1] === r && x[3] === page).map((x) => x[0]))];
+    const qs = words.map(({ w: [w, r, s, page], k }) => {
+      if (!allWrite && b.choiceFrom && page >= b.choiceFrom) {
+        const opts = same(r, page).slice(0, 4);
+        if (!opts.includes(w)) opts[opts.length - 1] = w;
+        if (opts.length >= 2) {
+          const rot = k % opts.length;
+          const options = [...opts.slice(rot), ...opts.slice(0, rot)];
+          return { q: `「${s.replace('＿', `（${r}）`)}」の（${r}）は どの 漢字？`, options, answer: options.indexOf(w), s, r, w, bk: b.id, page, pick: true };
+        }
+      }
+      return { q: `「${s.replace('＿', w)}」の「${r}」を漢字で書くと？`, options: [w, r], answer: 0, s, r, w, bk: b.id, page };
+    });
+    bookCache.set(ck, mixPools(qs.filter((q) => !q.pick), qs.filter((q) => q.pick)));
   }
-  return bookCache.get(b.id);
+  return bookCache.get(ck);
 }
 const bookKey = (q) => `${q.w}|${q.s}`;
 const BOOK_MAX = 999; // テストまでに 全部1周（のこりを 日数で わる・フミオさん 2026-11-09）
@@ -135,7 +158,7 @@ export function perDayFor(p, x) {
 // デイリーで 答えた ワークの ことばを「出した」にする
 function markBookSeen(p, results) {
   const by = {};
-  results.forEach(({ q }) => { if (q?.bk && q.answerText && q.context) (by[q.bk] ||= []).push(`${q.answerText}|${q.context}`); });
+  results.forEach(({ q }) => { if (q?.bk && q.bkey) (by[q.bk] ||= []).push(q.bkey); });
   if (!Object.keys(by).length) return;
   const seen = p.coach.bookSeen || (p.coach.bookSeen = {});
   Object.entries(by).forEach(([id, keys]) => { seen[id] = [...new Set([...(seen[id] || []), ...keys])]; });
@@ -273,6 +296,12 @@ export function kanjiWriteOnly(p) {
   const c = p.coach || {};
   return WRITE_ONLY.test([c.memo, c.style, ...(c.plans || []).map((x) => `${x.subject} ${x.how}`)].join('\n'));
 }
+// 同訓異字・同音異義語を「えらぶ」(ふだん) か「書く」か。p.kanjiPick: 'pick' | 'write'（作戦会議 profile.kanjiPick・教科の へんしゅう）
+export const kanjiPickWrite = (p) => p?.kanjiPick === 'write';
+export function setKanjiPick(p, v) {
+  p.kanjiPick = v === 'write' ? 'write' : 'pick';
+  save();
+}
 export function setKanjiStyle(p, style) {
   p.kanjiStyle = style === 'write' ? 'write' : 'both';
   save();
@@ -294,8 +323,8 @@ export function dropKanjiReads(p, qs) {
 }
 
 // 範囲の 一問一答 → 出す 形（漢字の範囲は 書きとりに できれば 書きとり）
-export const rangeQ = (x, q) => ({ ...(isKanjiRange(x) && kanjiWrite(q) || { kind: 'choice', prompt: q.q, options: q.options, answer: q.answer }),
-  subject: x.subject, topic: x.topic, ...(q.bk ? { bk: q.bk } : {}) });
+export const rangeQ = (x, q) => ({ ...(isKanjiRange(x) && !q.pick && kanjiWrite(q) || { kind: 'choice', prompt: q.q, options: q.options, answer: q.answer }),
+  subject: x.subject, topic: x.topic, ...(q.bk ? { bk: q.bk, bkey: `${q.w}|${q.s}` } : {}) });
 
 export function uniqPool(x, pool) {
   if (!isKanjiRange(x)) return pool;
@@ -317,7 +346,7 @@ function rawPool(p, x) {
   const c = p.coach;
   if (!c) return [];
   const b = bookFor(p, x);
-  if (b) return bookPool(b);   // 学校の ワークが あれば その ことばだけ
+  if (b) return bookPool(b, kanjiPickWrite(p));   // 学校の ワークが あれば その ことばだけ
   const k = poolKey(x);
   const sig = poolSig(x);
   if ((c.poolSrc?.[k] ?? '') !== sig) {
@@ -619,6 +648,7 @@ export function openPlanChat(p, deps) {
     });
     // 漢字の 出し方を 話したときだけ かえる（話さなければ 前のまま）
     if (profile.kanji) p.kanjiStyle = profile.kanji;
+    if (profile.kanjiPick) p.kanjiPick = profile.kanjiPick;
     // デイリーの話をしなかったときは 前の きまりを そのまま。作った一問一答も のこす
     p.coach = { ...profile, daily, pools, poolSrc: { ...(p.coach?.poolSrc || {}) }, misses: p.coach?.misses || [], checks: p.coach?.checks || [], at: today() };
     p.planChat = null;   // まとまったので 会話は おしまい（決まったことは p.coach に のこる）

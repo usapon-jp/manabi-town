@@ -6,7 +6,7 @@
 import { h, toast } from './ui.js';
 import { SUBJECTS, save } from './store.js';
 import { icon } from './icons.js';
-import { kanjiWriteOnly, setKanjiStyle } from './coach.js';
+import { kanjiWriteOnly, setKanjiStyle, kanjiPickWrite, setKanjiPick, bookFor } from './coach.js';
 
 export const ADULT_DEFAULT = ['資格・勉強', '仕事', '健康', 'くらし', 'しゅみ', 'その他'];
 const KNOWN = {
@@ -61,7 +61,21 @@ function kanjiStyleRow(p) {
       h('button', { type: 'button', class: w ? 'on' : '', onclick: () => { setKanjiStyle(p, 'write'); draw(); toast('漢字は 書きとりだけ に したよ'); } }, '書きとりだけ'));
   };
   draw();
-  return h('div', { class: 'subj-kanji' }, h('p', {}, icon('pen-line'), ' 漢字の 問題'), seg);
+  // 漢字ワークに 同音異義語などが あるときは それを えらぶ か 書く か
+  const book = bookFor(p);
+  let pickRow = null;
+  if (book?.choiceFrom) {
+    const seg2 = h('div', { class: 'seg' });
+    const draw2 = () => {
+      const w = kanjiPickWrite(p);
+      seg2.replaceChildren(
+        h('button', { type: 'button', class: w ? '' : 'on', onclick: () => { setKanjiPick(p, 'pick'); draw2(); } }, 'えらぶ'),
+        h('button', { type: 'button', class: w ? 'on' : '', onclick: () => { setKanjiPick(p, 'write'); draw2(); toast('同音異義語も 書きとりに したよ'); } }, '書く'));
+    };
+    draw2();
+    pickRow = [h('p', {}, ' 同音異義語・同訓異字'), seg2];
+  }
+  return h('div', { class: 'subj-kanji' }, h('p', {}, icon('pen-line'), ' 漢字の 問題'), seg, ...(pickRow || []));
 }
 
 export function openSubjectEditor(p, onClose) {
