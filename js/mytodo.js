@@ -25,6 +25,7 @@ export function addMine(p, text) {
   if (!text) return false;
   // 同じ文字が もう あるときは 足さない
   if (mineToday(p).some((x) => x.text === text)) { toast('もう 入っているよ'); return false; }
+  p.mineHide = hidden(p).filter((x) => x !== text);
   const all = days(p);
   const key = today();
   // ふるい日は けす
@@ -60,6 +61,24 @@ export function toggleMine(p, id, { gain, addPoints }) {
   return pts;
 }
 
+// 名前を なおす
+export function renameMine(p, id, text) {
+  text = String(text || '').trim().slice(0, 40);
+  const t = mineToday(p).find((x) => x.id === id);
+  if (!t || !text) return false;
+  t.text = text;
+  save();
+  return true;
+}
+
+// 候補から けす（もう出さない文字）。同じ文字を 書いて たしたら また出る
+const hidden = (p) => (Array.isArray(p.mineHide) ? p.mineHide : (p.mineHide = []));
+export function hideCandidate(p, text) {
+  if (!hidden(p).includes(text)) hidden(p).push(text);
+  p.mineHide = hidden(p).slice(-60);
+  save();
+}
+
 // きのう まで にできなかったもの（同じ文字は1つ）
 export function leftovers(p) {
   const all = days(p);
@@ -68,7 +87,7 @@ export function leftovers(p) {
   const seen = new Set();
   return Object.keys(all).filter((k) => k < key).sort().reverse()
     .flatMap((k) => all[k].filter((t) => !t.done))
-    .filter((t) => !now.has(t.text) && !seen.has(t.text) && seen.add(t.text))
+    .filter((t) => !now.has(t.text) && !hidden(p).includes(t.text) && !seen.has(t.text) && seen.add(t.text))
     .slice(0, 5);
 }
 
@@ -78,9 +97,9 @@ function recent(p, kids) {
   const now = new Set(mineToday(p).map((t) => t.text));
   const seen = new Set();
   const out = Object.keys(all).sort().reverse().flatMap((k) => all[k].map((t) => t.text))
-    .filter((s) => !now.has(s) && !seen.has(s) && seen.add(s));
+    .filter((s) => !now.has(s) && !hidden(p).includes(s) && !seen.has(s) && seen.add(s));
   const presets = kids ? ['音読', 'あしたの じゅんび', '本を 読む', 'プリントを 出す'] : ['ストレッチ', 'メールの へんじ', '買いもの', '本を 読む'];
-  presets.forEach((s) => { if (!now.has(s) && !seen.has(s)) { seen.add(s); out.push(s); } });
+  presets.forEach((s) => { if (!now.has(s) && !hidden(p).includes(s) && !seen.has(s)) { seen.add(s); out.push(s); } });
   return out.slice(0, 6);
 }
 
@@ -89,6 +108,17 @@ export function mineAdder(p, { render, kids }) {
   const input = h('input', { class: 'mine-input', type: 'text', maxlength: 40, placeholder: kids ? 'やることを 書く（れい: 音読）' : 'やることを 書く', enterkeyhint: 'done' });
   const add = (text) => { if (addMine(p, text ?? input.value)) render({ keepAdder: true }); else input.focus(); };
   input.addEventListener('keydown', (e) => { if (e.key === 'Enter' && !e.isComposing) { e.preventDefault(); add(); } });
+  // 長おし(0.6秒)で「この候補を けす?」。みじかく押すと 入れる
+  const chip = (text, cls, kids2) => {
+    let timer = null, long = false;
+    const b = h('button', { class: cls, onclick: () => { if (long) { long = false; return; } add(text); } }, kids2);
+    const start = () => { long = false; clearTimeout(timer); timer = setTimeout(() => { long = true; if (confirm(`「${text}」を 候補から けす？`)) { hideCandidate(p, text); render({ keepAdder: true }); } }, 600); };
+    const stop = () => clearTimeout(timer);
+    b.addEventListener('pointerdown', start);
+    ['pointerup', 'pointerleave', 'pointercancel', 'pointermove'].forEach((ev) => b.addEventListener(ev, stop));
+    b.addEventListener('contextmenu', (e) => e.preventDefault());
+    return b;
+  };
   const left = leftovers(p);
   const chips = recent(p, kids).filter((s) => !left.some((t) => t.text === s));
   const done = mineToday(p).filter((t) => t.done).length;
@@ -99,8 +129,9 @@ export function mineAdder(p, { render, kids }) {
       h('button', { class: 'btn small primary mine-btn', 'aria-label': 'たす', onclick: () => add() }, icon('plus'))),
     left.length ? h('div', { class: 'mine-chips' },
       h('small', {}, 'きのうの のこり'),
-      left.map((t) => h('button', { class: 'mine-chip left', onclick: () => add(t.text) }, icon('repeat'), ` ${t.text}`))) : null,
-    chips.length ? h('div', { class: 'mine-chips' }, chips.map((s) => h('button', { class: 'mine-chip', onclick: () => add(s) }, `＋ ${s}`))) : null,
+      left.map((t) => chip(t.text, 'mine-chip left', [icon('repeat'), ` ${t.text}`]))) : null,
+    chips.length ? h('div', { class: 'mine-chips' }, chips.map((s) => chip(s, 'mine-chip', `＋ ${s}`))) : null,
+    left.length || chips.length ? h('small', { class: 'mine-hint' }, '候補は 長おしで けせるよ') : null,
     h('p', { class: 'mine-note' }, capped
       ? `${done}こ できた！ ポイントは きょうの分 いっぱい`
       : `できたら 1こ +${MINE_POINTS}（1日 ${MINE_DAY_CAP}まで）`));
