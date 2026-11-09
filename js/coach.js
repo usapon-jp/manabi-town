@@ -113,7 +113,7 @@ function bookPool(b) {
   return bookCache.get(b.id);
 }
 const bookKey = (q) => `${q.w}|${q.s}`;
-const BOOK_MAX = 40;   // 1日に 出す ワークの ことばは 40もんまで（よく出る ページから 先に）
+const BOOK_MAX = 999; // テストまでに 全部1周（のこりを 日数で わる・フミオさん 2026-11-09）
 // テストの前の日まで あと何日（きょうも 入れる）
 const bookDaysLeft = (p, b) => Math.max(1, Math.min(...bookTests(p, b).map((i) => daysUntil(i.date))));
 // きょう 出す ワークの ことば（まだ出していない ものから）。1周 おわったら perDay もんずつ 何周も
