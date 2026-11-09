@@ -74,7 +74,7 @@ export function openThinkingClassroom(profile = currentProfile()) {
     const at=Math.max(0,Math.min(11,next-start)),pos=STOPS[at];
     const marker=h('div',{class:'sb-marker',style:`left:${pos.x}%;top:${pos.y}%`,'aria-hidden':'true'},
       h('img',{src:'assets/brain/piyo.webp',alt:'',width:62,height:84}));
-    map.append(marker);illustration.append(map,h('i',{class:'sb-spine','aria-hidden':'true'}));
+    map.append(marker);illustration.append(map);
     const level=book.stamps.length||p.thinkingBook?book.level:/^(j[123]|adult)$/.test(p.grade)?2:1;
     const chooseLevel=h('select',{'aria-label':'問題のむずかしさ',onchange:e=>{
       const latest=readBook(live());if(commit({...latest,level:Number(e.target.value)}))drawMap();
@@ -88,10 +88,10 @@ export function openThinkingClassroom(profile = currentProfile()) {
     view.replaceChildren(h('section',{class:'sb-home'},
       h('div',{class:'sb-chapter-nav'},
         h('button',{type:'button',class:'sb-icon',disabled:page===0,'aria-label':'前のページ',onclick:()=>{page--;drawMap();}},icon('chevron-left')),
-        h('div',{},h('p',{class:'sb-eyebrow'},`PIYO'S LITTLE THINKING BOOK　／　${page+1}・3`),heading('h1',chapter.title),h('p',{class:'sb-sub'},chapter.sub)),
+        h('div',{},h('p',{class:'sb-eyebrow'},`第${page+1}章 ／ 全${CHAPTERS.length}章`),heading('h1',chapter.title),h('p',{class:'sb-sub'},chapter.sub)),
         h('button',{type:'button',class:'sb-icon',disabled:page===2||page>=maxPage,'aria-label':'次のページ',onclick:()=>{page++;drawMap();}},icon('chevron-right'))),
       illustration,
-      h('div',{class:'sb-side'},h('div',{class:'sb-story'},h('span',{class:'sb-leaf','aria-hidden':'true'},icon('sprout')),h('p',{},caption)),
+      h('div',{class:'sb-side'},h('div',{class:'sb-story'},caption.split('\n').map(line=>h('p',{},line))),
       h('div',{class:'sb-bottom'},
         h('div',{class:'sb-trail'},h('span',{},`きみの足あと　${next} / ${STAGES}`),h('span',{class:'sb-daily'},daily>=3?`今日の3問、できたね！${daily>3?`（${daily}問）`:''}`:`今日の目安　${daily} / 3問`)),
         h('div',{class:'sb-actions'},h('button',{type:'button',class:'btn primary sb-go',onclick:advance},!book.introduced?'絵本をひらく':unlockedNext?(daily>=3?'もう少し進む':'つづきから考える'):next>=start+12&&page<2?'次のページへ':'新しい手がかりで練習'),
