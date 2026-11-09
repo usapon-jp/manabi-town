@@ -15,6 +15,7 @@ import { pickPhoto } from './pickphoto.js';
 import { shrink } from './scan.js';
 import { openPhotos, addPhoto, getData, movePhoto } from './photos.js';
 import { KANJI_BOOKS } from './data/kanjibooks.js';
+import { TEXT_BOOKS } from './data/textbooks.js';
 
 export const PLAN_BONUS = 50;     // 作戦会議をさいごまでやった
 const CHECK_PER_CORRECT = 5;
@@ -99,9 +100,14 @@ function bookTests(p, b) {
   return (p.items || []).filter((i) => i.type === 'test' && !i.done && i.date >= t && b.match.test(String(i.range || '')));
 }
 export function bookFor(p, x) {
-  if (!p || p.grade === 'adult' || (x && !isKanjiRange(x))) return null;
-  return KANJI_BOOKS.find((b) => bookTests(p, b).length) || null;
+  if (!p || p.grade === 'adult') return null;
+  // 漢字の範囲 → 漢字ワーク、ほかの教科 → 教科書の 一問一答（js/data/textbooks.js）
+  // 教科書の 一問一答は テスト前の 自動の範囲だけ（作戦会議で 写真から 作った範囲は その写真で）
+  const books = !x || isKanjiRange(x) ? KANJI_BOOKS : x.auto ? TEXT_BOOKS.filter((b) => b.subject.test(String(x.subject || ''))) : [];
+  return books.find((b) => bookTests(p, b).length) || null;
 }
+// テスト予定に 教科書の 一問一答が あるか（あれば 7日前を またずに 出す・写真の おねがいも しない）
+export const textBookFor = (i) => TEXT_BOOKS.find((b) => b.match.test(String(i.range || ''))) || null;
 const bookCache = new Map();
 // 書きとりと えらぶ問題を 数の わりあいで まぜる（毎日 両方 出るように）
 function mixPools(write, pick) {
@@ -114,6 +120,18 @@ function mixPools(write, pick) {
 }
 function bookPool(b, mode = 'pick') {
   const ck = `${b.id}:${mode}`;
+  if (b.qa) {
+    // 教科書の 一問一答（4つから えらぶ。ならびは 問題ごとに かえる）
+    if (!bookCache.has(b.id)) {
+      bookCache.set(b.id, b.qa.map(([q, a, wrong, page], k) => {
+        const opts = [a, ...wrong];
+        const rot = k % opts.length;
+        const options = [...opts.slice(rot), ...opts.slice(0, rot)];
+        return { q, options, answer: options.indexOf(a), w: a, s: q, bk: b.id, page };
+      }));
+    }
+    return bookCache.get(b.id);
+  }
   const allWrite = mode === 'write';
   if (!bookCache.has(ck)) {
     const hot = new Set(b.hot || []);
@@ -222,14 +240,18 @@ function testExtras(p, own) {
       const subject = subjName(i);
       const core = subjOf({ subject, topic: i.title });
       const k = core || subject;
-      if (!k || have.has(k)) return;
+      const tb = !core && textBookFor({ ...i, subject });
+      // 教科書の 一問一答が ある教科は、作戦会議で 写真の範囲（歴史など）を 決めていても 足す
+      if (!k || (have.has(k) && !tb) || have.has(`${k}:tb`)) return;
+      if (tb) have.add(`${k}:tb`);
       const days = Math.max(1, daysUntil(i.date));
-      if (!core && days > OTHER_DAYS) return;
+      if (!core && !tb && days > OTHER_DAYS) return;
       have.add(k);
       out.push({
         subject, topic: `${i.title}${i.range ? ` ${rangeText(i.range, core)}` : ''}`.slice(0, 60), until: i.date,
         ...(core
           ? { size: AUTO_SIZE, perDay: Math.min(10, Math.max(3, Math.ceil((AUTO_SIZE * 3) / days))) }
+          : tb ? { size: tb.qa.length, perDay: 3 }
           : { size: OTHER_SIZE, perDay: 3, from: addDays(i.date, -OTHER_DAYS) }),
         photos: (p.photos || []).filter((m) => m.folder === i.id).map((m) => m.id).slice(-3), auto: true,
       });

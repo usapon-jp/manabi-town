@@ -7,6 +7,7 @@ import { subjectColor } from './subjects.js';
 import { icon } from './icons.js';
 import { isAdult } from './adult.js';
 import { KANJI_BOOKS } from './data/kanjibooks.js';
+import { TEXT_BOOKS } from './data/textbooks.js';
 
 const pct = (done, total) => (total ? Math.round((done / total) * 100) : 0);
 
@@ -108,7 +109,7 @@ export function rangePanel(p, deps = {}) {
 // - 範囲が 空 → 範囲を 入れてね
 // - 漢字の範囲が ページ番号だけで 写真が ない → 漢字の ページを 見せてね（中身が わからないと 範囲外の 漢字が 出る）
 const NEED_DAYS = 14;
-const hasPhotos = (p, i) => KANJI_BOOKS.some((b) => b.match.test(String(i.range || ''))) || (p.photos || []).some((m) => m.folder === i.id)
+const hasPhotos = (p, i) => [...KANJI_BOOKS, ...TEXT_BOOKS].some((b) => b.match.test(String(i.range || ''))) || (p.photos || []).some((m) => m.folder === i.id)
   || (p.coach?.daily?.extra || []).some((x) => (x.photos || []).length && (x.until === i.date || x.subject === i.subject) && /漢字|国語/.test(`${x.subject}${x.topic}`));
 // その テストの しりょうに 写真が あるか・作戦会議で その教科の 範囲に 写真を つけたか
 const photosFor = (p, i, name) => (p.photos || []).some((m) => m.folder === i.id)
@@ -124,6 +125,11 @@ export function rangeNeeds(p) {
         return [{ item: i, kind: 'photo', text: `${name}の 漢字の ページを 写真で 見せてね`, ask: `${name}の 漢字の範囲の ページの 写真を 見せるね` }];
       }
       // 覚える教科（理科・社会など）は 教科書・ワークの 範囲の 写真から 一問一答を 作る（フミオさん 2026-11-09）
+      // 教科書の 一問一答（js/data/textbooks.js）が ある所は いらない。のこりの 所（rest）だけ おねがい
+      const tb = TEXT_BOOKS.find((b) => b.match.test(String(i.range || '')));
+      if (tb && !photosFor(p, i, name)) {
+        return tb.rest ? [{ item: i, kind: 'photo', text: `${name}の ${tb.rest}の 写真を 送ってね`, ask: `${name}の ${tb.rest}の 写真を 見せるね` }] : [];
+      }
       if (!/数学|算数|国語/.test(`${i.subject}${i.title}`) && !photosFor(p, i, name)) {
         return [{ item: i, kind: 'photo', text: `${name}の 教科書や 範囲の 写真を 送ってね`, ask: `${name}の 教科書の 範囲の 写真を 見せるね` }];
       }
