@@ -64,3 +64,15 @@ export function openStory(story, { onDone } = {}) {
   voice.unlock();
   show();
 }
+
+// ながれ動画の 一覧（だれでも えらんで 見られる）。まちの 映画館・図書館の 入口からも これを よぶ。
+export function openStoryList() {
+  const close = () => el.remove();
+  const el = h('div', { class: 'sheet', onclick: (e) => { if (e.target === el) close(); } },
+    h('div', { class: 'sheet-card' },
+      h('h3', { class: 'sheet-title' }, 'ながれ動画'),
+      h('p', { class: 'sheet-sub' }, 'ピヨちゃんが 社会の 流れを ざっと 説明するよ'),
+      ...STORIES.map((s) => h('button', { type: 'button', class: 'btn', onclick: () => { close(); openStory(s); } }, `▶ ${s.title}`)),
+      h('button', { class: 'link', onclick: close }, 'とじる')));
+  document.body.append(el);
+}
