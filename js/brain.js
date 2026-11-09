@@ -204,6 +204,7 @@ export function openGame(p, game, deps) {
   const close = () => sheet.remove();
   const sheet = h('div', { class: 'sheet bz-sheet', onclick: (e) => { if (e.target === sheet) close(); } },
     h('div', { class: 'sheet-card bz-game-card' },
+      h('button', { class: 'bz-back', type: 'button', onclick: () => { close(); openBrain(p, deps); } }, icon('chevron-left'), h('span', {}, 'もどる')),
       h('p', { class: 'sheet-title' }, game.title),
       h('p', { class: 'sheet-sub' }, floorLabel(g.floor)),
       h('div', { class: 'bz-tower', html: towerSvg(g.floor) }),
@@ -211,7 +212,7 @@ export function openGame(p, game, deps) {
       g.best ? h('p', { class: 'bz-sub' }, `自己ベスト ${g.best}もん`) : null,
       h('button', { class: 'btn primary', onclick: () => { close(); play(p, game, deps, 'time'); } }, icon('timer'), ` ${game.time || 60}びょう チャレンジ`),
       h('button', { class: 'btn', onclick: () => { close(); play(p, game, deps, 'calm'); } }, `じっくり ${CALM_ROUND}もん`),
-      h('button', { class: 'link', type: 'button', onclick: () => { close(); openBrain(p, deps); } }, 'ほかの パズル')));
+      h('button', { class: 'link', type: 'button', onclick: close }, 'とじる')));
   document.body.append(sheet);
 }
 

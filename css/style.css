@@ -1776,6 +1776,9 @@ input.pin { font-size: 26px; letter-spacing: 0.5em; text-align: center; }
 .thinking-feedback{line-height:1.8;margin:12px 0;width:100%;text-align:left}
 .thinking-feedback .btn{margin-top:12px}
 .puzzle-btn .ic { color: #5c7a3e; }
+.bz-back { all: unset; box-sizing: border-box; cursor: pointer; justify-self: start; display: inline-flex; align-items: center; gap: 2px; height: 40px; padding: 0 14px 0 8px; border-radius: 20px; background: #fff; border: 1.5px solid var(--line); box-shadow: var(--soft); color: var(--navy); font-weight: 700; font-size: 15px; -webkit-tap-highlight-color: transparent; }
+.bz-back .ic { width: 22px; height: 22px; }
+.bz-back:active { transform: scale(0.95); }
 .notify-card .due-notify { display: flex; flex-direction: column; gap: 6px; margin: 8px 0; align-items: flex-start; }
 .notify-card .due-notify label.row { display: flex; flex-direction: row; align-items: center; gap: 8px; margin: 0; }
 .notify-card .due-notify input[type="time"] { width: auto; flex: none; font: inherit; padding: 6px 10px; border: 1.5px solid var(--line); border-radius: 10px; background: #fff; }
