@@ -1698,6 +1698,7 @@ input.pin { font-size: 26px; letter-spacing: 0.5em; text-align: center; }
 .bz-fig { display: grid; justify-items: center; gap: 6px; padding: 16px 12px; }
 .bz-fig svg { display: block; margin: 0 auto; }
 .bz-note { margin: 4px 0 0; font-size: 15px; font-weight: 700; color: #4f86a8; }
+.bz-tip { margin: 6px 0 10px; font-size: 14px; color: var(--ink-soft, #8a7a66); text-align: center; }
 .bz-opts { display: grid; gap: 12px; }
 .bz-opts.cols-2 { grid-template-columns: 1fr 1fr; }
 .bz-opts.cols-3 { grid-template-columns: 1fr 1fr 1fr; }
@@ -1837,3 +1838,5 @@ input.pin { font-size: 26px; letter-spacing: 0.5em; text-align: center; }
 .tabs button { position: relative; }
 .tab-badge { position: absolute; top: 2px; left: 50%; margin-left: 6px; min-width: 18px; height: 18px; padding: 0 5px; box-sizing: border-box; border-radius: 9px; background: #e5604d; color: #fff; font-style: normal; font-size: 11px; font-weight: 700; line-height: 18px; text-align: center; border: 1.5px solid #fff; pointer-events: none; }
 .tab-badge.inline { position: static; display: inline-block; margin-left: 8px; vertical-align: 1px; }
+.bz-3d{padding:8px 12px}
+.bz-cutbtn{all:unset;box-sizing:border-box;cursor:pointer;padding:8px 20px;border-radius:20px;background:#fff;border:1.5px solid var(--line);box-shadow:var(--soft);font-weight:700;font-size:15px;color:var(--navy)}
