@@ -8,6 +8,7 @@ import { icon } from './icons.js';
 import { isAdult } from './adult.js';
 import { KANJI_BOOKS } from './data/kanjibooks.js';
 import { TEXT_BOOKS } from './data/textbooks.js';
+import { storyFor, openStory } from './story.js';
 
 const pct = (done, total) => (total ? Math.round((done / total) * 100) : 0);
 
@@ -91,6 +92,11 @@ export function rangePanel(p, deps = {}) {
         h('ol', { class: 'range-steps' }, x.steps.map((s, i) => h('li', { class: i < x.done ? 'on' : i === x.done ? 'now' : '' },
           h('span', { class: 'mark', style: i < x.done ? `background:${color};border-color:${color}` : '' }, i < x.done ? icon('check') : String(i + 1)),
           h('span', {}, s)))),
+        (() => { // 社会の ながれ動画（教科書の 範囲に 合う所だけ）
+          const book = TEXT_BOOKS.find((b) => b.match.test(String(x.item.range || '')));
+          const st = book && storyFor(book.id);
+          return st ? h('button', { class: 'btn small', onclick: () => openStory(st, { onDone: () => deps.onStart?.() }) }, '▶ ながれを 見る') : null;
+        })(),
         deps.finish && daysUntil(x.item.date) <= 0 ? h('button', { class: 'btn small primary', onclick: () => deps.finish(x.item) }, 'おわった！') : null,
         next && deps.startStep ? h('button', { class: 'btn small', onclick: () => { deps.onStart?.(); deps.startStep(x.item, next); } },
           icon('clock-3'), ' つぎを タイマーで はじめる') : null));
