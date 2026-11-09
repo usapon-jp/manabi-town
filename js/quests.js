@@ -63,12 +63,14 @@ function englishSet(pairs, rand, total, spells) {
 }
 
 // base: 入れる教科（作戦会議で きめる）。乱数の順番を かえないよう、作ってから えらぶ
-export function buildDaily(bucket, seed, base = ['kanji', 'english', 'math'], rand = seededRandom(seed)) {
+// opts.writeOnly: 漢字は 書きとりだけ（読みを 出さない。作戦会議や 教科の へんしゅうで きめる）
+export function buildDaily(bucket, seed, base = ['kanji', 'english', 'math'], rand = seededRandom(seed), opts = {}) {
   // 漢字は 書き2もん＋読み1もん。書きはノートに書いて、お手本を見て自分で答え合わせ
   const picked = shuffle(KANJI[bucket], rand);
-  const writes = picked.slice(0, PER_SUBJECT - 1).map(kanjiWrite);
-  const rest = picked.slice(PER_SUBJECT - 1);
-  const reads = choiceFromPairs(rest, rand, 1, kanjiRead);
+  const nw = opts.writeOnly ? PER_SUBJECT : PER_SUBJECT - 1;
+  const writes = picked.slice(0, nw).map(kanjiWrite);
+  const rest = picked.slice(nw);
+  const reads = opts.writeOnly ? [] : choiceFromPairs(rest, rand, 1, kanjiRead);
   const kanji = [...writes, ...reads];
   const english = englishSet(ENGLISH[bucket], rand, PER_SUBJECT, 1);
   const math = Array.from({ length: PER_SUBJECT }, () => mathQuestion(bucket, rand));
@@ -83,9 +85,10 @@ export const DRILLS = [
 ];
 export const DRILL_COUNT = 5;
 
-export function buildDrill(id, bucket, seed, rand = seededRandom(`drill:${id}:${seed}`)) {
+export function buildDrill(id, bucket, seed, rand = seededRandom(`drill:${id}:${seed}`), opts = {}) {
   if (id === 'kanji') {
     const picked = shuffle(KANJI[bucket], rand);
+    if (opts.writeOnly) return picked.slice(0, DRILL_COUNT).map(kanjiWrite);
     const writes = picked.slice(0, 3).map(kanjiWrite);
     const reads = choiceFromPairs(picked.slice(3), rand, DRILL_COUNT - 3, kanjiRead);
     return [...writes, ...reads];

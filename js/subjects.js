@@ -6,6 +6,7 @@
 import { h, toast } from './ui.js';
 import { SUBJECTS, save } from './store.js';
 import { icon } from './icons.js';
+import { kanjiWriteOnly, setKanjiStyle } from './coach.js';
 
 export const ADULT_DEFAULT = ['資格・勉強', '仕事', '健康', 'くらし', 'しゅみ', 'その他'];
 const KNOWN = {
@@ -48,6 +49,19 @@ function renameRecords(p, from, to) {
 
 export function editSubjectsLink(p, onChange) {
   return h('button', { type: 'button', class: 'link subj-edit', onclick: () => openSubjectEditor(p, onChange) }, icon('pencil'), ' へんしゅう');
+}
+
+// 漢字の 問題の 出し方（テストが 書きとりだけなら 読みを 出さない）。作戦会議で 言っても かわる
+function kanjiStyleRow(p) {
+  const seg = h('div', { class: 'seg' });
+  const draw = () => {
+    const w = kanjiWriteOnly(p);
+    seg.replaceChildren(
+      h('button', { type: 'button', class: w ? '' : 'on', onclick: () => { setKanjiStyle(p, 'both'); draw(); } }, '書きとりと 読み'),
+      h('button', { type: 'button', class: w ? 'on' : '', onclick: () => { setKanjiStyle(p, 'write'); draw(); toast('漢字は 書きとりだけ に したよ'); } }, '書きとりだけ'));
+  };
+  draw();
+  return h('div', { class: 'subj-kanji' }, h('p', {}, icon('pen-line'), ' 漢字の 問題'), seg);
 }
 
 export function openSubjectEditor(p, onClose) {
@@ -109,6 +123,7 @@ export function openSubjectEditor(p, onClose) {
       h('p', { class: 'sheet-title' }, icon('pencil'), ` ${word}`),
       h('ul', { class: 'subj-list' }, list.map(row)),
       h('div', { class: 'subj-add' }, add, h('button', { type: 'button', class: 'btn small primary', onclick: doAdd }, icon('plus'), ' ついか')),
+      isAdult(p) ? null : kanjiStyleRow(p),
       h('button', { class: 'btn primary', onclick: () => { document.activeElement?.blur?.(); close(); } }, 'できた'),
       edited(p) ? h('button', { class: 'link', onclick: () => {
         if (!confirm('はじめの ならびに もどす？')) return;

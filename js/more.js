@@ -11,7 +11,7 @@ import { runQuestions } from './runner.js';
 import { recordResults } from './review.js';
 import { isAdult } from './adult.js';
 import { icon } from './icons.js';
-import { uniqPool, activeExtras, ensurePools, poolKey, isKanjiRange, kanjiWrite, rangeFor, rangeDrill } from './coach.js';
+import { activeExtras, ensurePools, poolOf, rangeQ, isKanjiRange, rangeFor, rangeDrill, kanjiWriteOnly } from './coach.js';
 
 export const MORE_PER_CORRECT = 2;
 export const MORE_DAY_CAP = 40;
@@ -40,10 +40,10 @@ export function practicePoints(p, score, total, label, deps) {
 
 export const moreStats = (p) => ({ ...dayLog(p), left: Math.max(0, MORE_DAY_CAP - dayLog(p).pts) });
 
-function poolQuestions(pool, rand) {
-  return shuffle(uniqPool(pool, pool.qs.filter((q) => q && q.q && Array.isArray(q.options))), rand).slice(0, ROUND)
-    .map((q) => ({ ...(isKanjiRange(pool) && kanjiWrite(q) || { kind: 'choice', prompt: q.q, options: q.options, answer: q.answer }),
-      subject: pool.subject, topic: pool.topic, test: true }));
+// 範囲の問題（同じ ことばは 1回・書きとりだけの 人には 読みを のぞいた もの）
+function poolQuestions(p, x, rand) {
+  return shuffle(poolOf(p, x).filter((q) => q && q.q && Array.isArray(q.options)), rand).slice(0, ROUND)
+    .map((q) => ({ ...rangeQ(x, q), test: true }));
 }
 
 const mathLabel = (p) => (gradeBucket(p) === 'j' ? '数学' : '算数');
@@ -72,7 +72,7 @@ export function openMore(p, deps) {
   };
   const seed = () => `${p.id}:${today()}:more:${dayLog(p).rounds}:${Date.now() % 100000}`;
   // テスト前は 漢字・英単語・計算も テスト範囲から（範囲が ない教科だけ 学年の問題）
-  const local = (id) => () => { const x = rangeFor(p, id); return x ? rangeDrill(p, x, ROUND, seed()) : buildDrill(id, gradeBucket(p), seed()); };
+  const local = (id) => () => { const x = rangeFor(p, id); return x ? rangeDrill(p, x, ROUND, seed()) : buildDrill(id, gradeBucket(p), seed(), undefined, { writeOnly: kanjiWriteOnly(p) }); };
   const tileSub = (id, sub) => (rangeFor(p, id) ? 'テスト範囲' : sub);
 
   const opt = (ic, title, sub, onclick, cls = '') => h('button', { type: 'button', class: `piyo-opt ${cls}`, onclick },
@@ -81,9 +81,8 @@ export function openMore(p, deps) {
   // テスト範囲（いま有効な 範囲だけ。問題が まだ なければ ここで 作る）を いちばん上に
   const ranges = activeExtras(p);
   const rangeQs = (x) => async () => {
-    if (!((p.coach?.pools || {})[poolKey(x)] || []).length) { toast('ピヨ先生が 範囲の問題を作り中…', 8000); await ensurePools(p); }
-    const pool = { subject: x.subject, topic: x.topic, qs: (p.coach?.pools || {})[poolKey(x)] || [] };
-    return poolQuestions(pool, seededRandom(seed()));
+    if (!poolOf(p, x).length) { toast('ピヨ先生が 範囲の問題を作り中…', 8000); await ensurePools(p); }
+    return poolQuestions(p, x, seededRandom(seed()));
   };
   const aiSubjects = deps.aiSubjects ? deps.aiSubjects(p) : [];
   const aiPick = h('select', { class: 'more-subj', 'aria-label': '教科' }, aiSubjects.map((s) => h('option', { value: s }, s)));
@@ -96,7 +95,7 @@ export function openMore(p, deps) {
       ...ranges.map((x) => opt('target', isKanjiRange(x) ? '漢字・国語' : `${x.subject}`, x.topic, () => start(`${x.subject} テスト範囲`, rangeQs(x)), 'range')),
       ranges.length ? h('p', { class: 'more-sec' }, 'ふだんの れんしゅう') : null,
       h('div', { class: 'more-grid' },
-        opt('pen-line', '漢字', tileSub('kanji', '書く・読む'), () => start('漢字', local('kanji'))),
+        opt('pen-line', '漢字', tileSub('kanji', kanjiWriteOnly(p) ? '書きとり' : '書く・読む'), () => start('漢字', local('kanji'))),
         opt('languages', '英単語', tileSub('english', 'つづり・いみ'), () => start('英単語', local('english'))),
         opt('calculator', mathLabel(p), tileSub('math', 'けいさん'), () => start(mathLabel(p), local('math')))),
 

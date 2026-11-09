@@ -11,7 +11,7 @@ import { isAdult } from './adult.js';
 // おとなには 子ども用のドリルを出さない
 const drillsFor = (p) => (isAdult(p) ? [] : ALL_DRILLS);
 import { runQuestions } from './runner.js';
-import { rangeFor, rangeDrill } from './coach.js';
+import { rangeFor, rangeDrill, kanjiWriteOnly } from './coach.js';
 import { buildSteps } from './planner.js';
 import { levelOf, streak, week } from './progress.js';
 import { minutesOn, sessions } from './timer.js';
@@ -174,7 +174,7 @@ export async function startDrill(p, d, deps) {
   const key = `drill:${d.id}`;
   // テスト前は テスト範囲から（範囲の問題が 作れなかったときも 学年の問題には しない）
   const range = rangeFor(p, d.id);
-  const qs = range ? await rangeDrill(p, range, 5, `${p.id}:${today()}:drill`) : buildDrill(d.id, gradeBucket(p), `${p.id}:${today()}`);
+  const qs = range ? await rangeDrill(p, range, 5, `${p.id}:${today()}:drill`) : buildDrill(d.id, gradeBucket(p), `${p.id}:${today()}`, undefined, { writeOnly: kanjiWriteOnly(p) });
   if (!qs.length) { toast('テスト範囲の 問題が まだ 作れなかった…インターネットを たしかめて もういちど おしてね', 5000); return; }
   runQuestions(range ? `${d.label}（テスト範囲）` : d.label, qs, (score, total, results) => {
     recordResults(p, results, d.label);

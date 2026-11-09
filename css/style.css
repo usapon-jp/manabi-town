@@ -1372,6 +1372,8 @@ input.pin { font-size: 26px; letter-spacing: 0.5em; text-align: center; }
 .subj-add { display: flex; gap: 8px; align-items: center; }
 .subj-add input { border-color: var(--line); background: #fffdf7; }
 .subj-card .subj-add .btn { width: auto; flex-shrink: 0; padding: 8px 14px; font-size: 15px; border-radius: 14px; }
+.subj-kanji { display: grid; gap: 4px; margin-top: 4px; }
+.subj-kanji p { margin: 0; font-size: 14px; color: var(--navy); }
 .subj-preview { display: flex; flex-wrap: wrap; gap: 6px; }
 .subj-preview .chip { color: #fff; }
 @media (max-width: 360px) {

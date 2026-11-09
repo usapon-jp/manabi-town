@@ -27,7 +27,7 @@ import { recordResults, dueReview, startReview, reviewStats, REVIEW_PER_CORRECT,
 import { openTestEntry, openWeak, startWeak, testHistory } from './tests.js';
 import { startSync } from './sync.js';
 import { syncCard, openLogin, openPicker, askPin, pinField, pinFor } from './account.js';
-import { openPlanChat, startCheck, summary as planSummary, PLAN_BONUS, dailyBase, extraQuestions, dailyLabel, activeExtras, stockMisses, missWork, daysToTest, ensurePool, hasPool, isKanjiRange, isTestRange, poolKey } from './coach.js';
+import { openPlanChat, startCheck, summary as planSummary, PLAN_BONUS, dailyBase, extraQuestions, dailyLabel, activeExtras, stockMisses, missWork, daysToTest, ensurePool, hasPool, isKanjiRange, isTestRange, poolKey, kanjiWriteOnly, dropKanjiReads } from './coach.js';
 import { startNotify, notifyCard } from './notify.js';
 import { isAdult, todayRoutines, checkRoutine, renderRoutineTab, consultCta, openConsult, ROUTINE_POINTS } from './adult.js';
 import { subjectNames, subjectColor, openSubjectEditor } from './subjects.js';
@@ -732,15 +732,15 @@ const nextPart = (p) => { if (p.daily[today()]) return null; const done = partsD
 // パーツの 問題をそろえる（範囲の 問題が まだなら その教科だけ 作る。漢字が 作れなければ 学年の 漢字で）
 async function partQuestions(p, part) {
   const key = today();
-  if (!part.x) return { qs: buildDaily(gradeBucket(p), `${p.id}:${key}:${part.id}`, [part.core]), again: [] };
+  if (!part.x) return { qs: buildDaily(gradeBucket(p), `${p.id}:${key}:${part.id}`, [part.core], undefined, { writeOnly: kanjiWriteOnly(p) }), again: [] };
   if (!hasPool(p, part.x)) {
     toast(`${part.label}の 問題を 作り中…`, 8000);
     await ensurePool(p, part.x);
   } else ensurePool(p, part.x);   // とちゅうまでしか 作れていない 範囲は、うしろで つづきを 作る（いまある 問題で すぐ はじめる）
   // 同じ topic の 範囲が ほかの教科にも あるときに まざらないよう、教科も くらべる
   const mine = (q) => q.topic === part.x.topic && (!q.subject || q.subject === part.x.subject);
-  const again = dueForTopics(p, [part.x.topic]).filter(mine);
-  const fresh = extraQuestions(p, key).filter((q) => mine(q) && !again.some((a) => a.prompt === q.prompt && a.big === q.big));
+  const again = dropKanjiReads(p, dueForTopics(p, [part.x.topic]).filter(mine));
+  const fresh = dropKanjiReads(p, extraQuestions(p, key)).filter((q) => mine(q) && !again.some((a) => a.prompt === q.prompt && a.big === q.big));
   if (!fresh.length && !again.length) {
     return null;   // 範囲の問題が 作れなかったときも 学年の問題には しない（テスト前に 範囲外が 出ないように）
   }

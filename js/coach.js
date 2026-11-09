@@ -37,6 +37,10 @@ export function coachText(c) {
     c.memo && `メモ: ${c.memo}`,
   ].filter(Boolean).join('\n');
 }
+// 先生にわたす メモ（漢字の 出し方も。教科の へんしゅうで かえたときも 伝わるように）
+function profileText(p) {
+  return [coachText(p.coach), kanjiWriteOnly(p) && '漢字の出し方: 書きとりだけ（読みの問題は出さない）'].filter(Boolean).join('\n');
+}
 
 const arr = (v, n = 6) => (Array.isArray(v) ? v.filter((x) => typeof x === 'string' && x).slice(0, n) : []);
 
@@ -52,6 +56,7 @@ function cleanProfile(r) {
       .map((x) => ({ subject: String(x.subject).slice(0, 10), topic: String(x.topic).slice(0, 40) })),
     daily: cleanDaily(r.daily),
     memo: String(r.memo || '').slice(0, 160),
+    kanji: r.kanji === 'write' || r.kanji === 'both' ? r.kanji : '',   // 漢字の 出し方（書きとりだけ / 読みも）
   };
 }
 
@@ -197,6 +202,41 @@ export function kanjiWrite(q) {
   return { kind: 'write', prompt: 'かんじで 書けるかな？', big: reading, answerText: word, context: sentence.replace(term, '＿'), selfCheck: true };
 }
 
+// ---- 漢字は「書きとりだけ」 ----------------------------------------------
+// 長女 2026-11-09「漢字は 書き取りしか 出ないから 読みは 出さないで」と 作戦会議で 言ったのに 読みが 出た
+// p.kanjiStyle: 'write'（書きとりだけ）| 'both'（読みも）。作戦会議（profile.kanji）か 教科の へんしゅうで きめる。
+// まだ きめていなければ、作戦会議の メモ・進め方の ことばから よみとる（前の会議で 言っていた ときも 効くように）
+const WRITE_ONLY = /(書き取り|書きとり|かきとり)(だけ|のみ|しか)|(読み|よみ)[^。]{0,8}(出さない|ださない|出さず|いらない|なし|出ない|でない|出ません|でません)/;
+export function kanjiWriteOnly(p) {
+  if (!p || p.grade === 'adult') return false;
+  if (p.kanjiStyle) return p.kanjiStyle === 'write';
+  const c = p.coach || {};
+  return WRITE_ONLY.test([c.memo, c.style, ...(c.plans || []).map((x) => `${x.subject} ${x.how}`)].join('\n'));
+}
+export function setKanjiStyle(p, style) {
+  p.kanjiStyle = style === 'write' ? 'write' : 'both';
+  save();
+}
+// 読みを 聞く 問題（「よみかたは？」・漢字を見せて ひらがなを えらぶ）
+const READ_ASK = /よみかた|読み方|(読み|よみ)(は|を|が|として)|なんと読|何と読|どう読/;
+const QUOTED_KANJI = /[「『][^」』]*[一-龯々][^」』]*[」』]/;
+export function isKanjiRead(q) {
+  if (!q || q.kind !== 'choice') return false;
+  const pr = String(q.prompt || '');
+  if (/(漢字|かんじ)で/.test(pr)) return false;   // 「…を漢字で書くと？」は 書きの問題
+  if (READ_ASK.test(pr)) return true;
+  const opts = (q.options || []).map((o) => String(o).trim());
+  return opts.length > 0 && opts.every((o) => KANA.test(o)) && (HAS_KANJI.test(q.big || '') || QUOTED_KANJI.test(pr));
+}
+// 書きとりだけの 人には 漢字の 読みの問題を 出さない（デイリー・れんしゅう・見直し どこでも）
+export function dropKanjiReads(p, qs) {
+  return kanjiWriteOnly(p) ? qs.filter((q) => !(isKanjiRead(q) && (/漢字|国語/.test(q.subject || '') || q.kind === 'choice' && q.prompt === 'よみかたは？'))) : qs;
+}
+
+// 範囲の 一問一答 → 出す 形（漢字の範囲は 書きとりに できれば 書きとり）
+export const rangeQ = (x, q) => ({ ...(isKanjiRange(x) && kanjiWrite(q) || { kind: 'choice', prompt: q.q, options: q.options, answer: q.answer }),
+  subject: x.subject, topic: x.topic });
+
 export function uniqPool(x, pool) {
   if (!isKanjiRange(x)) return pool;
   const seen = new Set();
@@ -207,7 +247,30 @@ export function uniqPool(x, pool) {
     return true;
   });
 }
-const poolOf = (p, x) => uniqPool(x, (p.coach?.pools || {})[poolKey(x)] || []);
+// 書きとりだけの 人の 漢字の範囲は、読みの問題を のぞいて 数える（たりなければ 書きの問題を 作りたす）
+const writeOnlyRange = (p, x) => isKanjiRange(x) && kanjiWriteOnly(p);
+// 作った 一問一答の もと（しりょうの写真・作り方）。かわったら 作りなおす
+// k2: 2026-11-09 漢字の範囲を 作りなおす（「級別漢字 P96〜」の ページ番号だけで 作っていて、小学校の漢字「質問」などが まざっていた）
+const KANJI_POOL_V = 'k2';
+const poolSig = (x) => [isKanjiRange(x) ? KANJI_POOL_V : '', ...(x.photos || [])].filter(Boolean).join('|');
+function rawPool(p, x) {
+  const c = p.coach;
+  if (!c) return [];
+  const k = poolKey(x);
+  const sig = poolSig(x);
+  if ((c.poolSrc?.[k] ?? '') !== sig) {
+    // テストの しりょうに 写真を 足した・作り方が かわった 範囲は、前の問題を すてて 作りなおす
+    if (c.pools?.[k]) { c.pools = { ...c.pools }; delete c.pools[k]; }
+    c.poolSrc = { ...(c.poolSrc || {}), [k]: sig };
+    save();
+  }
+  return (c.pools || {})[k] || [];
+}
+export const poolOf = (p, x) => {
+  // 読みを のぞいてから 同じ ことばを まとめる（読みの問題に 書きの問題が けされないように）
+  const pool = rawPool(p, x);
+  return uniqPool(x, writeOnlyRange(p, x) ? pool.filter((q) => !isKanjiRead(rangeQ(x, q))) : pool);
+};
 
 const okQ = (q) => q && q.q && Array.isArray(q.options) && q.options.length >= 2 && Number.isInteger(q.answer) && q.answer >= 0 && q.answer < q.options.length;
 
@@ -227,8 +290,9 @@ async function fillPool(p, x, images = []) {
     const have = poolOf(p, x);
     const need = sizeOf(x) - have.length;
     if (need <= 0) return true;
-    const r = await askAI({ action: 'quiz', pool: true, kanji: isKanjiRange(x), subject: x.subject, grade: gradeLabel(p), topic: x.topic, count: Math.min(CHUNK, need),
-      avoid: ((isKanjiRange(x) ? '（漢字は 1つの ことばを 1回だけ。範囲の いろいろな ことばから。下の ことばは もう使わない）\n' : '') + have.map((q) => q.q).join('\n')).slice(0, 2500), ...(images.length ? { images: images.slice(0, 3) } : {}) }, { timeout: 90000 });
+    const r = await askAI({ action: 'quiz', pool: true, kanji: isKanjiRange(x), ...(writeOnlyRange(p, x) ? { writeOnly: true } : {}), subject: x.subject, grade: gradeLabel(p), topic: x.topic, count: Math.min(CHUNK, need),
+      avoid: ((isKanjiRange(x) ? '（漢字は 1つの ことばを 1回だけ。範囲の いろいろな ことばから。下の ことばは もう使わない）\n' : '') +
+        (writeOnlyRange(p, x) ? '（テストは 書きとりだけ。読みを 聞く問題は 作らない。ぜんぶ 例文の よみを 漢字で書く問題に）\n' : '') + have.map((q) => q.q).join('\n')).slice(0, 2500), ...(images.length ? { images: images.slice(0, 3) } : {}) }, { timeout: 90000 });
     const seen = new Set(have.map((q) => q.q));
     const qs = (r.questions || []).filter(okQ)
       .map((q) => ({ q: String(q.q).slice(0, 200), options: q.options.slice(0, 4).map((o) => String(o).slice(0, 60)), answer: q.answer,
@@ -272,8 +336,7 @@ export const rangeFor = (p, core) => (p?.grade === 'adult' ? null : activeExtras
 export async function rangeDrill(p, x, n, seedText) {
   if (!hasPool(p, x)) { toast('ピヨ先生が テスト範囲の問題を 作り中…', 8000); await ensurePool(p, x); }
   return shuffle(poolOf(p, x), seededRandom(seedText)).slice(0, n)
-    .map((q) => ({ ...(isKanjiRange(x) && kanjiWrite(q) || { kind: 'choice', prompt: q.q, options: q.options, answer: q.answer }),
-      subject: x.subject, topic: x.topic, test: true }));
+    .map((q) => ({ ...rangeQ(x, q), test: true }));
 }
 
 // きょうの extra の問題。日にちで perDay もんずつ ずらして、ぜんぶ出たら また はじめから（何周も）
@@ -288,8 +351,7 @@ export function extraQuestions(p, key = today()) {
     const n = Math.min(perDayOf(x), pool.length);
     const start = (day * n) % pool.length;
     return Array.from({ length: n }, (_, i) => pool[(start + i) % pool.length])
-      .map((q) => ({ ...(isKanjiRange(x) && kanjiWrite(q) || { kind: 'choice', prompt: q.q, options: q.options, answer: q.answer }),
-        subject: x.subject, topic: x.topic, ...(isTestRange(x) ? { test: true } : {}) }));
+      .map((q) => ({ ...rangeQ(x, q), ...(isTestRange(x) ? { test: true } : {}) }));
   });
 }
 
@@ -312,7 +374,7 @@ export function stockMisses(p, results) {
 // 見直しワークに出す問題（まだ テスト前の 範囲だけ。たくさん まちがえた順）
 export function missWork(p) {
   const keys = new Set(activeExtras(p).map((x) => x.topic));
-  return (p.coach?.misses || []).filter((m) => keys.has(m.q.topic)).sort((a, b) => b.n - a.n);
+  return (p.coach?.misses || []).filter((m) => keys.has(m.q.topic) && dropKanjiReads(p, [m.q]).length).sort((a, b) => b.n - a.n);
 }
 
 // いちばん近い テストの日まで あと何日（見直しワークを 目立たせる）
@@ -408,7 +470,7 @@ export function openPlanChat(p, deps) {
     const wait = bubble('assistant thinking', 'かんがえ中…');
     try {
       const { msgs, images } = payload();
-      const r = await askAI({ action: 'plan', today: today(), name: p.name, grade: gradeLabel(p), items: itemsText(p), profile: coachText(p.coach), messages: msgs, images }, { timeout: images.length ? 90000 : 45000 });
+      const r = await askAI({ action: 'plan', today: today(), name: p.name, grade: gradeLabel(p), items: itemsText(p), profile: profileText(p), messages: msgs, images }, { timeout: images.length ? 90000 : 45000 });
       wait.remove();
       if (!r.say && !(r.done && r.profile)) throw new Error('empty');
       if (r.say) { messages.push({ role: 'assistant', text: r.say }); bubble('assistant', r.say); }
@@ -471,6 +533,8 @@ export function openPlanChat(p, deps) {
         if (test) x.photos.forEach((id) => { const meta = (p.photos || []).find((m) => m.id === id); if (meta && meta.folder === 'other') movePhoto(p, id, test.id); });
       });
     }
+    // 漢字の 出し方を 話したときだけ かえる（話さなければ 前のまま）
+    if (profile.kanji) p.kanjiStyle = profile.kanji;
     // デイリーの話をしなかったときは 前の きまりを そのまま。作った一問一答も のこす
     p.coach = { ...profile, daily, pools, misses: p.coach?.misses || [], checks: p.coach?.checks || [], at: today() };
     p.planChat = null;   // まとまったので 会話は おしまい（決まったことは p.coach に のこる）
