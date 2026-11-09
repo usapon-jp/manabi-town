@@ -14,6 +14,7 @@ import { icon } from './icons.js';
 import { pickPhoto } from './pickphoto.js';
 import { shrink } from './scan.js';
 import { openPhotos, addPhoto, getData, movePhoto } from './photos.js';
+import { KANJI_BOOKS } from './data/kanjibooks.js';
 
 export const PLAN_BONUS = 50;     // 作戦会議をさいごまでやった
 const CHECK_PER_CORRECT = 5;
@@ -87,6 +88,64 @@ function cleanDaily(d) {
 export const poolKey = (x) => `${x.subject}:${x.topic}`;
 const sizeOf = (x) => x.size || CHUNK;
 const perDayOf = (x) => x.perDay || 3;
+
+// ---- 学校の 漢字ワーク（js/data/kanjibooks.js）------------------------------
+// テスト予定の 範囲に「級別漢字 P96〜」などが あれば、漢字の範囲の 問題は ワークの ことばだけで 出す（AI で 作らない）。
+// テストまでに 1周: まだ出していない ことばを のこりの日数で わって 毎日出す（よく出る ページが 先）。
+// まちがえたら その日に もう一度（p.retry）→ つぎの日の はじめに もう一度（review）→ テスト前に 見直しワーク（p.coach.misses）
+function bookTests(p, b) {
+  const t = today();
+  return (p.items || []).filter((i) => i.type === 'test' && !i.done && i.date >= t && b.match.test(String(i.range || '')));
+}
+export function bookFor(p, x) {
+  if (!p || p.grade === 'adult' || (x && !isKanjiRange(x))) return null;
+  return KANJI_BOOKS.find((b) => bookTests(p, b).length) || null;
+}
+const bookCache = new Map();
+function bookPool(b) {
+  if (!bookCache.has(b.id)) {
+    const hot = new Set(b.hot || []);
+    const words = b.words.map((w, k) => ({ w, k })).sort((a, z) => Number(hot.has(z.w[3])) - Number(hot.has(a.w[3])) || a.k - z.k);
+    bookCache.set(b.id, words.map(({ w: [w, r, s, page] }) => ({
+      q: `「${s.replace('＿', w)}」の「${r}」を漢字で書くと？`, options: [w, r], answer: 0, s, r, w, bk: b.id, page,
+    })));
+  }
+  return bookCache.get(b.id);
+}
+const bookKey = (q) => `${q.w}|${q.s}`;
+// テストの前の日まで あと何日（きょうも 入れる）
+const bookDaysLeft = (p, b) => Math.max(1, Math.min(...bookTests(p, b).map((i) => daysUntil(i.date))));
+// きょう 出す ワークの ことば（まだ出していない ものから）。1周 おわったら perDay もんずつ 何周も
+function bookToday(p, x, b, key = today()) {
+  const pool = poolOf(p, x);
+  const seen = new Set(p.coach?.bookSeen?.[b.id] || []);
+  const left = pool.filter((q) => !seen.has(bookKey(q)));
+  if (left.length) return left.slice(0, Math.ceil(left.length / bookDaysLeft(p, b)));
+  const day = Math.floor(Date.parse(`${key}T00:00:00Z`) / 86400000);
+  const n = Math.min(perDayOf(x), pool.length);
+  const start = (day * n) % pool.length;
+  return Array.from({ length: n }, (_, i) => pool[(start + i) % pool.length]);
+}
+// きょうの もん数（ワークの範囲は 1周の わりふり）
+export function perDayFor(p, x) {
+  const b = p && bookFor(p, x);
+  return b ? bookToday(p, x, b).length : perDayOf(x);
+}
+// デイリーで 答えた ワークの ことばを「出した」にする
+function markBookSeen(p, results) {
+  const by = {};
+  results.forEach(({ q }) => { if (q?.bk && q.answerText && q.context) (by[q.bk] ||= []).push(`${q.answerText}|${q.context}`); });
+  if (!Object.keys(by).length) return;
+  const seen = p.coach.bookSeen || (p.coach.bookSeen = {});
+  Object.entries(by).forEach(([id, keys]) => { seen[id] = [...new Set([...(seen[id] || []), ...keys])]; });
+}
+export function bookProgress(p) {
+  const b = bookFor(p);
+  if (!b) return null;
+  const total = b.words.length;
+  const done = Math.min(total, (p.coach?.bookSeen?.[b.id] || []).length);
+  return { title: b.title, done, total, days: bookDaysLeft(p, b) };
+}
 
 // テスト前は、テスト予定（9教科ぜんぶ）から 範囲の一問一答を 自動で足す。
 // 国語・英語・数学は 14日まえから（デイリーの 学年3もんと 入れかえ）、ほかの教科は 7日まえから 1日3もん。
@@ -166,7 +225,7 @@ export function dailyLabel(c, p) {
   const later = (d?.extra || []).filter((x) => x.from && x.from > t && (!x.until || x.until >= t));
   const md = (s) => `${Number(s.slice(5, 7))}/${Number(s.slice(8, 10))}`;
   return [...base.map((b) => `${BASE.find(([id]) => id === b)[1]} 3もん`),
-    ...extra.map((x) => `${x.subject}「${x.topic}」${perDayOf(x)}もん${x.auto ? '（テスト前）' : ''}`),
+    ...extra.map((x) => { const b = p && bookFor(p, x); return `${x.subject}「${b ? b.title : x.topic}」${p ? perDayFor(p, x) : perDayOf(x)}もん${x.auto ? '（テスト前）' : ''}`; }),
     ...later.map((x) => `${x.subject}「${x.topic}」${perDayOf(x)}もん（${md(x.from)}から）`)].join('・');
 }
 
@@ -235,7 +294,7 @@ export function dropKanjiReads(p, qs) {
 
 // 範囲の 一問一答 → 出す 形（漢字の範囲は 書きとりに できれば 書きとり）
 export const rangeQ = (x, q) => ({ ...(isKanjiRange(x) && kanjiWrite(q) || { kind: 'choice', prompt: q.q, options: q.options, answer: q.answer }),
-  subject: x.subject, topic: x.topic });
+  subject: x.subject, topic: x.topic, ...(q.bk ? { bk: q.bk } : {}) });
 
 export function uniqPool(x, pool) {
   if (!isKanjiRange(x)) return pool;
@@ -256,6 +315,8 @@ const poolSig = (x) => [isKanjiRange(x) ? KANJI_POOL_V : '', ...(x.photos || [])
 function rawPool(p, x) {
   const c = p.coach;
   if (!c) return [];
+  const b = bookFor(p, x);
+  if (b) return bookPool(b);   // 学校の ワークが あれば その ことばだけ
   const k = poolKey(x);
   const sig = poolSig(x);
   if ((c.poolSrc?.[k] ?? '') !== sig) {
@@ -269,6 +330,7 @@ function rawPool(p, x) {
 export const poolOf = (p, x) => {
   // 読みを のぞいてから 同じ ことばを まとめる（読みの問題に 書きの問題が けされないように）
   const pool = rawPool(p, x);
+  if (bookFor(p, x)) return pool;   // ワークの ことばは 書きとりだけ・同じ ことばも ちがう例文なので そのまま
   return uniqPool(x, writeOnlyRange(p, x) ? pool.filter((q) => !isKanjiRead(rangeQ(x, q))) : pool);
 };
 
@@ -348,9 +410,10 @@ export function extraQuestions(p, key = today()) {
   return activeExtras(p).flatMap((x) => {
     const pool = poolOf(p, x);
     if (!pool.length) return [];
+    const b = bookFor(p, x);
     const n = Math.min(perDayOf(x), pool.length);
     const start = (day * n) % pool.length;
-    return Array.from({ length: n }, (_, i) => pool[(start + i) % pool.length])
+    return (b ? bookToday(p, x, b, key) : Array.from({ length: n }, (_, i) => pool[(start + i) % pool.length]))
       .map((q) => ({ ...rangeQ(x, q), ...(isTestRange(x) ? { test: true } : {}) }));
   });
 }
@@ -361,6 +424,7 @@ const missKey = (q) => `${q.topic}|${q.prompt}|${q.big || ''}`;
 // デイリーで まちがえた 一問一答を ためる（同じ問題は 回数だけ ふやす）
 export function stockMisses(p, results) {
   if (!p.coach) return;
+  markBookSeen(p, results);
   const keys = new Set(activeExtras(p).map((x) => x.topic));
   const misses = Array.isArray(p.coach.misses) ? p.coach.misses : (p.coach.misses = []);
   results.filter((r) => !r.ok && r.q?.topic && keys.has(r.q.topic)).forEach(({ q }) => {

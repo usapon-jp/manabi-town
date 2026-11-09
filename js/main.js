@@ -27,7 +27,7 @@ import { recordResults, dueReview, startReview, reviewStats, REVIEW_PER_CORRECT,
 import { openTestEntry, openWeak, startWeak, testHistory } from './tests.js';
 import { startSync } from './sync.js';
 import { syncCard, openLogin, openPicker, askPin, pinField, pinFor } from './account.js';
-import { openPlanChat, startCheck, summary as planSummary, PLAN_BONUS, dailyBase, extraQuestions, dailyLabel, activeExtras, stockMisses, missWork, daysToTest, ensurePool, hasPool, isKanjiRange, isTestRange, poolKey, kanjiWriteOnly, dropKanjiReads } from './coach.js';
+import { openPlanChat, startCheck, summary as planSummary, PLAN_BONUS, dailyBase, extraQuestions, dailyLabel, activeExtras, stockMisses, missWork, daysToTest, ensurePool, hasPool, isKanjiRange, isTestRange, poolKey, kanjiWriteOnly, dropKanjiReads, perDayFor } from './coach.js';
 import { startNotify, notifyCard } from './notify.js';
 import { isAdult, todayRoutines, checkRoutine, renderRoutineTab, consultCta, openConsult, ROUTINE_POINTS } from './adult.js';
 import { subjectNames, subjectColor, openSubjectEditor } from './subjects.js';
@@ -718,7 +718,7 @@ function dailyParts(p) {
   const extras = activeExtras(p).map((x) => {
     const core = isKanjiRange(x) ? 'kanji' : /英語/.test(x.subject) ? 'english' : /数学|算数/.test(x.subject) ? 'math' : null;
     const label = core === 'kanji' ? '漢字' : x.subject;
-    return { id: poolKey(x), core, x, label: `${label}${isTestRange(x) ? '（テスト範囲）' : ''}`, n: Math.max(1, x.perDay || 3) };
+    return { id: poolKey(x), core, x, label: `${label}${isTestRange(x) ? '（テスト範囲）' : ''}`, n: Math.max(1, perDayFor(p, x)) };
   });
   const rank = (t) => (t.core != null ? PART_ORDER[t.core] : 3);
   return [...base, ...extras].sort((a, b) => rank(a) - rank(b) || String(a.x?.until || '').localeCompare(String(b.x?.until || '')));
