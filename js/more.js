@@ -11,7 +11,7 @@ import { runQuestions } from './runner.js';
 import { recordResults } from './review.js';
 import { isAdult } from './adult.js';
 import { icon } from './icons.js';
-import { uniqPool, activeExtras, ensurePools, poolKey, isKanjiRange, kanjiWrite } from './coach.js';
+import { uniqPool, activeExtras, ensurePools, poolKey, isKanjiRange, kanjiWrite, rangeFor, rangeDrill } from './coach.js';
 
 export const MORE_PER_CORRECT = 2;
 export const MORE_DAY_CAP = 40;
@@ -71,7 +71,9 @@ export function openMore(p, deps) {
     });
   };
   const seed = () => `${p.id}:${today()}:more:${dayLog(p).rounds}:${Date.now() % 100000}`;
-  const local = (id) => () => buildDrill(id, gradeBucket(p), seed());
+  // テスト前は 漢字・英単語・計算も テスト範囲から（範囲が ない教科だけ 学年の問題）
+  const local = (id) => () => { const x = rangeFor(p, id); return x ? rangeDrill(p, x, ROUND, seed()) : buildDrill(id, gradeBucket(p), seed()); };
+  const tileSub = (id, sub) => (rangeFor(p, id) ? 'テスト範囲' : sub);
 
   const opt = (ic, title, sub, onclick, cls = '') => h('button', { type: 'button', class: `piyo-opt ${cls}`, onclick },
     h('span', { class: 'piyo-ic' }, icon(ic)), h('b', {}, title), h('small', {}, sub));
@@ -91,12 +93,12 @@ export function openMore(p, deps) {
       h('div', { class: 'coach' }, h('img', { src: 'assets/icons/icon-192.png', alt: '', width: 48, height: 48 }),
         h('p', {}, cleared ? 'きょうの分 クリア！ もっと やる？' : 'なにを 勉強する？')),
       ranges.length ? h('p', { class: 'more-sec' }, icon('target'), ' テスト範囲') : null,
-      ...ranges.map((x) => opt('target', `${x.subject}`, x.topic, () => start(`${x.subject} テスト範囲`, rangeQs(x)), 'range')),
-      ranges.length ? h('p', { class: 'more-sec' }, 'ふだんの れんしゅう（学年の問題）') : null,
+      ...ranges.map((x) => opt('target', isKanjiRange(x) ? '漢字・国語' : `${x.subject}`, x.topic, () => start(`${x.subject} テスト範囲`, rangeQs(x)), 'range')),
+      ranges.length ? h('p', { class: 'more-sec' }, 'ふだんの れんしゅう') : null,
       h('div', { class: 'more-grid' },
-        opt('pen-line', '漢字', '書く・読む', () => start('漢字', local('kanji'))),
-        opt('languages', '英単語', 'つづり・いみ', () => start('英単語', local('english'))),
-        opt('calculator', mathLabel(p), 'けいさん', () => start(mathLabel(p), local('math')))),
+        opt('pen-line', '漢字', tileSub('kanji', '書く・読む'), () => start('漢字', local('kanji'))),
+        opt('languages', '英単語', tileSub('english', 'つづり・いみ'), () => start('英単語', local('english'))),
+        opt('calculator', mathLabel(p), tileSub('math', 'けいさん'), () => start(mathLabel(p), local('math')))),
 
       deps.makeAI && aiSubjects.length ? h('div', { class: 'piyo-opt more-ai' },
         h('span', { class: 'piyo-ic' }, icon('sparkles')),

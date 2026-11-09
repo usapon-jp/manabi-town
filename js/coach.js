@@ -8,6 +8,7 @@ import { save, gradeLabel, daysUntil, today } from './store.js';
 import { askAI, aiErrorText } from './ai.js';
 import { runQuestions } from './runner.js';
 import { recordResults } from './review.js';
+import { shuffle, seededRandom } from './quests.js';
 import { weakList } from './tests.js';
 import { icon } from './icons.js';
 import { pickPhoto } from './pickphoto.js';
@@ -251,6 +252,28 @@ export function ensurePools(p, images = []) {
     .finally(() => { making.delete(p.id); });
   making.set(p.id, job);
   return job;
+}
+
+// 1つの範囲だけ 作る（デイリーを 教科ごとに はじめるとき。ほかの教科を またない）
+const makingOne = new Map();
+export function ensurePool(p, x) {
+  if (poolOf(p, x).length >= sizeOf(x)) return Promise.resolve(true);
+  const k = `${p.id}|${poolKey(x)}`;
+  if (makingOne.has(k)) return makingOne.get(k);
+  const job = fillPool(p, x).catch(() => false).then((ok) => { save(); return ok; }).finally(() => makingOne.delete(k));
+  makingOne.set(k, job);
+  return job;
+}
+export const hasPool = (p, x) => poolOf(p, x).length > 0;
+
+// テスト前は「漢字・英単語・計算」の れんしゅうも テスト範囲から（長女 2026-11-09「漢字を やったら 範囲じゃないのが 出た」）
+// core: 'kanji' | 'english' | 'math'。範囲が なければ null（ふだんの 学年の問題）
+export const rangeFor = (p, core) => (p?.grade === 'adult' ? null : activeExtras(p).find((x) => subjOf(x) === core) || null);
+export async function rangeDrill(p, x, n, seedText) {
+  if (!hasPool(p, x)) { toast('ピヨ先生が テスト範囲の問題を 作り中…', 8000); await ensurePool(p, x); }
+  return shuffle(poolOf(p, x), seededRandom(seedText)).slice(0, n)
+    .map((q) => ({ ...(isKanjiRange(x) && kanjiWrite(q) || { kind: 'choice', prompt: q.q, options: q.options, answer: q.answer }),
+      subject: x.subject, topic: x.topic, test: true }));
 }
 
 // きょうの extra の問題。日にちで perDay もんずつ ずらして、ぜんぶ出たら また はじめから（何周も）
