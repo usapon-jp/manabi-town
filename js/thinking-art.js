@@ -19,7 +19,7 @@ export function sceneSvg(scene,done=0) {
   </pattern>
   </defs><rect width="960" height="540" fill="${sky}"/>
   <path d="M0 0H960V79Q792 66 644 78T339 70Q171 65 0 91Z" fill="#fff8e7" opacity=".12"/>
-  ${night?`<circle cx="794" cy="63" r="35" fill="#f7e8ab" filter="url(#paper-shadow)"/><circle cx="778" cy="53" r="35" fill="${sky}"/>${[[93,45],[225,82],[406,42],[590,67],[870,107],[717,28]].map(([x,y])=>`<path class="sb-star" d="M${x} ${y-7}l2 5 6 2-6 2-2 6-2-6-5-2 5-2z" fill="#f7e8ab"/>`).join('')}`:`<circle cx="797" cy="65" r="41" fill="#ebc774" filter="url(#paper-shadow)"/><g class="sb-cloud" fill="#fffaf0" filter="url(#paper-shadow)"><path d="M100 63Q92 40 116 38Q129 15 151 39Q179 34 183 63Z"/><path d="M486 82Q481 60 504 61Q514 35 537 59Q557 53 568 82Z"/></g>`}
+  ${night?`${[[93,45],[225,82],[406,42],[590,67],[870,107],[717,28]].map(([x,y])=>`<path class="sb-star" d="M${x} ${y-7}l2 5 6 2-6 2-2 6-2-6-5-2 5-2z" fill="#f7e8ab"/>`).join('')}`:`<g class="sb-cloud" fill="#fffaf0" filter="url(#paper-shadow)"><path d="M100 63Q92 40 116 38Q129 15 151 39Q179 34 183 63Z"/><path d="M486 82Q481 60 504 61Q514 35 537 59Q557 53 568 82Z"/></g>`}
   <path d="M0 189Q140 77 291 166Q439 89 571 170Q745 71 960 153V540H0Z" fill="${night?'#78879c':lake?'#bed4bb':'#cad3a4'}"/>
   <path d="M0 248Q204 164 363 214Q554 154 717 224Q855 179 960 215V540H0Z" fill="${grass}" filter="url(#paper-shadow)"/>
   ${lake?'<path d="M491 174Q660 156 960 207V540H643Q700 454 577 381Q704 290 491 174Z" fill="#76a7b5"/><path d="M772 276h88m-57 14h91m-164 120h93" fill="none" stroke="#c8e1de" stroke-width="4"/>':''}
@@ -33,5 +33,12 @@ export function sceneSvg(scene,done=0) {
   ${done?Array.from({length:Math.min(done,12)},(_,i)=>{const p=STOPS[i];return flower(p.x*9.6+29,p.y*5.4+17,i%2?'#f1d58f':'#e4adbb');}).join(''):''}
   <rect width="960" height="540" fill="url(#paper-fibres)"/>
   <rect class="sb-grain" width="960" height="540" fill="#808080" filter="url(#paper-grain)" opacity=".36"/>
+  </svg>
+  <svg class="sb-sky-light" viewBox="0 0 100 100" aria-hidden="true">
+    ${night?`<mask id="paper-moon-cutout" maskUnits="userSpaceOnUse" x="0" y="0" width="100" height="100">
+      <rect width="100" height="100" fill="white"/>
+      <circle cx="33" cy="40" r="37" fill="black"/>
+    </mask><circle cx="50" cy="50" r="37" fill="#f7e8ab" mask="url(#paper-moon-cutout)"/>`:
+    '<circle cx="50" cy="50" r="43" fill="#ebc774"/>'}
   </svg>`;
 }
