@@ -1876,3 +1876,11 @@ input.pin { font-size: 26px; letter-spacing: 0.5em; text-align: center; }
 @keyframes st-bob { 50% { transform: translateY(-6px); } }
 @keyframes st-talk { 50% { transform: translateY(-8px) scaleY(0.94); } }
 @media (prefers-reduced-motion: reduce) { .st-art span, .st-stage.in .st-head, .st-stage.in .st-say, .st-piyo, .st-piyo.talk { animation: none; } }
+
+.st-pics { display: flex; flex-wrap: wrap; gap: 8px 10px; justify-content: center; align-items: center; max-width: 100%; }
+.st-pics[hidden], .st-art[hidden] { display: none; }
+.st-pic { height: min(24vh, 200px); max-width: 46vw; width: auto; object-fit: cover; border-radius: 14px; border: 1.5px solid var(--line); box-shadow: var(--soft); background: #fffdf6; animation: st-pop 0.6s both; }
+.st-pic.wide { height: auto; width: 86vw; max-width: 100%; max-height: 14vh; object-fit: contain; }
+.st-pics:has(.wide) .st-pic:not(.wide) { height: min(17vh, 140px); max-width: 30vw; }
+.st-credit { font-size: 11px; opacity: 0.6; max-width: 28em; line-height: 1.5; }
+@media (prefers-reduced-motion: reduce) { .st-pic { animation: none; } }

@@ -2,7 +2,7 @@
 // 自動で すすむ・タップで 一時停止／つぎへ・字幕つき。
 import { h } from './ui.js';
 import { createVoice, canSpeak } from './voice.js';
-import { STORIES } from './data/stories.js';
+import { STORIES, IMG_CREDITS } from './data/stories.js';
 
 export const storyFor = (bookId) => STORIES.find((s) => s.book === bookId) || null;
 
@@ -14,9 +14,11 @@ export function openStory(story, { onDone } = {}) {
   const year = h('div', { class: 'st-year' });
   const head = h('h2', { class: 'st-head' });
   const art = h('div', { class: 'st-art' });
+  const pics = h('div', { class: 'st-pics' });
+  const credit = h('small', { class: 'st-credit' });
   const say = h('p', { class: 'st-say' });
   const dots = h('div', { class: 'st-dots' }, story.scenes.map(() => h('i')));
-  const stage = h('div', { class: 'st-stage' }, year, head, art, say);
+  const stage = h('div', { class: 'st-stage' }, year, head, pics, art, say, credit);
   const pauseBtn = h('button', { type: 'button', class: 'st-btn', onclick: (e) => { e.stopPropagation(); togglePause(); } }, '⏸');
   const soundBtn = h('button', { type: 'button', class: 'st-btn', hidden: !canSpeak, onclick: (e) => { e.stopPropagation(); sound = !sound; soundBtn.textContent = sound ? '🔊' : '🔇'; if (!sound) voice.stopSpeak(); } }, '🔇');
   const closeBtn = h('button', { type: 'button', class: 'st-btn', onclick: (e) => { e.stopPropagation(); close(); } }, '✕');
@@ -49,6 +51,10 @@ export function openStory(story, { onDone } = {}) {
     clearTimeout(timer); voice.stopSpeak();
     const s = story.scenes[i];
     year.textContent = s.year; head.textContent = s.head; say.textContent = s.say;
+    const im = s.img || [];
+    pics.hidden = !im.length; art.hidden = !!im.length;
+    pics.replaceChildren(...im.map((k, n) => h('img', { class: `st-pic${k === 'toba' ? ' wide' : ''}`, src: `assets/story/${k}.jpg`, alt: IMG_CREDITS[k] || '', draggable: 'false', style: `animation-delay:${n * 0.25}s` })));
+    credit.textContent = im.length ? `資料: ${im.map((k) => IMG_CREDITS[k]).filter(Boolean).join(' ／ ')}（パブリックドメイン）` : '';
     art.replaceChildren(...s.art.map((a, k) => h('span', { style: `animation-delay:${k * 0.25}s` }, a)));
     stage.classList.remove('in'); void stage.offsetWidth; stage.classList.add('in');
     [...dots.children].forEach((d, k) => d.classList.toggle('on', k <= i));
