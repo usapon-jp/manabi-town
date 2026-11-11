@@ -4,6 +4,9 @@ import { h } from './ui.js';
 import { createVoice, canSpeak } from './voice.js';
 import { STORIES, IMG_CREDITS } from './data/stories.js';
 
+const PALETTE = [['#fbf3e3', '#efe3c8'], ['#f3f1dc', '#dfe8c8'], ['#e9f1f0', '#d3e4e6'], ['#f6ece6', '#ecd5c6'], ['#f1ecf5', '#ddd3e8'], ['#f7f0dc', '#ecdcae']];
+const REGION_PAL = [0, 1, 2, 3];
+
 export const storyFor = (bookId) => STORIES.find((s) => s.book === bookId) || null;
 
 // onDone(): さいごまで 見て「問題に チャレンジ！」を おしたとき
@@ -18,7 +21,8 @@ export function openStory(story, { onDone } = {}) {
   const credit = h('small', { class: 'st-credit' });
   const say = h('p', { class: 'st-say' });
   const dots = h('div', { class: 'st-dots' }, story.scenes.map(() => h('i')));
-  const stage = h('div', { class: 'st-stage' }, year, head, pics, art, say, credit);
+  const route = story.regions ? h('div', { class: 'st-route' }, story.regions.map((r) => h('span', {}, r))) : null;
+  const stage = h('div', { class: 'st-stage' }, year, route, head, pics, art, say, credit);
   const pauseBtn = h('button', { type: 'button', class: 'st-btn', onclick: (e) => { e.stopPropagation(); togglePause(); } }, '⏸');
   const soundBtn = h('button', { type: 'button', class: 'st-btn', hidden: !canSpeak, onclick: (e) => { e.stopPropagation(); sound = !sound; soundBtn.textContent = sound ? '🔊' : '🔇'; if (!sound) voice.stopSpeak(); } }, '🔇');
   const closeBtn = h('button', { type: 'button', class: 'st-btn', onclick: (e) => { e.stopPropagation(); close(); } }, '✕');
@@ -46,14 +50,23 @@ export function openStory(story, { onDone } = {}) {
   function finish() {
     clearTimeout(timer); voice.stopSpeak(); ended = true; stage.hidden = true; endBox.hidden = false;
     dots.querySelectorAll('i').forEach((d) => d.classList.add('on'));
+    el.style.setProperty('--p', 1);
+    for (let k = 0; k < 16; k++) el.append(h('span', { class: 'st-star', style: `--x:${Math.round(Math.random() * 100)}%;--d:${(Math.random() * 1.2).toFixed(2)}s;--s:${14 + Math.round(Math.random() * 14)}px`, onanimationend: (e) => e.target.remove() }, '★'));
   }
   function show() {
     clearTimeout(timer); voice.stopSpeak();
     const s = story.scenes[i];
-    year.textContent = s.year; head.textContent = s.head; say.textContent = s.say;
+    year.textContent = s.year; head.textContent = s.head;
+    say.replaceChildren(...s.say.split(' ').flatMap((w, k, a) => [h('span', { class: 'w', style: `animation-delay:${0.3 + k * 0.05}s` }, w), k < a.length - 1 ? ' ' : '']));
+    const pal = PALETTE[(s.region != null ? REGION_PAL[s.region] : i) % PALETTE.length];
+    el.style.setProperty('--st-a', pal[0]); el.style.setProperty('--st-b', pal[1]);
+    if (route) [...route.children].forEach((r, k) => r.classList.toggle('on', k === s.region));
+    el.style.setProperty('--p', story.scenes.length > 1 ? i / (story.scenes.length - 1) : 0);
+    piyo.classList.remove('hop'); void piyo.offsetWidth; piyo.classList.add('hop');
     const im = s.img || [];
     pics.hidden = !im.length; art.hidden = !!im.length;
-    pics.replaceChildren(...im.map((k, n) => h('img', { class: `st-pic${k === 'toba' ? ' wide' : ''}`, src: `assets/story/${k}.jpg`, alt: IMG_CREDITS[k] || '', draggable: 'false', style: `animation-delay:${n * 0.25}s` })));
+    pics.replaceChildren(...im.map((k, n) => h('div', { class: `st-frame ${n % 2 ? 'r' : 'l'}${k === 'toba' ? ' wide' : ''}`, style: `animation-delay:${n * 0.3}s` },
+      h('img', { class: `kb${(i + n) % 2}`, src: `assets/story/${k}.jpg`, alt: IMG_CREDITS[k] || '', draggable: 'false' }))));
     credit.textContent = im.length ? `資料: ${im.map((k) => IMG_CREDITS[k]).filter(Boolean).join(' ／ ')}（パブリックドメイン）` : '';
     art.replaceChildren(...s.art.map((a, k) => h('span', { style: `animation-delay:${k * 0.25}s` }, a)));
     stage.classList.remove('in'); void stage.offsetWidth; stage.classList.add('in');
