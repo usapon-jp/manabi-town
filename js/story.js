@@ -64,10 +64,12 @@ export function openStory(story, { onDone } = {}) {
     el.style.setProperty('--p', story.scenes.length > 1 ? i / (story.scenes.length - 1) : 0);
     piyo.classList.remove('hop'); void piyo.offsetWidth; piyo.classList.add('hop');
     const im = s.img || [];
-    pics.hidden = !im.length; art.hidden = !!im.length;
+    const mapKey = !im.length && s.region != null ? `map-${s.region}` : null;
+    pics.hidden = !im.length && !mapKey; art.hidden = !!im.length || !!mapKey;
     pics.replaceChildren(...im.map((k, n) => h('div', { class: `st-frame ${n % 2 ? 'r' : 'l'}${k === 'toba' ? ' wide' : ''}`, style: `animation-delay:${n * 0.3}s` },
       h('img', { class: `kb${(i + n) % 2}`, src: `assets/story/${k}.jpg`, alt: IMG_CREDITS[k] || '', draggable: 'false' }))));
-    credit.textContent = im.length ? `資料: ${im.map((k) => IMG_CREDITS[k]).filter(Boolean).join(' ／ ')}（パブリックドメイン）` : '';
+    if (mapKey) pics.replaceChildren(h('div', { class: 'st-frame map' }, h('img', { src: `assets/story/${mapKey}.svg`, alt: `日本地図（${story.regions[s.region]}）`, draggable: 'false' })));
+    credit.textContent = mapKey ? '地図: Regions and Prefectures of Japan（ウィキメディア・コモンズ・パブリックドメイン）' : im.length ? `資料: ${im.map((k) => IMG_CREDITS[k]).filter(Boolean).join(' ／ ')}（パブリックドメイン）` : '';
     art.replaceChildren(...s.art.map((a, k) => h('span', { style: `animation-delay:${k * 0.25}s` }, a)));
     stage.classList.remove('in'); void stage.offsetWidth; stage.classList.add('in');
     [...dots.children].forEach((d, k) => d.classList.toggle('on', k <= i));
