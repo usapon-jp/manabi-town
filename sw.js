@@ -1,6 +1,6 @@
 // オフラインでも開けるように、アプリの部品を端末にしまっておく。
 // 部品を変えたら VERSION を上げる（古いしまい場所は消える）。
-const VERSION = 'manabi-v134';
+const VERSION = 'manabi-v135';
 const FILES = [
   './',
   'index.html',
@@ -49,7 +49,7 @@ const FILES = [
   'js/data/english.js',
   'js/data/kanji.js',
   'js/data/kanjibooks.js', 'js/data/textbooks.js', 'js/data/stories.js', 'js/story.js',
-  'assets/story/hiroshige.jpg', 'assets/story/ii.jpg', 'assets/story/kurofune.jpg', 'assets/story/opium.jpg', 'assets/story/perry.jpg', 'assets/story/ryoma.jpg', 'assets/story/sadanobu.jpg', 'assets/story/tanuma.jpg', 'assets/story/toba.jpg', 'assets/story/wave.jpg', 'assets/story/yoshimune.jpg', 'assets/story/yoshinobu.jpg',
+  'assets/story/map-0.svg', 'assets/story/map-1.svg', 'assets/story/map-2.svg', 'assets/story/map-3.svg', 'assets/story/hiroshige.jpg', 'assets/story/ii.jpg', 'assets/story/kurofune.jpg', 'assets/story/opium.jpg', 'assets/story/perry.jpg', 'assets/story/ryoma.jpg', 'assets/story/sadanobu.jpg', 'assets/story/tanuma.jpg', 'assets/story/toba.jpg', 'assets/story/wave.jpg', 'assets/story/yoshimune.jpg', 'assets/story/yoshinobu.jpg',
   'js/importer.js',
   'js/ink/input.js',
   'js/ink/pad.js',
