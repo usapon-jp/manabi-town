@@ -14,7 +14,7 @@ function ensureTop() {
 
 // いちばん上にある閉じられる画面
 function topLayer() {
-  const list = [...document.querySelectorAll('body > .sheet, body > .chat, body > .runner')]
+  const list = [...document.querySelectorAll('body > .sheet, body > .chat, body > .runner, body > .story')]
     .filter((el) => !el.hidden && el.isConnected);
   let best = null; let bestZ = -Infinity;
   list.forEach((el) => {

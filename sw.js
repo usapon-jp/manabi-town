@@ -1,6 +1,6 @@
 // オフラインでも開けるように、アプリの部品を端末にしまっておく。
 // 部品を変えたら VERSION を上げる（古いしまい場所は消える）。
-const VERSION = 'manabi-v135';
+const VERSION = 'manabi-v136';
 const FILES = [
   './',
   'index.html',
@@ -49,6 +49,7 @@ const FILES = [
   'js/data/english.js',
   'js/data/kanji.js',
   'js/data/kanjibooks.js', 'js/data/textbooks.js', 'js/data/stories.js', 'js/story.js',
+  'js/video.js', 'js/data/science-magnet.js', 'assets/video/denryu-jikai-poster.jpg', 'assets/print/denryu-jikai-mondai.pdf', 'assets/print/denryu-jikai-kaitou.pdf',   // 動画 mp4 は 大きいので しまわない（下の fetch でも 素通し）
   'assets/story/map-0.svg', 'assets/story/map-1.svg', 'assets/story/map-2.svg', 'assets/story/map-3.svg', 'assets/story/hiroshige.jpg', 'assets/story/ii.jpg', 'assets/story/kurofune.jpg', 'assets/story/opium.jpg', 'assets/story/perry.jpg', 'assets/story/ryoma.jpg', 'assets/story/sadanobu.jpg', 'assets/story/tanuma.jpg', 'assets/story/toba.jpg', 'assets/story/wave.jpg', 'assets/story/yoshimune.jpg', 'assets/story/yoshinobu.jpg',
   'js/importer.js',
   'js/ink/input.js',
@@ -97,7 +98,10 @@ self.addEventListener('activate', (e) => {
 // ネットにつながるときは新しいものを取りにいき、だめならしまってあるものを使う
 self.addEventListener('fetch', (e) => {
   const req = e.request;
-  if (req.method !== 'GET' || new URL(req.url).origin !== location.origin) return;
+  const url = new URL(req.url);
+  if (req.method !== 'GET' || url.origin !== location.origin) return;
+  // 動画は 通信のまま（とびとびに 読む Range を そのまま とどける。しまわない）
+  if (url.pathname.endsWith('.mp4')) return;
   e.respondWith(
     fetch(req)
       .then((res) => {

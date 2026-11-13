@@ -3,6 +3,7 @@
 import { h } from './ui.js';
 import { createVoice, canSpeak } from './voice.js';
 import { STORIES, IMG_CREDITS } from './data/stories.js';
+import { openMagnetMenu } from './video.js';
 
 const PALETTE = [['#fbf3e3', '#efe3c8'], ['#f3f1dc', '#dfe8c8'], ['#e9f1f0', '#d3e4e6'], ['#f6ece6', '#ecd5c6'], ['#f1ecf5', '#ddd3e8'], ['#f7f0dc', '#ecdcae']];
 const REGION_PAL = [0, 1, 2, 3];
@@ -25,7 +26,7 @@ export function openStory(story, { onDone } = {}) {
   const stage = h('div', { class: 'st-stage' }, year, route, head, pics, art, say, credit);
   const pauseBtn = h('button', { type: 'button', class: 'st-btn', onclick: (e) => { e.stopPropagation(); togglePause(); } }, '⏸');
   const soundBtn = h('button', { type: 'button', class: 'st-btn', hidden: !canSpeak, onclick: (e) => { e.stopPropagation(); sound = !sound; soundBtn.textContent = sound ? '🔊' : '🔇'; if (!sound) voice.stopSpeak(); } }, '🔇');
-  const closeBtn = h('button', { type: 'button', class: 'st-btn', onclick: (e) => { e.stopPropagation(); close(); } }, '✕');
+  const closeBtn = h('button', { type: 'button', class: 'st-btn', 'aria-label': 'とじる', onclick: (e) => { e.stopPropagation(); close(); } }, '✕');
   const nextBtn = h('button', { type: 'button', class: 'st-btn', onclick: (e) => { e.stopPropagation(); go(i + 1); } }, '▶');
   const prevBtn = h('button', { type: 'button', class: 'st-btn', onclick: (e) => { e.stopPropagation(); go(i - 1); } }, '◀');
   const top = h('div', { class: 'st-top' }, h('b', {}, story.title), closeBtn);
@@ -87,13 +88,15 @@ export function openStory(story, { onDone } = {}) {
 }
 
 // ながれ動画の 一覧（だれでも えらんで 見られる）。まちの 映画館・図書館の 入口からも これを よぶ。
-export function openStoryList() {
+// 理科の 動画（js/video.js）も ここに ならべる。deps: { p, gain, render }（問題の ポイント用）
+export function openStoryList(deps = {}) {
   const close = () => el.remove();
   const el = h('div', { class: 'sheet', onclick: (e) => { if (e.target === el) close(); } },
     h('div', { class: 'sheet-card' },
       h('h3', { class: 'sheet-title' }, 'ながれ動画'),
-      h('p', { class: 'sheet-sub' }, 'ピヨちゃんが 社会の 流れを ざっと 説明するよ'),
+      h('p', { class: 'sheet-sub' }, '社会の 流れと 理科の 動画を 見て、問題に チャレンジ'),
       ...STORIES.map((s) => h('button', { type: 'button', class: 'btn', onclick: () => { close(); openStory(s); } }, `▶ ${s.title}`)),
+      h('button', { type: 'button', class: 'btn', onclick: () => { close(); openMagnetMenu(deps); } }, '▶ 電流と磁界（中2理科）'),
       h('button', { class: 'link', onclick: close }, 'とじる')));
   document.body.append(el);
 }
