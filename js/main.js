@@ -881,7 +881,7 @@ function renderQuest(p) {
       isAdult(p) ? null : h('button', { class: 'link', onclick: () => openPlanChat(p, bonusDeps) }, '中身を かえる（ピヨ先生と 作戦会議）')),
     missCard(p),
     moreCard(p, moreDeps),
-    isAdult(p) ? null : h('button', { class: 'btn', onclick: openStoryList }, icon('film'), ' ながれ動画（社会）'),
+    isAdult(p) ? null : h('button', { class: 'btn', onclick: () => openStoryList({ p, gain, render }) }, icon('film'), ' ながれ動画（社会・理科）'),
     brainCard(p, bonusDeps),
     h('details', { class: 'fold-sec' }, h('summary', {}, icon('notebook-pen'), ' やりなおし・小テスト・しつもん'),
     reviewCard(p),
