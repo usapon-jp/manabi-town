@@ -1910,7 +1910,7 @@ input.pin { font-size: 26px; letter-spacing: 0.5em; text-align: center; }
 @keyframes st-mapbreath { from { transform: scale(1); } to { transform: scale(1.05); } }
 @media (prefers-reduced-motion: reduce) { .st-frame.map, .st-frame.map img { animation: none; } }
 
-/* 理科の 動画（mp4）と 学習メニュー js/video.js */
+/* 理科の 短い動画（mp4）と 学習メニュー（ステップの道） js/video.js */
 .story.vd { gap: 10px; padding-top: calc(env(safe-area-inset-top) + 12px); padding-left: max(16px, env(safe-area-inset-left)); padding-right: max(16px, env(safe-area-inset-right)); }
 .vd .st-btn .ic { width: 20px; height: 20px; }
 .vd-box { flex: 1; min-height: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; }
@@ -1918,31 +1918,41 @@ input.pin { font-size: 26px; letter-spacing: 0.5em; text-align: center; }
 .vd-note { margin: 0; font-size: 14px; font-weight: 700; }
 .vd-note[hidden] { display: none; }
 .vd-foot { display: flex; flex-direction: column; gap: 10px; }
-.vd-chaps { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 6px; }
-.vd-chap { display: flex; align-items: baseline; gap: 6px; font: inherit; font-size: 13px; font-weight: 700; color: var(--navy); text-align: left; background: #fffdf6; border: 1.5px solid var(--line); border-radius: 12px; padding: 7px 10px; cursor: pointer; }
-.vd-chap small { font-size: 12px; color: #7f985e; font-variant-numeric: tabular-nums; }
-.vd-chap.on { background: #7f985e; color: #fff; border-color: #7f985e; }
-.vd-chap.on small { color: #fff; }
 .vd-go { align-self: center; display: inline-flex; align-items: center; gap: 4px; min-width: 220px; justify-content: center; font-weight: 800; border-radius: 18px; padding: 12px 20px; font-size: 17px; background: #7f985e; color: #fff; border: 1.5px solid var(--line); box-shadow: var(--soft); }
 @media (orientation: landscape) and (max-height: 560px) {
   .story.vd { flex-direction: row; flex-wrap: wrap; align-content: stretch; padding-top: max(8px, env(safe-area-inset-top)); padding-bottom: max(8px, env(safe-area-inset-bottom)); gap: 8px; }
   .story.vd .st-top { width: 100%; }
   .story.vd .st-top .st-btn { height: 36px; }
   .vd-box { flex: 1 1 0; height: calc(100% - 52px); }
-  .vd-foot { width: 210px; height: calc(100% - 52px); overflow-y: auto; }
-  .vd-chaps { grid-template-columns: 1fr; gap: 4px; }
-  .vd-chap { padding: 5px 8px; }
+  .vd-foot { width: 180px; height: calc(100% - 52px); justify-content: flex-end; }
   .vd-go { min-width: 0; padding: 10px 12px; font-size: 15px; width: 100%; }
 }
 .vd-menu { max-height: calc(100dvh - 32px); overflow-y: auto; }
+.vd-label { margin: 6px 0 -2px; width: 100%; font-size: 13px; font-weight: 800; color: #5f7a3e; text-align: left; }
+.vd-rule { margin: 0; font-size: 12px; opacity: 0.75; text-align: center; }
 .vd-menu .vd-set { display: flex; align-items: center; gap: 10px; text-align: left; padding: 12px 14px; }
-.vd-set.done { background: #eef3e4; }
+.vd-set.done, .vd-row.done .vd-set { background: #eef3e4; }
 .vd-step { flex-shrink: 0; width: 30px; height: 30px; border-radius: 50%; display: grid; place-items: center; background: #7f985e; color: #fff; font-size: 15px; }
+.vd-step .ic { width: 16px; height: 16px; }
 .vd-set-text { flex: 1; display: grid; gap: 2px; }
 .vd-set-text small, .vd-set > small { font-size: 12px; opacity: 0.75; }
-.vd-clear { display: inline-flex; align-items: center; gap: 2px; font-size: 13px; color: #5f7a3e; }
+.vd-set-text small .ic { width: 12px; height: 12px; vertical-align: -1px; margin-right: 2px; }
+.vd-best { display: inline-flex; align-items: center; gap: 2px; white-space: nowrap; }
+.vd-best .ic { width: 14px; height: 14px; }
+.vd-clear { display: inline-flex; align-items: center; gap: 2px; font-size: 13px; color: #5f7a3e; white-space: nowrap; }
+.vd-row { width: 100%; display: flex; gap: 6px; align-items: stretch; }
+.vd-row .vd-set { flex: 1; min-width: 0; }
+.vd-qonly { flex-shrink: 0; width: 58px; display: grid; place-items: center; align-content: center; gap: 2px; font: inherit; color: var(--navy); background: #fffdf6; border: 1.5px solid var(--line); border-radius: 18px; box-shadow: var(--soft); cursor: pointer; }
+.vd-qonly .ic { width: 18px; height: 18px; }
+.vd-qonly small { font-size: 11px; font-weight: 700; }
+.vd-row.next .vd-set { border-color: #7f985e; border-width: 2.5px; background: #f6faee; }
+.vd-row.next .vd-step { box-shadow: 0 0 0 4px #dfe9cc; }
+.vd-next { font-style: normal; font-size: 11px; font-weight: 800; color: #fff; background: #e0894a; border-radius: 99px; padding: 1px 8px; justify-self: start; }
 .vd-again, .vd-print { width: 100%; display: grid; gap: 8px; justify-items: center; padding: 12px; border-radius: 18px; border: 1.5px dashed var(--line); }
 .vd-again p, .vd-print p { margin: 0; font-size: 15px; font-weight: 800; }
 .vd-print small { font-size: 12px; opacity: 0.75; line-height: 1.5; }
 .vd-times { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; }
+.vd-chap { display: inline-flex; align-items: center; gap: 4px; font: inherit; font-size: 14px; font-weight: 700; color: var(--navy); background: #fffdf6; border: 1.5px solid var(--line); border-radius: 12px; padding: 7px 12px; cursor: pointer; }
+.vd-chap .ic { width: 14px; height: 14px; color: #7f985e; }
 .sheet-card .vd-print .btn.small { width: auto; font-size: 15px; padding: 10px 16px; text-decoration: none; color: var(--navy); background: #fffdf6; display: inline-flex; align-items: center; gap: 6px; }
+.result-more { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; width: 100%; margin-top: 4px; }

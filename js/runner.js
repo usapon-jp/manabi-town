@@ -179,6 +179,8 @@ export function runQuestions(title, questions, onFinish, opts = {}) {
     const extra = onFinish(score, questions.length, results);
     // opts.again は 関数でもOK（けっかを見てから「もう1回」を出すか きめる）
     const again = typeof opts.again === 'function' ? opts.again(results) : opts.again;
+    // opts.more: けっかの 下に ならべる ボタン（[{ label, onClick }] か、results を うけとる 関数）
+    const more = (typeof opts.more === 'function' ? opts.more(results) : opts.more) || [];
     layer.replaceChildren(h('div', { class: 'runner-card result' },
       h('div', { class: 'q-box' },
         h('p', { class: 'big' }, perfect ? 'ぜんもんせいかい！' : `${score} / ${questions.length} もん せいかい`),
@@ -190,6 +192,7 @@ export function runQuestions(title, questions, onFinish, opts = {}) {
           h('button', { class: 'btn primary next', onclick: () => { close(); again.onClick(); } }, again.label || 'もう1回'),
           h('button', { class: 'btn next', onclick: close }, 'もどる'))
         : h('button', { class: 'btn primary next', onclick: close }, 'もどる'),
+      more.length ? h('div', { class: 'result-more' }, more.map((m) => h('button', { class: 'btn small', onclick: () => { close(); m.onClick(); } }, m.label))) : null,
     ));
   }
 
