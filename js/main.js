@@ -39,6 +39,7 @@ import { sortPinned, togglePin } from './pins.js';
 import { mineToday, toggleMine, removeMine, renameMine, mineAdder, MINE_POINTS } from './mytodo.js';
 import { aiPractice, practiceSubjects } from './challenge.js';
 import { initBack } from './back.js';
+import { maybeDaily1 } from './daily1.js';
 
 const POINTS_HOMEWORK = 20;
 const POINTS_TEST = 50;
@@ -86,6 +87,7 @@ const worldEl = document.getElementById('world');
 worldEl.classList.add('loading');
 requestAnimationFrame(() => setTimeout(() => {
   hideSplash();
+  { const p = currentProfile(); if (p?.tutorialDone) maybeDaily1(p, bonusDeps); }
   // 起動画面が消えて 勉強の画面が見えてから、草原を作りはじめる
   setTimeout(() => {
     import('./world.js')
@@ -1141,3 +1143,9 @@ initBack({ tab: () => tab, goHome: () => show('home'), menuBtn });   // スマ�
 restoreTimers(getState().profiles);
 resumeIfRunning(currentProfile(), timerDeps);
 if (currentProfile() && !currentProfile().tutorialDone) setTimeout(() => runTutorial(currentProfile()), 1200);
+// 小6は ひらくたびに「きょうの1もん」（js/daily1.js）。起動画面が 消えたら すぐ出す（3Dの草原は その うらで 読みこむ）
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState !== 'visible') return;
+  const p = currentProfile();
+  if (p?.tutorialDone) setTimeout(() => maybeDaily1(p, bonusDeps, { resume: true }), 600);
+});

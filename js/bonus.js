@@ -5,6 +5,7 @@
 // - きょうのチャレンジ: タイマー30分
 // - 今週のイベント: スタンプ5日・120分・クエスト5回。できたら「うけとる」
 import { h, toast, daysLabel } from './ui.js';
+import { hasDaily1, daily1Done, startDaily1, DAILY1_OK } from './daily1.js';
 import { today, toISO, daysUntil, save, gradeBucket } from './store.js';
 import { DRILLS as ALL_DRILLS, buildDrill } from './quests.js';
 import { isAdult } from './adult.js';
@@ -74,6 +75,7 @@ export function bonusCount(p) {
   if (!day.lookProg) n += 1;
   drillsFor(p).forEach((d) => { if (!day[`drill:${d.id}`]) n += 1; });
   if (dueReview(p).length) n += 1;
+  if (hasDaily1(p) && !daily1Done(p)) n += 1;
   g.daily.forEach((x) => { if (!day[x.id] && x.now >= x.goal) n += 1; });
   g.weekly.forEach((x) => { if (!wk[x.id] && x.now >= x.goal) n += 1; });
   return n;
@@ -120,6 +122,10 @@ export function openBonus(p, deps) {
       onTap: () => { s.close(); openProgress(p, deps); } }),
   ];
 
+  // 小6: きょうの1もん（ポップアップを「あとで」に したときも ここから とける）
+  const one = hasDaily1(p) ? row({ ic: 'calculator', label: 'きょうの 1もん', sub: 'じゅけん たいさく・とき方つき', reward: DAILY1_OK,
+    done: daily1Done(p), onTap: () => { s.close(); startDaily1(p, deps); } }) : null;
+
   const drills = drillsFor(p).map((d) => {
     const key = `drill:${d.id}`;
     const res = day[key];
@@ -162,7 +168,7 @@ export function openBonus(p, deps) {
   const s = sheet('bonus-card',
     h('p', { class: 'sheet-title' }, icon('gift'), ' ボーナス'),
     h('p', { class: 'sheet-sub' }, 'もっと ポイントを あつめたいときに'),
-    h('div', { class: 'q-group' }, h('h4', {}, 'きょう'), h('ul', { class: 'quest-list' }, look, drills, g.daily.map((x) => goalRow(x, day)))),
+    h('div', { class: 'q-group' }, h('h4', {}, 'きょう'), h('ul', { class: 'quest-list' }, one, look, drills, g.daily.map((x) => goalRow(x, day)))),
     fix.some(Boolean) ? h('div', { class: 'q-group' }, h('h4', {}, 'せいせきアップ'), h('ul', { class: 'quest-list' }, fix)) : null,
     h('div', { class: 'q-group event' }, h('h4', {}, '今週のイベント', h('small', {}, left ? `のこり${left}日` : 'きょうまで')),
       h('ul', { class: 'quest-list' }, g.weekly.map((x) => goalRow(x, wk)))),

@@ -45,6 +45,10 @@ export function runQuestions(title, questions, onFinish, opts = {}) {
     cleanup();
     const q = questions[index];
     const feedback = h('div', { class: 'feedback', role: 'status' });
+    // 答えたあとに出す「とき方」（きょうの1もん など、explain が ある問題だけ）
+    const explain = Array.isArray(q.explain) && q.explain.length
+      ? h('div', { class: 'explain', hidden: true }, h('b', {}, icon('lightbulb'), ' とき方'), q.explain.map((line) => h('p', {}, line)))
+      : null;
     const next = h('button', { class: 'btn primary next', hidden: true, onclick: () => {
       index += 1;
       if (index < questions.length && !timeUp()) render(); else finish();
@@ -54,6 +58,7 @@ export function runQuestions(title, questions, onFinish, opts = {}) {
       react(ok);
       results.push({ q, ok });
       if (ok) score += 1;
+      if (explain) explain.hidden = false;
       feedback.className = `feedback ${ok ? 'ok' : 'ng'}`;
       feedback.textContent = ok
         ? `ピヨ先生「${PRAISE[index % PRAISE.length]}」`
@@ -131,7 +136,7 @@ export function runQuestions(title, questions, onFinish, opts = {}) {
         hintArea(q, () => !next.hidden),
       ),
       answerArea,
-      h('div', { class: 'runner-foot' }, feedback, next),
+      h('div', { class: 'runner-foot' }, feedback, explain, next),
     ));
   }
 

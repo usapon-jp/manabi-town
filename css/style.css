@@ -1946,3 +1946,12 @@ input.pin { font-size: 26px; letter-spacing: 0.5em; text-align: center; }
 .vd-print small { font-size: 12px; opacity: 0.75; line-height: 1.5; }
 .vd-times { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; }
 .sheet-card .vd-print .btn.small { width: auto; font-size: 15px; padding: 10px 16px; text-decoration: none; color: var(--navy); background: #fffdf6; display: inline-flex; align-items: center; gap: 6px; }
+
+/* きょうの1もん（小6・js/daily1.js）と、答えたあとの「とき方」 */
+.daily1-card { text-align: center; }
+.daily1-card .d1-q { background: #fffaf0; border: 1.5px solid var(--line); border-radius: 18px; padding: 14px 16px; text-align: left; }
+.daily1-card .d1-q p { margin: 8px 0 0; font-size: 17px; font-weight: 800; line-height: 1.6; color: var(--navy); }
+.runner-foot .explain { text-align: left; background: #fffaf0; border: 1.5px dashed var(--line); border-radius: 16px; padding: 10px 14px; margin: 6px 0 10px; }
+.runner-foot .explain b { display: flex; align-items: center; gap: 4px; color: #7f985e; font-size: 15px; }
+.runner-foot .explain b svg { width: 18px; height: 18px; }
+.runner-foot .explain p { margin: 4px 0 0; font-size: 15px; font-weight: 700; line-height: 1.6; }
