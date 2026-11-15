@@ -86,6 +86,12 @@ input, textarea { -webkit-user-select: text; user-select: text; }
 .hud .who { display: grid; grid-template-columns: auto 1fr; align-items: center; column-gap: 6px; row-gap: 3px; padding: 5px 14px 7px 6px; min-width: 0; max-width: 60%; }
 .hud .lv { grid-row: span 2; background: #f0cf7a; border: 1.5px solid var(--line); border-radius: 999px; padding: 3px 8px; font-size: 13px; }
 .hud .name { font-size: 14px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* たてのスマホは 右の ボタンで いっぱいで 名前が「テ…」に なるので、レベルだけに（けいけんちの バーは 進み具合で 見られる） */
+@media (max-width: 430px) and (orientation: portrait) {
+  .hud .name, .hud .xp { display: none; }
+  .hud .who { padding: 5px 6px; }
+  .hud .lv { grid-row: auto; }
+}
 .hud .xp { display: block; height: 7px; border-radius: 999px; background: #efe5d2; overflow: hidden; }
 .hud .xp i { display: block; height: 100%; background: linear-gradient(90deg, #8fa871, #6b854f); border-radius: inherit; transition: width 0.5s ease; }
 .hud .stats { display: flex; gap: 6px; }
@@ -540,7 +546,7 @@ button.go:active { transform: scale(0.97); animation: none; }
   border-radius: 16px;
   box-shadow: var(--shadow);
   font-size: 17px; font-weight: 800;
-  text-align: center;
+  text-align: center; text-wrap: balance;
 }
 .tour-top {
   position: fixed;
@@ -937,6 +943,11 @@ body:not([data-tab="home"])::before {
    丸ゴシック(ヒラギノ丸ゴ)は太さが1つだけなので、太字にすると全部が「にじんだ太字」になって圧が出る。
    太字は「数字・いま選んでいるもの・大きいボタン・見出し」だけにして、ほかはふつうの太さにする。 */
 body { line-height: 1.6; letter-spacing: 0.02em; }
+/* 日本語の 折りかえし: 文は 分かち書き（「まずは1こだけ やってみよう」）なので、すきまで 折りかえして
+   ことばの とちゅうで 切らない（「わ／けるよ」「見／る」に しない）。1行に 入らない 長い ことばだけ はみ出す ところで 折る
+   （anywhere に すると 数字まで 1字ずつ 折れて 上の ポイントが「5／0／0」に なるので break-word）。
+   pretty は さいごの 行に 1〜2字だけ のこらないように（つかえない ブラウザでは ふつうの 折りかえし） */
+body { word-break: keep-all; overflow-wrap: break-word; line-break: strict; text-wrap: pretty; }
 .label, .pick, .seg button, .bgm-name, .bgm-row .link, .stat3 small, .day small, .all-tasks summary,
 .coach p, .sheet-sub, .legend, .rec .what, .min-in, .vol, .bgm-item .name, .face small, .cheer,
 .chart .col small, .go-label, .home-bar .count, .task-label, .memo-head, .runner-top .progress,
@@ -2140,6 +2151,7 @@ body:has(.clock-dial) #pad, body:has(.clock-dial) #bubble, body:has(.clock-dial)
   padding: 0 16px calc(16px + env(safe-area-inset-bottom)); animation: an-in 0.28s ease-out; }
 .egg-card.gone { opacity: 0; transform: translateY(16px); transition: opacity 0.25s, transform 0.25s; }
 .egg-card-in { position: relative; width: 100%; max-width: 380px; display: grid; gap: 10px; padding: 16px 16px 14px;
+  max-height: calc(100dvh - 24px - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px)); overflow-y: auto; overscroll-behavior: contain;
   border-radius: 22px; background: rgba(255, 250, 240, 0.97); border: 2px solid #fff; box-shadow: var(--shadow); }
 .egg-x { all: unset; cursor: pointer; position: absolute; top: 8px; right: 10px; width: 32px; height: 32px; display: grid; place-items: center;
   font-size: 22px; color: var(--ink-soft); border-radius: 50%; }
@@ -2154,14 +2166,16 @@ body:has(.clock-dial) #pad, body:has(.clock-dial) #bubble, body:has(.clock-dial)
 .egg-link-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; font-size: 13px; color: var(--ink-soft); }
 .egg-link { font: inherit; font-size: 15px; padding: 6px 10px; border-radius: 12px; border: 2px solid var(--edge); background: #fff; color: var(--ink); }
 
-.egg-say { position: fixed; left: 50%; top: calc(env(safe-area-inset-top, 0px) + 70px); transform: translateX(-50%); z-index: 50;
+/* left: 50% だと 文の はばが 画面の 半分に なって 3行に おれるので、左右 0 + margin auto で まんなかに */
+.egg-say { position: fixed; left: 0; right: 0; margin: 0 auto; width: fit-content; top: calc(env(safe-area-inset-top, 0px) + 124px); z-index: 50;
   display: flex; align-items: center; gap: 8px; max-width: calc(100vw - 32px); padding: 6px 14px 6px 6px; border-radius: 24px;
   background: rgba(255, 250, 240, 0.95); border: 2px solid #fff; box-shadow: var(--soft); pointer-events: none; }
 .egg-say[hidden] { display: none; }
 .egg-say img { width: 34px; height: 34px; border-radius: 50%; flex: none; }
-.egg-say p { margin: 0; font-size: 15px; font-weight: 800; color: var(--navy); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.egg-say p { margin: 0; font-size: 15px; font-weight: 800; line-height: 1.4; color: var(--navy); text-wrap: balance; }
+body:has(.egg-say:not([hidden])) .town-ask-tip { visibility: hidden; }
 .egg-say.pop { animation: egg-say-in 0.35s ease-out; }
-@keyframes egg-say-in { from { opacity: 0; transform: translate(-50%, -10px) scale(0.95); } }
+@keyframes egg-say-in { from { opacity: 0; transform: translateY(-10px) scale(0.95); } }
 
 .egg-born { position: fixed; inset: 0; z-index: 62; display: grid; place-items: center; padding: 16px; background: rgba(70, 52, 32, 0.32); overflow: hidden; animation: an-in 0.3s ease-out; }
 .egg-born-card { position: relative; width: 100%; max-width: 340px; display: grid; gap: 8px; justify-items: center; text-align: center;
@@ -2170,13 +2184,14 @@ body:has(.clock-dial) #pad, body:has(.clock-dial) #bubble, body:has(.clock-dial)
 .egg-born-pic .egg-ic { width: 44px; height: 56px; animation: egg-wob 1.6s ease-in-out infinite; }
 .egg-born-title { margin: 4px 0 0; font-size: 24px; font-weight: 900; color: var(--navy); }
 .egg-born-sub { margin: 0; font-size: 16px; font-weight: 800; color: var(--ink); }
-.egg-born-line { margin: 0; font-size: 14px; font-weight: 700; color: #6b854f; }
+.egg-born-line { margin: 0; font-size: 14px; font-weight: 700; color: #6b854f; text-wrap: balance; }
+.egg-born-title, .egg-born-sub, .egg-words, .egg-hint, .an-say, .sheet-sub, .cam-big-actions .btn { text-wrap: balance; }
 .egg-born-card .btn { margin-top: 6px; min-width: 180px; }
 .egg-confetti { position: absolute; inset: 0; pointer-events: none; }
 .egg-confetti i { position: absolute; top: -12px; width: 9px; height: 14px; border-radius: 3px; animation: egg-fall linear infinite; }
 @keyframes egg-fall { to { transform: translateY(105vh) rotate(540deg); } }
 
-.egg-plant { position: fixed; left: 0; right: 0; bottom: calc(var(--tabs-h, 0px) + env(safe-area-inset-bottom, 0px) + 10px); z-index: 50; display: flex; justify-content: center; padding: 0 16px; pointer-events: none; }
+.egg-plant { position: fixed; left: 0; right: 0; top: calc(env(safe-area-inset-top, 0px) + 66px); z-index: 50; display: flex; justify-content: center; padding: 0 16px; pointer-events: none; }
 .egg-plant-in { pointer-events: auto; width: 100%; max-width: 360px; display: grid; gap: 10px; padding: 12px 14px; border-radius: 20px;
   background: rgba(255, 250, 240, 0.95); border: 2px solid #fff; box-shadow: var(--shadow); }
 .egg-plant-in .egg-head p { margin: 0; font-weight: 800; font-size: 16px; color: var(--navy); }

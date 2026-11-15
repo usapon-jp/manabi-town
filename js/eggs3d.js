@@ -430,6 +430,7 @@ export function createEggs({ scene, town, cut }) {
 
   let on = true;
   let has = false;
+  let quiet = false;   // カメラの あいだは 頭の上の「！」を かくす（写真に うつらないように）
   let blockersSig = '';
 
   // なかまの 立つ場所: たねを うえる前は 巣の まえ、うえたら その たねの まえ
@@ -495,6 +496,8 @@ export function createEggs({ scene, town, cut }) {
   }
 
   return {
+    // カメラの あいだ true（「！」を 出さない）
+    setQuiet(v) { quiet = !!v; if (quiet) items.forEach((it) => { it.bang.visible = false; }); },
     // views: [{ id, phase, stage, k, seed:{x,z,rot}|null, tap }]（eggui.js が 作る）。has: たまごを もらったか
     setView(views, hasEggs) {
       has = !!hasEggs;
@@ -716,7 +719,7 @@ export function createEggs({ scene, town, cut }) {
         if (glow && it.building.visible) glow.material.color.setHSL(0.14, 1, 0.78 + Math.sin(t * 2) * 0.06);
         // ---- 頭の上の「！」 ----
         const tap = !!v?.tap && it.hatchT < 0 && plant.id !== it.def.id;
-        it.bang.visible = tap;
+        it.bang.visible = tap && !quiet;
         if (tap) {
           let base;
           if (v.phase === 'egg') base = it.eggHolder.getWorldPosition(new THREE.Vector3()).add(new THREE.Vector3(0, EGG_H + 0.35, 0));

@@ -9,14 +9,26 @@ const STEPS = [
   { text: '進み具合と テスト・宿題は ここ', target: () => tab('todo'), tap: 'target', open: 'todo' },
   { text: 'ここから 入れるよ。毎日の分に わけるよ', target: () => document.querySelector('.goal-add > summary'), tap: 'any', pad: 6 },
   { text: 'ホームに もどろう', target: () => tab('home'), tap: 'target', open: 'home' },
-  { text: 'きょうのクエストは ここ。数字は のこりだよ', target: () => document.querySelector('.quest-mark') || document.querySelector('.go'), tap: 'any', pad: 6 },
-  { text: '毎日つづけて れんぞく日数を のばそう', target: () => document.querySelector('.hud .stats'), tap: 'any', pad: 6 },
+  { text: 'きょう やることは ここ。数字は のこりの 数', target: () => document.querySelector('.quest-mark') || document.querySelector('.go'), tap: 'any', pad: 6 },
+  { text: '毎日つづけて れんぞく日数を のばそう', target: () => streakAndPoints(), tap: 'any', pad: 6 },
   { text: 'ポイントを もっと ほしいときは ここ', target: () => document.querySelector('.bonus-btn'), tap: 'any', pad: 6 },
-  { text: 'きょうの やることは ここ。書いて ふやせるよ', target: () => tab('quest'), tap: 'target', open: 'quest' },
+  { text: 'やることの ページ。自分で 書いて ふやせるよ', target: () => tab('quest'), tap: 'target', open: 'quest' },
   { text: 'タイマーで 勉強を計ろう', target: () => tab('timer'), tap: 'target', open: 'timer' },
 ];
 
 const tab = (name) => document.querySelector(`.tabs button[data-tab="${name}"]`);
+
+// れんぞく日数と ポイントだけ 光らせる（となりの ボーナスまで 光らせると、まんなかを おして ボーナスが ひらいてしまう）
+function streakAndPoints() {
+  const a = document.querySelector('.hud .fire');
+  const b = document.querySelector('.hud .points');
+  if (!a || !b) return document.querySelector('.hud .stats');
+  return { getBoundingClientRect: () => {
+    const r1 = a.getBoundingClientRect(); const r2 = b.getBoundingClientRect();
+    const left = Math.min(r1.left, r2.left); const top = Math.min(r1.top, r2.top);
+    return { left, top, width: Math.max(r1.right, r2.right) - left, height: Math.max(r1.bottom, r2.bottom) - top };
+  } };
+}
 
 // ジャンプとダッシュのボタンをまとめて光らせる
 function padButtons() {
