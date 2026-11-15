@@ -187,7 +187,10 @@ export function createEditor({ container, scene, cut, wind, pick, rotate, setWal
   // 島や人が かわるとき、やりかけ（なぞり・もっている物・うごかす先）を やめる
   function leave() {
     if (st.editing) setEditing(false);
-    walkEnd(null);
+    // おしたままの道具は「やめる」（walkEnd だと 書きこんでしまい、うつった先の島に 入ってしまう）
+    walk.held = false; walk.sel = false; walk.pts = null; walk.last = null; walk.attachTarget = null; walk.attachNow = null;
+    goBtn.classList.remove('hold'); selEl.hidden = true;
+    hideGhost(); clearTrail();
     if (st.carry) stopCarry();
     closeSelTap(); closeBag(); closeParts();
     moving.target = null;

@@ -26,6 +26,8 @@ const DEFS = new Map([[START, { id: START, name: 'はじまりの島', town: tru
 export function registerIsland(def) {
   if (!def || typeof def.id !== 'string' || !def.id || def.id === START) return false;
   DEFS.set(def.id, { ...def });
+  // おぼえていた島が いま使えるようになったかもしれないので、画面に 知らせる
+  listeners.forEach((fn) => fn(def.id));
   return true;
 }
 export const islandDef = (id) => DEFS.get(id) || null;
