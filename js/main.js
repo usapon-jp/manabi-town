@@ -776,9 +776,12 @@ async function startDaily(p, part) {
     if (pts > 0) gain(p, pts, `きょうのクエスト: ${part.label}`); else save();
     render();
     return all ? `+${pts} ポイント！きょうのクエスト ぜんぶ クリア！` : `+${pts} ポイント！`;
-  }, { onAbort: (score, total, results) => {
-    // とちゅうで やめても、答えた 問題は 記録する（ワークの ことばを「出した」に して、つぎは つづきから。
-    // これが ないと 毎回 同じ 抽選・掲示…から はじまっていた 長女 2026-11-15）。ポイントは パーツを おえた ときだけ
+  }, { onAbort: async (score, total, all) => {
+    // とちゅうで やめても、答えた 問題は 記録する（ワークの ことばを「出した」に して、つぎは つづきから）。ポイントは パーツを おえた ときだけ
+    // 書き方「テスト」の 採点まちは おわるのを まってから（まだの 答えを まちがいに しない）。採点できなかった 答えは 入れない
+    await Promise.allSettled(all.map((r) => r.job).filter(Boolean));
+    const results = all.filter((r) => !r.wait);
+    if (!results.length) return;
     settleReview(p, results.filter((r) => againSet.has(r.q)));
     recordResults(p, results.filter((r) => !againSet.has(r.q)), 'きょうのクエスト');
     stockMisses(p, results);
