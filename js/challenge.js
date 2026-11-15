@@ -14,7 +14,13 @@ import { isAdult } from './adult.js';
 import { sessions } from './timer.js';
 import { icon } from './icons.js';
 import { practicePoints } from './more.js';
-import { rangeFor, hasPool, rangeChoices, dropKanjiReads } from './coach.js';
+import { openStudy, studyLabel } from './study.js';
+import { activeExtras, isKanjiRange, isTestRange, hasPool, rangeChoices, dropKanjiReads } from './coach.js';
+
+// その教科の いまの テスト範囲（チャレンジの 教科名 → 範囲）
+const subjRange = (p, subject) => activeExtras(p).filter(isTestRange).find((x) => (subject === '国語' ? isKanjiRange(x) || /国語/.test(x.subject)
+  : subject === '算数・数学' ? /数学|算数/.test(x.subject) : String(x.subject || '').includes(subject) || subject.includes(String(x.subject || '-'))));
+
 
 export const CHALLENGE_MIN = 20;
 const CORE = ['国語', '算数・数学', '理科', '社会', '英語'];
@@ -38,8 +44,9 @@ export function openPiyo(p, deps, ctx = {}) {
     h('div', { class: 'sheet-card piyo-menu' },
       h('div', { class: 'coach' }, h('img', { src: 'assets/icons/icon-192.png', alt: '', width: 40, height: 40 }), h('p', {}, 'ピヨ先生と なにする？')),
       big('message-circle', 'しつもん', '写真・図・英語の よみあげ・英会話も', () => openAsk(p, { subject: subj })),
-      big('pencil', `れんしゅう もんだい（${subj}）`, '5もん やってみる', () => practice(p, deps, subj, !!ctx.fromTimer)),
-      ctx.fromTimer || isAdult(p) ? null : big('timer', `クイズチャレンジ（${CHALLENGE_MIN}分）`, '3・5・9教科を まわって 力だめし', () => openChallenge(p, deps)),
+      // 子どもは「テスト勉強をする／勉強をする」1つだけ（れんしゅう・クイズチャレンジと 名前が いくつも あると 迷う 2026-11-15）
+      isAdult(p) ? big('pencil', `れんしゅう もんだい（${subj}）`, '5もん やってみる', () => practice(p, deps, subj, !!ctx.fromTimer))
+        : big('book-open', studyLabel(p), 'きょうの分・教科を えらぶ', () => openStudy(p, deps, { fromTimer: ctx.fromTimer })),
       h('button', { class: 'link', type: 'button', onclick: close }, 'とじる')));
   document.body.append(sheet);
 }
@@ -56,13 +63,15 @@ function topicFor(p, subject) {
 async function makeFor(p, subject, n, seed, pics = []) {
   const bucket = gradeBucket(p);
   const rand = seededRandom(`chal:${subject}:${seed}`);
-  if (!pics.length && subject === '国語') {
-    // テスト前は 漢字の テスト範囲から（学年の 漢字は 中学だと 24こしかなく、矛盾などが 何度も 出ていた）
-    const kx = rangeFor(p, 'kanji');
-    if (kx && hasPool(p, kx)) {
-      const qs = rangeChoices(p, kx, n, `chal:${seed}`);
+  // テスト期間は どの教科も テスト範囲の 問題から（学年の 漢字は 中学だと 24こしかなく、矛盾などが 何度も 出ていた 2026-11-15）
+  if (!pics.length) {
+    const rx = subjRange(p, subject);
+    if (rx && hasPool(p, rx)) {
+      const qs = rangeChoices(p, rx, n, `chal:${subject}:${seed}`);
       if (qs.length) return qs;
     }
+  }
+  if (!pics.length && subject === '国語') {
     // 書きとりは ノートに書く形なので、チャレンジでは よみ（えらぶ）だけ。同じ ことばは 1回だけ
     const reads = []; const seen = new Set();
     for (let i = 0; i < 6 && reads.length < n; i += 1) {
@@ -116,7 +125,7 @@ async function build(p, subjects, n, photos = {}) {
 }
 
 // ---- れんしゅう もんだい（1教科5もん）-----------------------------------------
-async function practice(p, deps, subject, over) {
+export async function practice(p, deps, subject, over) {
   if (making) return;
   making = true;
   toast('ピヨ先生が 問題を作り中…', 5000);

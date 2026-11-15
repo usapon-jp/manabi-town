@@ -31,7 +31,7 @@ import { openPlanChat, startCheck, summary as planSummary, PLAN_BONUS, dailyBase
 import { startNotify, notifyCard } from './notify.js';
 import { isAdult, todayRoutines, checkRoutine, renderRoutineTab, consultCta, openConsult, ROUTINE_POINTS } from './adult.js';
 import { subjectNames, subjectColor, openSubjectEditor } from './subjects.js';
-import { moreCard } from './more.js';
+import { setStudyHooks, studyButton } from './study.js';
 import { openStoryList } from './story.js';
 import { brainCard, openBrain } from './brain.js';
 import { openDiary, diaryFab } from './diary.js';
@@ -212,6 +212,8 @@ const moreDeps = {
   makeAI: (p, subject, n) => aiPractice(p, subject, n),
   aiSubjects: (p) => practiceSubjects(p, subjectNames(p)),
 };
+// 「テスト勉強をする」の きょうの分 = デイリーの パーツ
+setStudyHooks({ parts: (p) => dailyParts(p), done: (p) => partsDone(p), start: (p, part) => startDaily(p, part) });
 
 function show(next) {
   tab = next;
@@ -447,9 +449,11 @@ function renderHome(p) {
       isAdult(p) ? (tasks.length ? null : consultCta(p, bonusDeps)) : p.coach ? null : h('button', { class: 'plan-cta', onclick: () => openPlanChat(p, bonusDeps) },
         icon('sparkles'), h('span', {}, h('b', {}, 'はじめに ピヨ先生と 作戦会議'), h('small', {}, `進め方を いっしょに決めよう・+${PLAN_BONUS}`))),
       goBtn,
+      studyButton(p, moreDeps),   // 「テスト勉強をする／勉強をする」: きょうの分と 教科を えらぶ 1まい（2026-11-15）
       bar,
       dueCard(p, urgent),
-      homeRangeBar(p, rangeDeps(p)),   // テスト範囲の すすみバー（タップで 教科ごと）
+      // テスト範囲の すすみバー（タップで 教科ごと）。問題の 進みは「テスト勉強をする」の中
+      homeRangeBar(p, rangeDeps(p)),
       rangeNeedsRow(p, rangeDeps(p)),  // 範囲が まだの 教科は「テスト範囲を 入れてね」
       h('details', { class: 'all-tasks', open: listOpen || null, ontoggle: (e) => { listOpen = e.target.open; } },
         h('summary', {}, 'きょうのリスト'),
@@ -882,6 +886,7 @@ function renderQuest(p) {
   // 「やること」タブ: きょうの リスト（書いて たせる）→ きょうのクエスト → やりなおし → 小テスト → しつもん
   fill(panel,
     h('h2', {}, 'やること'),
+    studyButton(p, moreDeps),
     todayCard(p),
     h('div', { class: 'card quest' },
       h('h3', {}, 'きょうのクエスト', result ? h('small', { class: 'today-left' }, ' ぜんぶ クリア！') : null),
@@ -892,7 +897,6 @@ function renderQuest(p) {
         : null,
       isAdult(p) ? null : h('button', { class: 'link', onclick: () => openPlanChat(p, bonusDeps) }, '中身を かえる（ピヨ先生と 作戦会議）')),
     missCard(p),
-    moreCard(p, moreDeps),
     isAdult(p) ? null : h('button', { class: 'btn', onclick: () => openStoryList({ p, gain, render }) }, icon('film'), ' ながれ動画（社会・理科）'),
     brainCard(p, bonusDeps),
     h('details', { class: 'fold-sec' }, h('summary', {}, icon('notebook-pen'), ' やりなおし・小テスト・しつもん'),
