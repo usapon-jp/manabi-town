@@ -1966,10 +1966,8 @@ input.pin { font-size: 26px; letter-spacing: 0.5em; text-align: center; }
 .an-row input { flex: 1; min-width: 0; font: inherit; font-size: 20px; font-weight: 700; padding: 10px 14px; border-radius: 14px; border: 2px solid var(--edge); background: #fff; color: var(--ink); }
 .an-row input:focus { outline: none; border-color: var(--accent); }
 .an-row .btn { flex: none; }
-.an-ideas { display: flex; flex-wrap: wrap; gap: 6px; }
-.an-ideas .chip { border: none; cursor: pointer; font: inherit; font-size: 14px; padding: 6px 12px; background: var(--pink); color: var(--ink); }
 .an-later { justify-self: center; }
-.an-card.named .an-row, .an-card.named .an-ideas, .an-card.named .an-later { display: none; }
+.an-card.named .an-row, .an-card.named .an-later { display: none; }
 .an-card.named .an-say { font-size: 20px; }
 /* 名前を つけている あいだは、町の ボタンを かくして 女の子を 見せる */
 body:has(.avatar-name) #pad, body:has(.avatar-name) #bubble, body:has(.avatar-name) .tabs, body:has(.avatar-name) .ask-fab, body:has(.avatar-name) .diary-fab, body:has(.avatar-name) .wedit, body:has(.avatar-name) .wuse { visibility: hidden; }

@@ -4,8 +4,6 @@ import { h } from './ui.js';
 import { save } from './store.js';
 import { setAvatarName, cleanName, hasAvatarName, avatarName, NAME_MAX } from './avatar.js';
 
-const IDEAS = ['はな', 'ひかり', 'さくら', 'ゆい', 'みらい'];
-
 // world は なくてもよい（3D が うごかない 端末）。onDone(つけたか) は とじたあと
 export function openAvatarNaming(p, { world, onDone } = {}) {
   if (!p || document.querySelector('.avatar-name')) return;
@@ -16,7 +14,6 @@ export function openAvatarNaming(p, { world, onDone } = {}) {
   const sync = () => { ok.disabled = !cleanName(input.value); };
   input.addEventListener('input', sync);
   sync();
-  const ideas = h('div', { class: 'an-ideas' }, IDEAS.map((n) => h('button', { type: 'button', class: 'chip', onclick: () => { input.value = n; sync(); input.focus(); } }, n)));
   let done = false;
   function close(named) {
     if (done) return;
@@ -40,7 +37,6 @@ export function openAvatarNaming(p, { world, onDone } = {}) {
   } },
   h('div', { class: 'an-coach' }, h('img', { src: 'assets/icons/icon-192.png', alt: 'ピヨ先生', width: 44, height: 44 }), say),
   h('div', { class: 'an-row' }, input, ok),
-  ideas,
   h('button', { type: 'button', class: 'link an-later', onclick: () => close(false) }, again ? 'やめる' : 'あとで'));
   const root = h('div', { class: 'avatar-name' }, form);
   document.body.append(root);
