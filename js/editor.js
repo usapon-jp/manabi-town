@@ -7,6 +7,7 @@
 // 画面の部品は world のコンテナの中に自分で作る（index.html・css・main.js には触らない）。
 import * as THREE from 'three';
 import { currentProfile, save, onChange } from './store.js';
+import { avatarName } from './avatar.js';
 import { currentIslandId, islandOps, otherIslands, onIslandChange } from './islands.js';
 import { heightAt } from './terrain.js';
 import { createBuilds, STAMP_STEP, loopLength, LOOP_MIN } from './builds.js';
@@ -656,7 +657,7 @@ export function createEditor({ container, scene, cut, wind, pick, rotate, setWal
     bagSheet = document.createElement('div');
     bagSheet.className = 'wparts wbag';
     bagSheet.innerHTML = `<div class="pcard"><p class="ptitle">${PICK ? PICK.title : 'おきものを えらぶ'}</p><div class="bgrid">${cards.join('')}</div>
-      <p class="bhint">${PICK ? PICK.hint : 'えらぶと ピヨが もつよ'}。ガチャで ふえるよ</p><button type="button" class="pclose">とじる</button></div>`;
+      <p class="bhint">${PICK ? PICK.hint : `えらぶと ${avatarName(currentProfile())}が もつよ`}。ガチャで ふえるよ</p><button type="button" class="pclose">とじる</button></div>`;
     bagSheet.addEventListener('click', (e) => {
       if (e.target === bagSheet || e.target.closest('.pclose')) { closeBag(); return; }
       const b = e.target.closest('button[data-k]'); if (!b) return;

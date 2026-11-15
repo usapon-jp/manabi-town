@@ -4,7 +4,7 @@ import { h } from './ui.js';
 import { icon } from './icons.js';
 
 const STEPS = [
-  { text: 'スティックで ピヨを動かそう', target: () => document.getElementById('joy'), tap: 'any', pad: 8 },
+  { text: (who) => `スティックで ${who}を動かそう`, target: () => document.getElementById('joy'), tap: 'any', pad: 8 },
   { text: 'ジャンプと ダッシュ', target: () => padButtons(), tap: 'any', pad: 8 },
   { text: '進み具合と テスト・宿題は ここ', target: () => tab('todo'), tap: 'target', open: 'todo' },
   { text: 'ここから 入れるよ。毎日の分に わけるよ', target: () => document.querySelector('.goal-add > summary'), tap: 'any', pad: 6 },
@@ -30,7 +30,7 @@ function padButtons() {
   } };
 }
 
-export function startTutorial({ show, onDone }) {
+export function startTutorial({ show, onDone, who = '女の子' }) {
   document.querySelector('.tour')?.remove();
   let i = 0;
   const blocks = [0, 1, 2, 3].map(() => h('div', { class: 'tour-dim' }));
@@ -74,7 +74,7 @@ export function startTutorial({ show, onDone }) {
     const cx = rect.left + rect.width / 2;
     hand.classList.toggle('from-top', !below);
     Object.assign(hand.style, { left: `${cx - 28}px`, top: below ? `${bottom + 4}px` : `${rect.top - 64}px` });
-    label.textContent = step.text;
+    label.textContent = typeof step.text === 'function' ? step.text(who) : step.text;
     const lw = Math.min(W - 32, 300);
     const lx = Math.min(Math.max(16, cx - lw / 2), W - lw - 16);
     Object.assign(label.style, { left: `${lx}px`, width: `${lw}px`, top: below ? `${bottom + 68}px` : 'auto', bottom: below ? 'auto' : `${H - rect.top + 68}px` });
