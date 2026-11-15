@@ -6,6 +6,7 @@ import { skyNow, DAY_MIN } from './daytime.js';
 
 import { cottage, mushroomHouse, bed } from './cottage.js';
 import { mat, glass, box, cyl, cone, ball, softDot, blob, smoke } from './townkit.js';
+import { NEST } from './eggs.js';
 
 // 切り妻（山がたの）屋根。底がy=0、ひさしを少し出す
 function gable(width, depth, rise, color, over = 0.22) {
@@ -472,7 +473,9 @@ PLAN.forEach((p, i) => {
 });
 
 // 草や木をよけるための判定（建物が出る前から場所をあけておく）
+// 教科の たまごの 巣（eggs.js の NEST）も、草が つきぬけないよう あけておく
 export function isTownSpot(x, z, pad = 0) {
+  if (Math.hypot(x - NEST.x, z - NEST.z) < NEST.r + 0.35 + pad) return true;
   return PLAN.some((p) => p.avoid > 0 && Math.hypot(x - p.x, z - p.z) < p.avoid + pad);
 }
 
@@ -489,6 +492,7 @@ export function createTown(scene) {
   const vis = (it) => { it.group.visible = !off && it.shown && !it.stored; };
   const walls = items.filter((it) => it.r > 0);
   let extraWalls = [];
+  let blockers = [];   // 教科の 建物・たまごの 巣（eggs3d.js が 入れかえる）。[{ x, z, r }]
   let lastLv = 0;
 
   return {
@@ -550,6 +554,7 @@ export function createTown(scene) {
         if (it.id === selfId || !it.shown || it.stored || it.r <= 0) continue;
         if (Math.hypot(x - it.x, z - it.z) < it.r + r + 0.3) return false;
       }
+      for (const b of blockers) if (Math.hypot(x - b.x, z - b.z) < b.r + r + 0.3) return false;
       return true;
     },
     update(dt, t, camPos) {
@@ -566,10 +571,12 @@ export function createTown(scene) {
     },
     // 子どもが作った柵・橋の手すりなど（まるい壁の並び）。builds.js が入れかえる
     setWalls(list) { extraWalls = list || []; },
+    // 教科の 建物など、町の表（PLAN）に ない 歩けない場所。canPlace でも よける
+    setBlockers(list) { blockers = list || []; },
     // 建物の中に入らないよう、外に押しだす。押しだしたら true
     pushOut(pos) {
       let pushed = false;
-      for (const w of extraWalls) {
+      for (const w of off ? extraWalls : [...extraWalls, ...blockers]) {
         const dx = pos.x - w.x; const dz = pos.z - w.z;
         const d = Math.hypot(dx, dz);
         const min = w.r + 0.35;

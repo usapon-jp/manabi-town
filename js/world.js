@@ -10,6 +10,7 @@ import { createClock, CLOCK_KEY } from './daytime.js';
 import { createMeadow } from './meadow.js';
 import { heightAt } from './terrain.js';
 import { createEditor } from './editor.js';
+import { createEggs } from './eggs3d.js';
 import { currentProfile, onChange } from './store.js';
 import { currentIslandId, islandDef, onIslandChange } from './islands.js';
 import { levelOf } from './progress.js';
@@ -83,6 +84,9 @@ export function createWorld(container) {
   };
   refreshTown();
   onChange(refreshTown);
+  // 教科の たまご・なかま・たね・建物（すがたは eggui.js が setView で わたす）
+  const eggs = createEggs({ scene, town, cut: meadow.cut });
+  eggs.setOn(!!islandDef(currentIslandId(currentProfile()))?.town);
 
   // 主人公（女の子）。見た目と名前は プロフィールごと（avatar.js）
   const girlDef = partOf('body:girl');
@@ -136,6 +140,7 @@ export function createWorld(container) {
   // 島を うつったら、その島の まんなかに 立つ（草原の中身は editor が その島の分に 入れかえる）
   onIslandChange(() => {
     refreshTown();
+    eggs.setOn(!!islandDef(currentIslandId(currentProfile()))?.town);
     actor.position.set(0, heightAt(0, 0), 0);
     piyo.position.set(0.9, heightAt(0.9, -1.1), -1.1);
     view.target.copy(actor.position);
@@ -194,6 +199,10 @@ export function createWorld(container) {
     }
     // タップした場所へ歩く機能は なし（2026-11-02 フミオさん）。ドラッグでまわすだけ
     if (drag && !drag.moved && api.onTapPiyo && hitsPiyo(e)) { drag = null; piyo.jump(); api.onTapPiyo(); return; }
+    if (drag && !drag.moved && api.onTapEgg) {
+      const hit = eggs.pick(rayAt(e));
+      if (hit) { drag = null; api.onTapEgg(hit); return; }
+    }
     if (drag && !drag.moved && api.onTapClock && hitsClockTower(e)) { drag = null; api.onTapClock(); return; }
     if (drag && !drag.moved) editor.tapWorld?.(e);   // 柵の道具を持っているとき、置いた柵をタップでしまう
     drag = null;
@@ -255,13 +264,14 @@ export function createWorld(container) {
     editor.update(time.value);
     marker.material.opacity = Math.max(0, marker.material.opacity - dt * 1.2);
     town.update(dt, time.value, camera.position);
+    eggs.update(dt, time.value, actor.position, actor.heading, camera.position);
 
     // 「つくる」の あいだは、すこし ひいて ひろく 見る（おわったら もとの きょりに）
     if (editor.active !== wasEditing) {
       wasEditing = editor.active;
       if (wasEditing) { savedDist = view.dist; zoomTo(Math.max(view.dist, 16)); } else if (savedDist) { zoomTo(savedDist); savedDist = 0; }
     }
-    view.target.lerp(actor.position, 0.04);
+    view.target.lerp(focus.at || actor.position, focus.at ? 0.06 : 0.04);
     camera.position.set(
       view.target.x + Math.sin(view.angle) * view.dist,
       view.target.y + view.height,
@@ -288,11 +298,14 @@ export function createWorld(container) {
       : { x: 0, z: 0, mag: 0, dash: false, jump: false });
     if (!far && closeUp.on) piyo.face(Math.atan2(camera.position.x - piyo.position.x, camera.position.z - piyo.position.z));
   }
-  function hitsPiyo(e) {
+  function rayAt(e) {
     const rect = canvas.getBoundingClientRect();
     pointer.set(((e.clientX - rect.left) / rect.width) * 2 - 1, -((e.clientY - rect.top) / rect.height) * 2 + 1);
     raycaster.setFromCamera(pointer, camera);
-    return raycaster.intersectObject(piyo.object, true).length > 0;
+    return raycaster;
+  }
+  function hitsPiyo(e) {
+    return rayAt(e).intersectObject(piyo.object, true).length > 0;
   }
   function hitsClockTower(e) {
     const g = town.groupOf(CLOCK_TOWER);
@@ -304,6 +317,8 @@ export function createWorld(container) {
   }
   // 名前を つけるとき: 女の子と ピヨ先生を 前から ちかくで 見る
   const closeUp = { on: false, saved: null };
+  // たまごを もらう・生まれる とき: しばらく 巣や たねの ほうを 見る
+  const focus = { at: null, saved: null };
 
   const api = {
     onTapPiyo: null,
@@ -312,6 +327,19 @@ export function createWorld(container) {
     clock: { minute: () => townClock.minute(), set: (m, keep) => townClock.set(m, keep), save: () => townClock.save() },
     // 時計塔が いま 町に 出ているか（Lv10 から。しまっている ときは 出ていない）
     hasClockTower: () => !!town.groupOf(CLOCK_TOWER),
+    onTapEgg: null,
+    eggs,
+    // (x, z) の ほうを 見る。null で 女の子に もどす
+    focus(x, z) {
+      if (x == null) {
+        focus.at = null;
+        if (focus.saved) { view.dist = focus.saved.dist; view.height = focus.saved.height; focus.saved = null; }
+        return;
+      }
+      if (!focus.saved) focus.saved = { dist: view.dist, height: view.height };
+      focus.at = new THREE.Vector3(x, heightAt(x, z), z);
+      zoomTo(8.5);
+    },
     closeUp(on) {
       if (on === closeUp.on) return;
       closeUp.on = on;

@@ -17,6 +17,9 @@ import { openAsk } from './ask.js';
 import { townAskButton, openTownAsk } from './townask.js';
 import { openAvatarNaming } from './avatarname.js';
 import { hasAvatarName, avatarName } from './avatar.js';
+import { initEggs, offerEggs } from './eggui.js';
+import { hasEggs, addWarmth, questSubjectFor, TUNE as EGG_TUNE } from './eggs.js';
+import { currentIslandId, START as START_ISLE } from './islands.js';
 import { bindControls } from './controls.js';
 import { levelOf, streak, week } from './progress.js';
 import { renderTimerTab, startTimer, resumeIfRunning, restoreTimers, matchRuns, kindForItem, minutesOn } from './timer.js';
@@ -97,9 +100,11 @@ requestAnimationFrame(() => setTimeout(() => {
         world = m.createWorld(worldEl);
         world.setActive(tab === 'home');
         // ピヨ先生を タップすると「まちの つかいかた」を きける
-        world.onTapPiyo = () => { const p = currentProfile(); if (p && !document.querySelector('.tour, .avatar-name')) openTownAsk(p); };
+        world.onTapPiyo = () => { const p = currentProfile(); if (p && !document.querySelector('.tour, .avatar-name, .egg-intro, .egg-born, .egg-plant')) openTownAsk(p); };
+        // 教科の たまご: タッチで ようすを 見る・「〇〇を べんきょうする」で タイマーへ（教科を えらんだ ところから）
+        initEggs(world, { isHome: () => tab === 'home' && !covered(), study: (p, subject) => studySubject(p, subject) });
         // 時計塔（Lv10）を タップすると 町の 時計を まわせる（空が 朝・昼・夕方・夜に かわる）
-        world.onTapClock = () => { if (!document.querySelector('.tour, .avatar-name, .clock-dial, .wlevel')) import('./clockdial.js').then((m) => m.openClockDial(world)).catch(() => {}); };
+        world.onTapClock = () => { if (!document.querySelector('.tour, .avatar-name, .clock-dial, .wlevel, .egg-intro, .egg-born, .egg-plant')) import('./clockdial.js').then((m) => m.openClockDial(world)).catch(() => {}); };
         worldReady();
         requestAnimationFrame(() => worldEl.classList.replace('loading', 'ready'));
       })
@@ -224,6 +229,12 @@ const moreDeps = {
 };
 // 「テスト勉強をする」の きょうの分 = デイリーの パーツ
 setStudyHooks({ parts: (p) => dailyParts(p), done: (p) => partsDone(p), start: (p, part) => startDaily(p, part) });
+
+// たまごの カードの「〇〇を べんきょうする」: タイマーの 教科を その教科に して ひらく
+function studySubject(p, subject) {
+  if (subjectNames(p).includes(subject)) { p.timerPrefs = { ...(p.timerPrefs || {}), subject }; save(); }
+  show('timer');
+}
 
 function show(next) {
   tab = next;
@@ -781,6 +792,8 @@ async function startDaily(p, part) {
     const done = partsDone(p);
     if (done[part.id] || p.daily[key]) { save(); return 'れんしゅうなので ポイントはないよ'; }
     done[part.id] = { score, total };
+    // 教科の たまご・たねも あたたまる（タイマーは 記録から 数えるので、ここは クエストの分だけ）
+    addWarmth(p, questSubjectFor(p, part, subjectNames(p)), EGG_TUNE.questMin, `quest:${key}:${part.id}`);
     let pts = score * POINTS_PER_CORRECT;
     const all = dailyParts(p).every((t) => done[t.id]);
     if (all) {
@@ -1164,7 +1177,13 @@ function retryHome() {
 }
 function startHome(p) {
   if (!p) return;
-  const tutorial = () => { if (!p.tutorialDone && currentProfile() === p) runTutorial(p); };
+  // 名前 → チュートリアル → 教科の たまごを もらう（はじまりの島に いるとき）
+  const eggsStep = () => worldLoaded.then(() => {
+    if (currentProfile() !== p || hasEggs(p) || !world?.eggs || currentIslandId(p) !== START_ISLE) return;
+    if (tab !== 'home' || document.querySelector('.tour, .sheet, .avatar-name, .egg-intro')) { homePending = p.id; return; }
+    offerEggs(p, () => render());
+  });
+  const tutorial = () => { if (!p.tutorialDone && currentProfile() === p) runTutorial(p, eggsStep); else eggsStep(); };
   if (hasAvatarName(p) || namingLater) { tutorial(); return; }
   worldLoaded.then(() => {
     if (currentProfile() !== p) return;
@@ -1173,9 +1192,9 @@ function startHome(p) {
   });
 }
 
-function runTutorial(p) {
+function runTutorial(p, then) {
   if (!p) return;
-  startTutorial({ show, who: hasAvatarName(p) ? avatarName(p) : '女の子', onDone: () => { updateProfile(p, { tutorialDone: true }); render(); } });
+  startTutorial({ show, who: hasAvatarName(p) ? avatarName(p) : '女の子', onDone: () => { updateProfile(p, { tutorialDone: true }); render(); if (then) setTimeout(then, 500); } });
 }
 
 render();
