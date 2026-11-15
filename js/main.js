@@ -776,7 +776,16 @@ async function startDaily(p, part) {
     if (pts > 0) gain(p, pts, `きょうのクエスト: ${part.label}`); else save();
     render();
     return all ? `+${pts} ポイント！きょうのクエスト ぜんぶ クリア！` : `+${pts} ポイント！`;
-  }, { again: () => {
+  }, { onAbort: (score, total, results) => {
+    // とちゅうで やめても、答えた 問題は 記録する（ワークの ことばを「出した」に して、つぎは つづきから。
+    // これが ないと 毎回 同じ 抽選・掲示…から はじまっていた 長女 2026-11-15）。ポイントは パーツを おえた ときだけ
+    settleReview(p, results.filter((r) => againSet.has(r.q)));
+    recordResults(p, results.filter((r) => !againSet.has(r.q)), 'きょうのクエスト');
+    stockMisses(p, results);
+    stockRetry(p, results);
+    save();
+    render();
+  }, again: () => {
     const nx = nextPart(p);
     return nx ? { label: `つぎ: ${nx.label} ${nx.n}もん`, onClick: () => startDaily(p, nx) } : retryAgain(p);
   } });
