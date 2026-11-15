@@ -4,14 +4,14 @@
 // - ピヨ先生が作る: テスト範囲をヒントに Haiku が 5もん（AI の回数にカウント）
 // ポイントは ひかえめ（1もん2ポイント、1日 MORE_DAY_CAP まで）。レベル・ガチャが ふくらみすぎないように。
 // きろくは p.bonus.days[きょう].more = { rounds, pts, n }
-import { h, toast } from './ui.js';
+import { h, toast, daysLabel } from './ui.js';
 import { today, save, gradeBucket } from './store.js';
 import { buildDrill, shuffle, seededRandom } from './quests.js';
 import { runQuestions } from './runner.js';
 import { recordResults } from './review.js';
 import { isAdult } from './adult.js';
 import { icon } from './icons.js';
-import { activeExtras, ensurePools, poolOf, rangeQ, isKanjiRange, rangeFor, rangeDrill, kanjiWriteOnly, spreadSimilar } from './coach.js';
+import { activeExtras, ensurePools, poolOf, rangeQ, isKanjiRange, rangeFor, rangeDrill, kanjiWriteOnly, spreadSimilar, rangeProgress, rangeNext, stockMisses, hasPool, ensurePool, poolKey } from './coach.js';
 
 export const MORE_PER_CORRECT = 2;
 export const MORE_DAY_CAP = 40;
@@ -91,8 +91,9 @@ export function openMore(p, deps) {
     h('div', { class: 'sheet-card piyo-menu' },
       h('div', { class: 'coach' }, h('img', { src: 'assets/icons/icon-192.png', alt: '', width: 48, height: 48 }),
         h('p', {}, cleared ? 'きょうの分 クリア！ もっと やる？' : 'なにを 勉強する？')),
-      ranges.length ? h('p', { class: 'more-sec' }, icon('target'), ' テスト範囲') : null,
-      ...ranges.map((x) => opt('target', isKanjiRange(x) ? '漢字・国語' : `${x.subject}`, x.topic, () => start(`${x.subject} テスト範囲`, rangeQs(x)), 'range')),
+      // テスト期間は 進みつきの テスト範囲カード（ほかの 入口と 同じ もの）。進みが 出せない 範囲だけ 前の ボタン
+      testRangeCard(p, deps, { compact: true, onStart: close }),
+      ...ranges.filter((x) => !rangeProgress(p).some((r) => r.key === poolKey(x))).map((x) => opt('target', isKanjiRange(x) ? '漢字・国語' : `${x.subject}`, x.topic, () => start(`${x.subject} テスト範囲`, rangeQs(x)), 'range')),
       ranges.length ? h('p', { class: 'more-sec' }, 'ふだんの れんしゅう') : null,
       h('div', { class: 'more-grid' },
         opt('pen-line', '漢字', tileSub('kanji', kanjiWriteOnly(p) ? '書きとり' : '書く・読む'), () => start('漢字', local('kanji'))),
@@ -129,4 +130,42 @@ export function moreCard(p, deps) {
         h('p', {}, cleared ? 'きょうの分は クリア！ もっと やってみよう' : 'テスト範囲・漢字・英単語・計算を すきなだけ'))),
     st.rounds ? h('p', { class: 'more-meter' }, `きょう ${st.rounds}回・${st.n}もん`) : null,
     h('button', { class: `btn ${cleared ? 'primary' : ''}`, onclick: () => openMore(p, deps) }, icon('sparkles'), cleared ? ' もっと やる！' : ' えらぶ'));
+}
+
+// ---- テスト期間の「テスト範囲」カード（ホーム・やること・ピヨちゃんと 勉強する に 同じものを 出す）----
+// 長女 2026-11-15「入り口が あっちこっちに あって 別の所に 行ってしまう」→ テスト範囲は ここから 1タップ。
+// どの入口で といても 同じ 範囲の 問題で、進み（といた数 / 範囲の 数）が ここに たまる
+const RANGE_ROUND = 10;
+export async function startRangeRun(p, x, deps) {
+  if (!hasPool(p, x)) { toast('ピヨ先生が 範囲の問題を作り中…', 8000); await ensurePool(p, x); }
+  const label = isKanjiRange(x) ? '漢字' : x.subject;
+  const qs = rangeNext(p, x, RANGE_ROUND, `${p.id}:${today()}:range:${Date.now() % 100000}`);
+  if (!qs.length) { toast('範囲の 問題が まだ 作れなかった…インターネットを たしかめて もういちど', 5000); return; }
+  runQuestions(`${label}の テスト範囲`, qs, (score, total, results) => {
+    recordResults(p, results, 'テスト範囲');
+    stockMisses(p, results);
+    const msg = practicePoints(p, score, total, `テスト範囲（${label}）`, deps);
+    deps.render();
+    return msg;
+  }, { again: { label: `つづき ${RANGE_ROUND}もん`, onClick: () => startRangeRun(p, x, deps) } });
+}
+
+export function testRangeCard(p, deps, opts = {}) {
+  if (isAdult(p)) return null;
+  const list = rangeProgress(p);
+  if (!list.length) return null;
+  const days = Math.min(...list.map((r) => r.days ?? 99));
+  return h('div', { class: `card test-range${opts.compact ? ' compact' : ''}` },
+    h('div', { class: 'tr-head' }, icon('target'), h('b', {}, 'テスト範囲の 問題'), days < 99 ? h('small', {}, `テストまで ${daysLabel(days)}`) : null),
+    h('ul', { class: 'tr-list' }, list.map((r) => {
+      const pc = Math.round((r.done / r.total) * 100);
+      const all = r.done >= r.total;
+      return h('li', {},
+        h('button', { type: 'button', class: `tr-row${all ? ' clear' : ''}`, onclick: () => { opts.onStart?.(); startRangeRun(p, r.x, deps); } },
+          h('span', { class: 'tr-name' }, r.label),
+          h('span', { class: 'tr-bar' }, h('span', { class: 'rbar' }, h('i', { style: `width:${pc}%` })),
+            h('small', {}, all ? `ぜんぶ といた！ ○ ${r.ok}` : `${r.done} / ${r.total}`)),
+          h('span', { class: 'tr-go' }, all ? 'もう1周' : 'つづき', icon('chevron-right'))));
+    })),
+    h('p', { class: 'tr-note' }, 'どこで といても ここに たまるよ'));
 }
