@@ -251,6 +251,9 @@ async function openBgmPicker(onClose, live = false) {
     }
     if (list.includes(t.id) && inList.length <= 1) { status.textContent = '1きょくは のこしてね'; return; }
     bgm.togglePlaylist(t.id);
+    // 1曲だけ↔2曲いじょう が かわると、ながし中の曲の くりかえし方も かわるので かけなおす
+    const after = bgm.playlist().filter((id) => byId.has(id)).length;
+    if (live && bgm.isPlaying() && (inList.length < 2) !== (after < 2)) bgm.play().catch(() => {});
     reopen();
   };
   const groups = [['standard', 'いつものBGM'], ['old', '前のタイマーの曲'], ['own', 'とりこんだ曲']];
