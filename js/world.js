@@ -2,6 +2,8 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { CHARACTERS } from './characters.js';
+import { partOf, lookOf, lookKey, avatarName, hasAvatarName } from './avatar.js';
+import { mountAvatar } from './avatar3d.js';
 import { readMove, takeJump } from './controls.js';
 import { createTown } from './town.js';
 import { createMeadow } from './meadow.js';
@@ -29,7 +31,7 @@ export function createWorld(container) {
 
   const scene = new THREE.Scene();
   const camera = new THREE.PerspectiveCamera(46, 1, 0.1, 220);
-  const view = { angle: 0, dist: 11, height: 4.6, target: new THREE.Vector3() };
+  const view = { angle: 0, dist: 11, height: 4.6, lookY: 1.5, target: new THREE.Vector3() };
 
   // 絵本のような草原（空・雲海・草・花・木・ちょうちょ）
   const meadow = createMeadow(scene);
@@ -69,7 +71,28 @@ export function createWorld(container) {
   refreshTown();
   onChange(refreshTown);
 
-  const actor = createActor(scene, CHARACTERS.piyo, town);
+  // 主人公（女の子）。見た目と名前は プロフィールごと（avatar.js）
+  const girlDef = partOf('body:girl');
+  let look = lookOf(currentProfile());
+  let lookSig = lookKey(look);
+  let avatarCtl = null;
+  const actor = createActor(scene, girlDef, town, (body, onBones) => { avatarCtl = mountAvatar(body, look, onBones); });
+  // ピヨ先生: 女の子の うしろを とことこ ついてくる。タップすると「まちの つかいかた」を きける
+  const piyo = createActor(scene, { ...CHARACTERS.piyo, height: 0.72 }, town, (body, onBones) => mountGlb(body, CHARACTERS.piyo, 0.72, onBones));
+  piyo.position.set(0.9, 0, -1.1);
+  const follow = { jumpIn: -1 };
+  const nameTag = createNameTag(scene);
+  let shownName = null;
+  const refreshAvatar = () => {
+    const p = currentProfile();
+    const l = lookOf(p);
+    const sig = lookKey(l);
+    if (sig !== lookSig) { look = l; lookSig = sig; avatarCtl?.setLook(l); }
+    const n = hasAvatarName(p) ? avatarName(p) : '';
+    if (n !== shownName) { shownName = n; nameTag.set(n); if (n) nameTag.show(5); }
+  };
+  refreshAvatar();
+  onChange(refreshAvatar);
 
   // 操作: ドラッグでまわす（移動はスティック）
   const raycaster = new THREE.Raycaster();
@@ -80,7 +103,7 @@ export function createWorld(container) {
   // 「つくる」: 草をかって道をつくるなど、子どもが草原を作りかえる（editor.js）
   const editor = createEditor({
     container, scene, cut: meadow.cut, wind: meadow.wind, setWalls: (list) => town.setWalls(list), town,
-    onCelebrate: () => { setTimeout(() => actor.jump(), 400); },
+    onCelebrate: () => { setTimeout(() => { actor.jump(); follow.jumpIn = 0.18; }, 400); },
     toScreen: (x, y, z) => {
       const v = new THREE.Vector3(x, heightAt(x, z) + y, z).project(camera);
       if (v.z > 1) return null;
@@ -101,6 +124,7 @@ export function createWorld(container) {
   onIslandChange(() => {
     refreshTown();
     actor.position.set(0, heightAt(0, 0), 0);
+    piyo.position.set(0.9, heightAt(0.9, -1.1), -1.1);
     view.target.copy(actor.position);
   });
   // ためしの島（アドレスに ?shima=test を つけたときだけ。ふだんは 読みこまない）
@@ -156,6 +180,7 @@ export function createWorld(container) {
       editor.pointer('up', e); return;
     }
     // タップした場所へ歩く機能は なし（2026-11-02 フミオさん）。ドラッグでまわすだけ
+    if (drag && !drag.moved && api.onTapPiyo && hitsPiyo(e)) { drag = null; piyo.jump(); api.onTapPiyo(); return; }
     if (drag && !drag.moved) editor.tapWorld?.(e);   // 柵の道具を持っているとき、置いた柵をタップでしまう
     drag = null;
   });
@@ -209,6 +234,8 @@ export function createWorld(container) {
       dash: move.dash,
       jump: takeJump(),
     });
+    followGirl(dt);
+    nameTag.update(dt, actor.position, girlDef.height, move.mag > 0.05);
     editor.tick(dt, actor.position, move.dash, actor.heading);
     editor.update(time.value);
     marker.material.opacity = Math.max(0, marker.material.opacity - dt * 1.2);
@@ -225,28 +252,72 @@ export function createWorld(container) {
       view.target.y + view.height,
       view.target.z + Math.cos(view.angle) * view.dist,
     );
-    camera.lookAt(view.target.x, view.target.y + 1.5, view.target.z);
+    camera.lookAt(view.target.x, view.target.y + view.lookY, view.target.z);
     meadow.update(dt, time.value, actor.position, camera.position);
     renderer.render(scene, camera);
     requestAnimationFrame(frame);
   }
 
-  return {
+  // ピヨ先生の 追いかけ: はなれたら 歩いて、もっと はなれたら 走る。とても はなれたら うしろへ ワープ
+  function followGirl(dt) {
+    const dx = actor.position.x - piyo.position.x; const dz = actor.position.z - piyo.position.z;
+    const d = Math.hypot(dx, dz);
+    if (d > 9) {
+      const bx = actor.position.x - Math.sin(actor.heading) * 1.3; const bz = actor.position.z - Math.cos(actor.heading) * 1.3;
+      piyo.position.set(bx, heightAt(bx, bz), bz);
+    }
+    if (follow.jumpIn >= 0) { follow.jumpIn -= dt; if (follow.jumpIn < 0) piyo.jump(); }
+    const far = d > 1.5;
+    piyo.update(dt, far
+      ? { x: dx, z: dz, mag: Math.min(1, (d - 1.2) / 1.2), dash: d > 3.2, jump: false }
+      : { x: 0, z: 0, mag: 0, dash: false, jump: false });
+    if (!far && closeUp.on) piyo.face(Math.atan2(camera.position.x - piyo.position.x, camera.position.z - piyo.position.z));
+  }
+  function hitsPiyo(e) {
+    const rect = canvas.getBoundingClientRect();
+    pointer.set(((e.clientX - rect.left) / rect.width) * 2 - 1, -((e.clientY - rect.top) / rect.height) * 2 + 1);
+    raycaster.setFromCamera(pointer, camera);
+    return raycaster.intersectObject(piyo.object, true).length > 0;
+  }
+  // 名前を つけるとき: 女の子と ピヨ先生を 前から ちかくで 見る
+  const closeUp = { on: false, saved: null };
+
+  const api = {
+    onTapPiyo: null,
+    closeUp(on) {
+      if (on === closeUp.on) return;
+      closeUp.on = on;
+      if (on) {
+        closeUp.saved = { angle: view.angle, dist: view.dist, height: view.height, lookY: view.lookY };
+        view.angle = actor.heading; view.dist = 4.6; view.height = 2.4; view.lookY = -0.2;
+        view.target.copy(actor.position);
+        const sx = actor.position.x + Math.sin(actor.heading + 0.75) * 1.05; const sz = actor.position.z + Math.cos(actor.heading + 0.75) * 1.05;
+        piyo.position.set(sx, heightAt(sx, sz), sz);
+      } else if (closeUp.saved) {
+        Object.assign(view, closeUp.saved); closeUp.saved = null;
+      }
+    },
+    showName() { nameTag.show(5); },
     setActive(on) {
       if (on === running) return;
       running = on;
       editor.setVisible(on);
       if (on) { clock.getDelta(); resize(); requestAnimationFrame(frame); }
     },
-    celebrate() { actor.jump(); },
+    celebrate() { actor.jump(); follow.jumpIn = 0.18; },
     quality: () => quality,
-    warp(x, z, angle, dist, face) { actor.position.set(x, heightAt(x, z), z); view.target.copy(actor.position); if (angle != null) view.angle = angle; if (dist) view.dist = dist; if (face != null) actor.face(face); },
+    warp(x, z, angle, dist, face) {
+      actor.position.set(x, heightAt(x, z), z); view.target.copy(actor.position); if (angle != null) view.angle = angle; if (dist) view.dist = dist; if (face != null) actor.face(face);
+      const bx = x - Math.sin(actor.heading) * 1.3; const bz = z - Math.cos(actor.heading) * 1.3;
+      piyo.position.set(bx, heightAt(bx, bz), bz);
+    },
   };
+  return api;
 }
 
 // ---- キャラクター -------------------------------------------------------
 
-function createActor(scene, config, town) {
+function createActor(scene, config, town, mount) {
   const root = new THREE.Group();
   scene.add(root);
 
@@ -262,28 +333,11 @@ function createActor(scene, config, town) {
   root.add(body);
   let bones = {};
   const base = {};
-
-  new GLTFLoader().load(
-    config.model,
-    (gltf) => {
-      const model = gltf.scene;
-      model.traverse((o) => { if (o.isMesh) o.frustumCulled = false; });
-      const box = new THREE.Box3().setFromObject(model);
-      const size = box.getSize(new THREE.Vector3());
-      const s = config.height / (size.y || 1);
-      model.scale.setScalar(s);
-      model.position.y = -box.min.y * s;
-      body.add(model);
-      const byName = {};
-      model.traverse((o) => { if (o.isBone) byName[normName(o.name)] = o; });
-      for (const [key, name] of Object.entries(config.bones)) {
-        const b = byName[normName(name)];
-        if (b) { bones[key] = b; base[key] = b.rotation.clone(); }
-      }
-    },
-    undefined,
-    () => body.add(fallbackChick(config)),
-  );
+  // 体を 入れるのは mount の 仕事（GLB でも コードで作った すがたでも）。関節は あとから 来ることも ある
+  mount(body, (found) => {
+    bones = {};
+    for (const [key, b] of Object.entries(found)) { if (b) { bones[key] = b; base[key] = b.rotation.clone(); } }
+  });
 
   const state = { target: null, phase: 0, idle: 0, nextWander: 3, jumpT: -1, y: 0, vy: 0, airJumps: 0, manual: 0, stuck: 0 };
   const GRAVITY = 22;
@@ -295,6 +349,7 @@ function createActor(scene, config, town) {
   }
 
   return {
+    object: root,
     position: root.position,
     get heading() { return root.rotation.y; },
     face(a) { root.rotation.y = a; },
@@ -370,6 +425,7 @@ function createActor(scene, config, town) {
         rot('rightLeg', 'x', -s * w.legSwing);
         rot('leftArm', 'z', Math.abs(s) * w.armFlap);
         rot('rightArm', 'z', -Math.abs(s) * w.armFlap);
+        if (w.armSwing) { rot('leftArm', 'x', -s * w.armSwing); rot('rightArm', 'x', s * w.armSwing); }
         rot('head', 'z', s * 0.06);
         body.position.y = Math.abs(Math.sin(state.phase)) * w.bob;
       } else {
@@ -379,6 +435,8 @@ function createActor(scene, config, town) {
         rot('rightLeg', 'x', 0);
         rot('leftArm', 'z', 0.1 + Math.sin(t * 2) * 0.05);
         rot('rightArm', 'z', -0.1 - Math.sin(t * 2) * 0.05);
+        rot('leftArm', 'x', 0);
+        rot('rightArm', 'x', 0);
         rot('head', 'z', Math.sin(t * 0.8) * 0.12);
         rot('spine', 'x', Math.sin(t * 2.2) * 0.03);
         body.position.y = 0;
@@ -412,6 +470,69 @@ function createActor(scene, config, town) {
       shadow.position.z = root.position.z;
       shadow.position.y = root.position.y + 0.06;
       shadow.scale.setScalar(Math.max(0.35, 1 - Math.min(body.position.y, 1.5) * 0.4));
+    },
+  };
+}
+
+// GLB の キャラ（ピヨ先生 など）を body に 入れる。読めないときは まるい ひよこ
+function mountGlb(body, config, height, onBones) {
+  new GLTFLoader().load(
+    config.model,
+    (gltf) => {
+      const model = gltf.scene;
+      model.traverse((o) => { if (o.isMesh) o.frustumCulled = false; });
+      const box = new THREE.Box3().setFromObject(model);
+      const size = box.getSize(new THREE.Vector3());
+      const s = height / (size.y || 1);
+      model.scale.setScalar(s);
+      model.position.y = -box.min.y * s;
+      body.add(model);
+      const byName = {};
+      model.traverse((o) => { if (o.isBone) byName[normName(o.name)] = o; });
+      const found = {};
+      for (const [key, name] of Object.entries(config.bones)) if (byName[normName(name)]) found[key] = byName[normName(name)];
+      onBones(found);
+    },
+    undefined,
+    () => body.add(fallbackChick({ ...config, height })),
+  );
+}
+
+// 女の子の 頭の上の 名前。名前を つけた とき・ひらいた とき しばらく 出て、ふわっと きえる
+function createNameTag(scene) {
+  const cv = document.createElement('canvas');
+  cv.width = 512; cv.height = 128;
+  const tex = new THREE.CanvasTexture(cv);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  const sprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, transparent: true, opacity: 0, depthWrite: false, depthTest: false, fog: false }));
+  sprite.renderOrder = 10;
+  sprite.scale.set(1.6, 0.4, 1);
+  scene.add(sprite);
+  let left = 0; let text = '';
+  return {
+    set(n) {
+      text = n;
+      const g = cv.getContext('2d');
+      g.clearRect(0, 0, cv.width, cv.height);
+      if (!n) { tex.needsUpdate = true; return; }
+      g.font = '800 64px "M PLUS Rounded 1c", "Hiragino Maru Gothic ProN", sans-serif';
+      const w = Math.min(cv.width - 16, g.measureText(n).width + 64);
+      const x = (cv.width - w) / 2;
+      g.fillStyle = 'rgba(255,255,255,0.92)';
+      g.beginPath(); g.roundRect(x, 18, w, 92, 46); g.fill();
+      g.fillStyle = '#4a3a5a'; g.textAlign = 'center'; g.textBaseline = 'middle';
+      g.fillText(n, cv.width / 2, 66, cv.width - 48);
+      tex.needsUpdate = true;
+    },
+    show(sec) { if (text) left = sec; },
+    update(dt, pos, height, moving) {
+      if (moving && left > 1) left = 1;   // 歩きだしたら すぐ きえる
+      left = Math.max(0, left - dt);
+      const want = left > 0 ? 1 : 0;
+      const m = sprite.material;
+      m.opacity += (want - m.opacity) * Math.min(1, dt * 5);
+      sprite.visible = m.opacity > 0.01;
+      sprite.position.set(pos.x, pos.y + height + 0.45, pos.z);
     },
   };
 }

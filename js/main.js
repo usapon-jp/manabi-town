@@ -14,7 +14,9 @@ import { scanButton } from './scan.js';
 import { feedbackCard } from './feedback.js';
 import { photosCard } from './photos.js';
 import { openAsk } from './ask.js';
-import { townAskButton } from './townask.js';
+import { townAskButton, openTownAsk } from './townask.js';
+import { openAvatarNaming } from './avatarname.js';
+import { hasAvatarName, avatarName } from './avatar.js';
 import { bindControls } from './controls.js';
 import { levelOf, streak, week } from './progress.js';
 import { renderTimerTab, startTimer, resumeIfRunning, restoreTimers, matchRuns, kindForItem, minutesOn } from './timer.js';
@@ -83,6 +85,8 @@ function hideSplash() {
   setTimeout(() => splash.remove(), 500);
 }
 const worldEl = document.getElementById('world');
+let worldReady;
+const worldLoaded = new Promise((r) => { worldReady = r; });
 worldEl.classList.add('loading');
 requestAnimationFrame(() => setTimeout(() => {
   hideSplash();
@@ -92,10 +96,13 @@ requestAnimationFrame(() => setTimeout(() => {
       .then((m) => {
         world = m.createWorld(worldEl);
         world.setActive(tab === 'home');
+        // ピヨ先生を タップすると「まちの つかいかた」を きける
+        world.onTapPiyo = () => { const p = currentProfile(); if (p && !document.querySelector('.tour, .avatar-name')) openTownAsk(p); };
+        worldReady();
         requestAnimationFrame(() => worldEl.classList.replace('loading', 'ready'));
       })
       // 3D は読み込みに失敗してもアプリ自体は使えるようにする
-      .catch(() => { worldEl.classList.remove('loading'); worldEl.classList.add('no-3d'); });
+      .catch(() => { worldEl.classList.remove('loading'); worldEl.classList.add('no-3d'); worldReady(); });
   }, 450);
 }, 150));
 
@@ -107,6 +114,7 @@ new MutationObserver(() => {
   if (c === wasCovered) return;
   wasCovered = c;
   world?.setActive(tab === 'home' && !c);
+  if (!c && tab === 'home') retryHome();   // シートを とじたら、出せなかった 名前・チュートリアルを
 }).observe(document.body, { childList: true, attributes: true, attributeFilter: ['class'] });
 
 // 保存まわりのお知らせ
@@ -125,7 +133,7 @@ window.addEventListener('manabi-sync-merged', () => toast('ほかの端末の �
 // ログインしたら「だれが つかう？」
 function afterLogin() {
   toast('ログインしたよ。進みを そろえたよ');
-  if (getState().profiles.length > 1 || !currentProfile()) openPicker((id) => { switchProfile(id); show('home'); resumeIfRunning(currentProfile(), timerDeps); }, { closable: !!currentProfile() });
+  if (getState().profiles.length > 1 || !currentProfile()) openPicker((id) => { switchProfile(id); show('home'); resumeIfRunning(currentProfile(), timerDeps); setTimeout(() => startHome(currentProfile()), 500); }, { closable: !!currentProfile() });
   else show('home');
 }
 
@@ -219,6 +227,7 @@ function show(next) {
   tab = next;
   tabs.forEach((b) => b.classList.toggle('active', b.dataset.tab === tab));
   render();
+  if (tab === 'home') retryHome();
 }
 
 function render() {
@@ -293,7 +302,7 @@ function profileForm(message, label) {
     if (!name.value.trim()) return;
     addProfile(name.value.trim(), grade.value);
     show('home');
-    setTimeout(() => runTutorial(currentProfile()), 400);
+    setTimeout(() => startHome(currentProfile()), 400);
   } },
   h('p', { class: 'lead' }, message),
   h('label', {}, 'なまえ', name),
@@ -1094,6 +1103,9 @@ function renderSettings(p) {
     } },
     h('h3', {}, 'じぶん'),
     h('label', {}, 'なまえ', name),
+    h('div', { class: 'avatar-row' },
+      h('span', {}, 'まちの 女の子', h('b', {}, hasAvatarName(p) ? avatarName(p) : 'まだ なまえが ないよ')),
+      h('button', { class: 'btn small', type: 'button', onclick: () => { show('home'); worldLoaded.then(() => openAvatarNaming(p, { world, onDone: () => render() })); } }, hasAvatarName(p) ? 'かえる' : 'つける')),
     h('label', {}, '学年', grade),
     pin.el,
     h('button', { class: 'btn primary', type: 'submit' }, 'ほぞん')),
@@ -1129,7 +1141,7 @@ function renderSettings(p) {
     h('div', { class: 'card form' },
       h('h3', {}, 'つかう人をかえる'),
       h('ul', { class: 'people' }, s.profiles.map((x) => h('li', {},
-        h('button', { class: `btn ${x.id === p.id ? 'primary' : ''}`, onclick: async () => { if (x.id === p.id || await askPin(x)) { switchProfile(x.id); show('home'); resumeIfRunning(currentProfile(), timerDeps); } } },
+        h('button', { class: `btn ${x.id === p.id ? 'primary' : ''}`, onclick: async () => { if (x.id === p.id || await askPin(x)) { switchProfile(x.id); show('home'); resumeIfRunning(currentProfile(), timerDeps); setTimeout(() => startHome(currentProfile()), 500); } } },
           `${x.name}（${gradeLabel(x)}） `, icon('sprout'), `${x.points}`, x.pinHash ? icon('lock') : null),
       ))),
       h('details', {}, h('summary', {}, 'あたらしく ついか'), profileForm('きょうだいも ここで ついかできます。', 'ついか')),
@@ -1139,9 +1151,29 @@ function renderSettings(p) {
   );
 }
 
+// 町を ひらいたとき: 女の子に 名前が まだ なければ つける → チュートリアルが まだなら つづけて
+let namingLater = false;   // 「あとで」を おしたら、この回は もう 出さない
+let homePending = null;    // ほかの画面・シートで 出せなかったとき、ホームに もどったら もういちど
+function retryHome() {
+  const p = currentProfile();
+  if (!homePending || !p || p.id !== homePending) return;
+  homePending = null;
+  setTimeout(() => startHome(currentProfile()), 300);
+}
+function startHome(p) {
+  if (!p) return;
+  const tutorial = () => { if (!p.tutorialDone && currentProfile() === p) runTutorial(p); };
+  if (hasAvatarName(p) || namingLater) { tutorial(); return; }
+  worldLoaded.then(() => {
+    if (currentProfile() !== p) return;
+    if (tab !== 'home' || document.querySelector('.tour, .sheet, .avatar-name')) { homePending = p.id; return; }
+    openAvatarNaming(p, { world, onDone: (named) => { if (!named) namingLater = true; render(); setTimeout(tutorial, 300); } });
+  });
+}
+
 function runTutorial(p) {
   if (!p) return;
-  startTutorial({ show, onDone: () => { updateProfile(p, { tutorialDone: true }); render(); } });
+  startTutorial({ show, who: hasAvatarName(p) ? avatarName(p) : '女の子', onDone: () => { updateProfile(p, { tutorialDone: true }); render(); } });
 }
 
 render();
@@ -1156,4 +1188,4 @@ if (startTab) { history.replaceState(null, '', location.pathname); if (getState(
 initBack({ tab: () => tab, goHome: () => show('home'), menuBtn });   // スマホの戻るボタン
 restoreTimers(getState().profiles);
 resumeIfRunning(currentProfile(), timerDeps);
-if (currentProfile() && !currentProfile().tutorialDone) setTimeout(() => runTutorial(currentProfile()), 1200);
+if (currentProfile()) setTimeout(() => startHome(currentProfile()), 1200);

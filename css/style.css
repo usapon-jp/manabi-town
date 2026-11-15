@@ -1981,6 +1981,34 @@ input.pin { font-size: 26px; letter-spacing: 0.5em; text-align: center; }
 .vd-times { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; }
 .sheet-card .vd-print .btn.small { width: auto; font-size: 15px; padding: 10px 16px; text-decoration: none; color: var(--navy); background: #fffdf6; display: inline-flex; align-items: center; gap: 6px; }
 
+/* ---- 町の女の子に 名前を つける（草原は 見えたまま。下に カード） ---- */
+.avatar-name {
+  position: fixed; left: 0; right: 0; bottom: 0; z-index: 60; display: flex; justify-content: center;
+  padding: 0 16px calc(16px + env(safe-area-inset-bottom)); pointer-events: none;
+  animation: an-in 0.35s ease-out;
+}
+.avatar-name.gone { opacity: 0; transform: translateY(20px); transition: opacity 0.3s, transform 0.3s; }
+@keyframes an-in { from { opacity: 0; transform: translateY(24px); } }
+.an-card {
+  pointer-events: auto; width: 100%; max-width: 420px; display: grid; gap: 12px;
+  padding: 16px; border-radius: 22px; background: rgba(255, 250, 240, 0.96); border: 2px solid #fff; box-shadow: var(--shadow);
+}
+.an-coach { display: flex; align-items: center; gap: 10px; }
+.an-coach img { width: 44px; height: 44px; border-radius: 50%; flex: none; animation: piyo-hop 3.2s ease-in-out infinite; }
+.an-say { margin: 0; font-weight: 800; font-size: 17px; color: var(--navy); }
+.an-row { display: flex; gap: 8px; }
+.an-row input { flex: 1; min-width: 0; font: inherit; font-size: 20px; font-weight: 700; padding: 10px 14px; border-radius: 14px; border: 2px solid var(--edge); background: #fff; color: var(--ink); }
+.an-row input:focus { outline: none; border-color: var(--accent); }
+.an-row .btn { flex: none; }
+.an-later { justify-self: center; }
+.an-card.named .an-row, .an-card.named .an-later { display: none; }
+.an-card.named .an-say { font-size: 20px; }
+/* 名前を つけている あいだは、町の ボタンを かくして 女の子を 見せる */
+body:has(.avatar-name) #pad, body:has(.avatar-name) #bubble, body:has(.avatar-name) .tabs, body:has(.avatar-name) .ask-fab, body:has(.avatar-name) .diary-fab, body:has(.avatar-name) .wedit, body:has(.avatar-name) .wuse { visibility: hidden; }
+/* せっていの「まちの 女の子」 */
+.avatar-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.avatar-row > span { display: grid; font-size: 13px; color: var(--ink-soft); }
+.avatar-row b { font-size: 16px; color: var(--ink); }
 /* テスト期間の「テスト範囲の 問題」カード（ホーム・やること・ピヨちゃんと 勉強する）と けっか画面の 進み */
 .test-range { display: grid; gap: 8px; border: 2px solid #f4c84a; background: linear-gradient(160deg, #fffbe8, #fff); }
 .test-range.compact { padding: 10px 12px; border-radius: 16px; box-shadow: none; margin: 0; }
