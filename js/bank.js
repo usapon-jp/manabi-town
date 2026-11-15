@@ -99,7 +99,9 @@ export function nextGain(p, subjects) {
   const lv = bankLevel(p, subjects);
   const bal = shown(p);
   const raw = bal * lv.rate / 100;
-  return { bal, gain: Math.floor(Math.min(raw, lv.cap)), capped: raw > lv.cap, mult: Math.round((100 + lv.rate) * 10) / 1000 };
+  const mult = Math.round((100 + lv.rate) * 10) / 1000;
+  // after: 通帳の 式の 答え（50 × 1.01 = 50.5。切りすてると「= 50」に なって 式が まちがって 見える）
+  return { bal, gain: Math.floor(Math.min(raw, lv.cap)), capped: raw > lv.cap, mult, after: r2(bal * mult) };
 }
 
 const addDays = (iso, n) => { const [y, m, d] = iso.split('-').map(Number); return toISO(new Date(y, m - 1, d + n)); };
@@ -160,7 +162,7 @@ export function deposit(p, n, now = Date.now(), subjects) {
   const t = toISO(new Date(now));
   if (b.int[t] == null) b.int[t] = 0;             // 今日の 利子は もう つけた ことに する（あずけた 日の 分は つかない）
   b.bankIn += n;
-  spendPoints(p, n, 'ぎんこうに あずけた');         // けいけんち・レベルは へらない（save も ここ）
+  spendPoints(p, n, '銀行に あずけた');         // けいけんち・レベルは へらない（save も ここ）
   return true;
 }
 export function withdraw(p, n, now = Date.now(), subjects) {
@@ -173,7 +175,7 @@ export function withdraw(p, n, now = Date.now(), subjects) {
   b.bankOut += n;
   // けいけんちは ふやさない（spend: true の 記録は けいけんち・勉強した日に 数えない）
   p.points += n;
-  p.log.unshift({ at: now, n, reason: 'ぎんこうから おろした', spend: true });
+  p.log.unshift({ at: now, n, reason: '銀行から おろした', spend: true });
   if (p.log.length > 200) p.log.length = 200;
   save();
   return true;
@@ -184,5 +186,5 @@ let registered = false;
 export function registerBank() {
   if (registered) return;
   registered = true;
-  registerFeature('bank', { label: 'ぎんこう' });
+  registerFeature('bank', { label: '銀行', line: '銀行が できたら ポイントを あずけられるよ', built: 'タッチすると ポイントを あずけられるよ' });
 }

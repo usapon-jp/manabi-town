@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import {
   EGGS, TUNE, eggsOf, hasEggs, giveEggs, eggProgress, seedProgress, stateOf, wordsOf, needsTap, hatchEgg, plantSeed,
   finishBuilding, addWarmth, featureOpen, registerFeature, unlockLabels, onFeatureOpen, eggSubject, setEggSubject,
-  renameEggSubject, studyMinutes, questSubjectFor, hatchedCount, plantedSpots,
+  renameEggSubject, studyMinutes, questSubjectFor, hatchedCount, plantedSpots, unlockLines, builtLines, subjectWord,
 } from '../js/eggs.js';
 import { mergeProfile } from '../js/merge.js';
 import { islandOps, START } from '../js/islands.js';
@@ -164,5 +164,17 @@ const kid = () => ({
   const old = kid();
   const m2 = mergeProfile(old, clone(base), clone(old));
   assert.ok(hasEggs(m2));
+}
+// 子どもに 見せる ことば: 「算数・数学」は 学年で 算数／数学。しくみの 行は どこで つかうかまで
+{
+  assert.equal(subjectWord({ grade: 'e4' }, '算数・数学'), '算数');
+  assert.equal(subjectWord({ grade: 'j2' }, '算数・数学'), '数学');
+  assert.equal(subjectWord({ grade: 'adult' }, '算数・数学'), '算数・数学');
+  assert.equal(subjectWord({ grade: 'e4' }, '理科'), '理科');
+  registerFeature('bank', { label: '銀行', line: '銀行が できたら ポイントを あずけられるよ', built: 'タッチすると ポイントを あずけられるよ' });
+  assert.deepEqual(unlockLines('sansu'), ['銀行が できたら ポイントを あずけられるよ']);
+  assert.deepEqual(builtLines('sansu'), ['タッチすると ポイントを あずけられるよ']);
+  assert.deepEqual(unlockLines('rika'), ['カメラが つかえるよ']);   // line が ない しくみは「〇〇が つかえるよ」
+  assert.deepEqual(builtLines('rika'), []);
 }
 console.log('egg checks: ok');

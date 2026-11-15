@@ -329,6 +329,7 @@ export function createWorld(container) {
       if (cam.on) return;
       cam.on = true; cam.zoom = 1; cam.selfie = false;
       nameTag.hide(true);   // 近づくと 名前の ふだが 大きく うつるので、カメラの あいだは かくす
+      eggs.setQuiet(true);  // たまごの 上の「！」も 写真に うつらないように
       cam.saved = { angle: view.angle, dist: view.dist, height: view.height, lookY: view.lookY };
     },
     stop() {
@@ -337,6 +338,7 @@ export function createWorld(container) {
       if (cam.selfie) camApi.setSelfie(false);
       Object.assign(view, cam.saved); cam.saved = null; cam.on = false;
       nameTag.hide(false);
+      eggs.setQuiet(false);
     },
     setZoom(z) {
       cam.zoom = Math.max(1, Math.min(4, z));

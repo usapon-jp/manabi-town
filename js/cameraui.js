@@ -12,7 +12,7 @@ import {
   FEATURE, FOLDER, MAX_SHOTS, SUBJECT, ZOOMS, POSES, SUNSET, cameraLevel, can, nextHint, shots, isFull, shotLabel,
 } from './camera.js';
 
-registerFeature(FEATURE, { label: 'カメラ' });
+registerFeature(FEATURE, { label: 'カメラ', line: 'カメラが つかえるよ（右の「しゃしん」）' });
 
 let world = null;
 let deps = { isHome: () => true };
@@ -143,7 +143,7 @@ function tintCanvas(cv) {
   g.globalCompositeOperation = 'source-over';
 }
 
-// ---- とった写真（10まいまで）。見る・スマホに ほぞん・けす ----
+// ---- とった写真（10まいまで）。見る・この 端末に ほぞん・けす ----
 export function openRoll(p, { onClose } = {}) {
   const grid = h('div', { class: 'cam-grid' });
   const sub = h('p', { class: 'sheet-sub' });
@@ -162,7 +162,7 @@ export function openRoll(p, { onClose } = {}) {
         data ? h('img', { src: data, alt: m.name || '町の写真' }) : h('p', { class: 'empty' }, 'この端末には まだ とどいていないよ'),
         h('p', { class: 'sheet-sub' }, m.name || ''),
         h('div', { class: 'cam-big-actions' },
-          data ? h('button', { class: 'btn primary', type: 'button', onclick: () => keep(m, data) }, 'スマホに ほぞん') : null,
+          data ? h('button', { class: 'btn primary', type: 'button', onclick: () => keep(m, data) }, 'ほぞんする') : null,
           h('button', { class: 'btn', type: 'button', onclick: async () => {
             if (!confirm('この写真を けす？')) return;
             await removePhoto(p, m.id); big.remove(); draw();

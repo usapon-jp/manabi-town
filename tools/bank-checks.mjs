@@ -157,7 +157,10 @@ const day = (n) => NOW + n * DAY;
   const p = openKid();
   deposit(p, 100, NOW, SUBS);
   const n = nextGain(p, SUBS);
-  assert.equal(n.bal, 100); assert.equal(n.mult, 1.01); assert.equal(n.gain, 1); assert.equal(n.capped, false);
+  assert.equal(n.bal, 100); assert.equal(n.mult, 1.01); assert.equal(n.gain, 1); assert.equal(n.capped, false); assert.equal(n.after, 101);
+  // 50 あずけた ときも 式が 正しい（「50 × 1.01 = 50」に ならない）
+  const p2 = openKid(); deposit(p2, 50, NOW, SUBS);
+  assert.equal(nextGain(p2, SUBS).after, 50.5);
 }
 // 10. 2台の 端末で 同じ日に 開いても 利子が 二重に ならない / あずけた 分が 消えない・ふえない
 {

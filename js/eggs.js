@@ -61,11 +61,12 @@ export const UNLOCKS = {
   shakai: ['album', 'market'],
   eigo: ['tourists'],
 };
-const features = new Map();     // key -> { label }
+const features = new Map();     // key -> { label, line, built }
 const featureListeners = new Set();
 export function registerFeature(key, def = {}) {
   if (typeof key !== 'string' || !key) return false;
-  features.set(key, { label: String(def.label || key) });
+  // line: 孵化の カードに 出す ことば（なければ「〇〇が つかえるよ」）。built: 建物が できた カードに 出す ことば
+  features.set(key, { label: String(def.label || key), line: def.line ? String(def.line) : '', built: def.built ? String(def.built) : '' });
   return true;
 }
 export const featureDef = (key) => features.get(key) || null;
@@ -79,6 +80,16 @@ export function featureOpen(p, key) {
 export function onFeatureOpen(fn) { featureListeners.add(fn); return () => featureListeners.delete(fn); }
 // その たまごで ひらいて、名前が 登録ずみの しくみ（孵化カードに 出す）
 export const unlockLabels = (id) => (UNLOCKS[id] || []).map((k) => features.get(k)?.label).filter(Boolean);
+// 孵化の カードの ことば（しくみごと 1行。どこで つかうかまで わかるように）
+export const unlockLines = (id) => (UNLOCKS[id] || []).map((k) => features.get(k)).filter(Boolean).map((f) => f.line || `${f.label}が つかえるよ`);
+// その たまごの 建物が できたときの ことば（銀行なら「タッチすると あずけられるよ」）
+export const builtLines = (id) => (UNLOCKS[id] || []).map((k) => features.get(k)?.built).filter(Boolean);
+// 子どもに 見せる 教科名（「算数・数学」は 小学生なら 算数、中学生なら 数学）。記録の 教科名は かえない
+export function subjectWord(p, name) {
+  if (name !== '算数・数学') return name;
+  if (p?.grade === 'adult') return name;
+  return /^j/.test(p?.grade || '') ? '数学' : '算数';
+}
 
 // ---- 入れ物 ----
 const plain = (v) => v !== null && typeof v === 'object' && !Array.isArray(v);

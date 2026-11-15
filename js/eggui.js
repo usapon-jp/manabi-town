@@ -6,7 +6,7 @@ import { subjectNames } from './subjects.js';
 import { currentIslandId, START } from './islands.js';
 import {
   EGGS, eggDef, eggsOf, hasEggs, giveEggs, stateOf, wordsOf, needsTap, eggSubject, setEggSubject, warmMinutes,
-  hatchEgg, plantSeed, finishBuilding, unlockLabels, hatchedCount,
+  hatchEgg, plantSeed, finishBuilding, unlockLines, builtLines, hatchedCount, subjectWord,
 } from './eggs.js';
 import { bankLevel } from './bank.js';
 
@@ -84,7 +84,7 @@ export function checkWarmth() {
     const key = `${st.phase}:${d.id}`;
     const m = Math.round(warmMinutes(p, d.id, subs) * 10) / 10;
     const seen = mine[key];
-    const subject = eggSubject(p, d.id, subs);
+    const subject = subjectWord(p, eggSubject(p, d.id, subs));
     if (typeof seen === 'number' && m > seen + 0.4) {
       world.eggs.react(d.id);
       piyoSay(st.phase === 'seed' ? `${subject}で たねに 水を あげたよ` : `${subject}で たまごが ぽかぽか！`);
@@ -120,7 +120,7 @@ export function offerEggs(p, onDone) {
     refreshView();
     const warm = EGGS.filter((d) => (eggsOf(p).pre?.[d.id] || 0) > 0);
     EGGS.forEach((d, i) => setTimeout(() => world?.eggs?.react(d.id), 250 + i * 160));
-    say.textContent = 'どれから あたためる？';
+    say.textContent = 'たまごは 教科ごとに そだつよ';
     sub.textContent = warm.length ? 'いままでの べんきょうで 少し あたたかいよ' : 'たまごを タッチすると ようすが わかるよ';
     btn.hidden = true;
     world?.celebrate?.();
@@ -171,7 +171,7 @@ function linkPicker(p, d, subs) {
   return h('label', { class: 'egg-link-row' }, h('span', {}, 'つなげる べんきょう'), sel);
 }
 function studyBtn(p, subject) {
-  return h('button', { class: 'btn primary', type: 'button', onclick: () => { closeCard(); deps.study(p, subject); } }, `${subject}を べんきょうする`);
+  return h('button', { class: 'btn primary', type: 'button', onclick: () => { closeCard(); deps.study(p, subject); } }, `${subjectWord(p, subject)}を べんきょうする`);
 }
 
 // 建物の カードを しくみごとに 入れかえる（bankui.js など）。fn(p, d, 道具)
@@ -190,10 +190,11 @@ function openFor(p, hit) {
   const st = stateOf(p, d.id, Date.now(), subs);
   if (!st) return;
   const subject = eggSubject(p, d.id, subs);
+  const word = subjectWord(p, subject);   // 見せる 教科名
   if (st.phase === 'egg') {
     const ready = st.stage === 'ready';
     showCard(
-      h('div', { class: 'egg-head' }, eggIcon(d.color), h('b', {}, `${subject}の たまご`)),
+      h('div', { class: 'egg-head' }, eggIcon(d.color), h('b', {}, `${word}の たまご`)),
       h('p', { class: 'egg-words' }, wordsOf(st)),
       meter(st.k, d.color),
       ready ? h('button', { class: 'btn primary egg-go', type: 'button', onclick: () => { closeCard(); doHatch(p, d); } }, 'うまれる！')
@@ -217,7 +218,7 @@ function openFor(p, hit) {
       meter(st.k, d.color),
       ready ? h('button', { class: 'btn primary egg-go', type: 'button', onclick: () => { closeCard(); doBuild(p, d); } }, 'できあがり！')
         : studyBtn(p, subject),
-      ready ? null : h('p', { class: 'egg-hint' }, `${subject}で 水を あげられるよ`));
+      ready ? null : h('p', { class: 'egg-hint' }, `${word}を べんきょうすると 水を あげられるよ`));
     return;
   }
   // できた 建物・そこに すむ なかま。しくみ（銀行 など）が あれば そちらの カードを 出す
@@ -242,9 +243,8 @@ function doHatch(p, d) {
     refreshView();
     world.celebrate?.();
     chime(true);
-    const labels = unlockLabels(d.id);
     celebrate(`${d.chara.name}が うまれた！`, `${d.building.name}の たねを くれたよ`, d.color,
-      [labels.length ? `${labels.join('と ')}が つかえるよ` : null, first ? 'すきな 場所に うえてね' : null],
+      [...unlockLines(d.id), first ? 'すきな 場所に うえてね' : null],
       'たねを うえる', () => startPlant(p, d));
   });
 }
@@ -259,7 +259,7 @@ function doBuild(p, d) {
   world?.eggs?.pop(d.id);
   world?.celebrate?.();
   chime(true);
-  setTimeout(() => celebrate(`${d.building.name}が できたよ！`, `${d.chara.name}が すむよ`, d.color, [], 'やったね！', null), 1800);
+  setTimeout(() => celebrate(`${d.building.name}が できたよ！`, `${d.chara.name}が すむよ`, d.color, builtLines(d.id), 'やったね！', null), 1800);
 }
 
 // おいわいの カード（ボタン 1つ。あとで も えらべる）
@@ -306,7 +306,7 @@ function startPlant(p, d) {
     if (!deps.isHome() || currentProfile() !== p) { if (!document.querySelector('.egg-born')) end(); return; }
     const good = !!world.eggs.plantSpot();
     ok.disabled = !good;
-    msg.textContent = good ? 'ここで いい？' : 'あるいて 場所を きめてね';
+    msg.textContent = good ? 'ここで いい？' : 'ひろい 場所まで あるいてね';   // わっかが あかい ときは せまい
   }, 200);
 }
 

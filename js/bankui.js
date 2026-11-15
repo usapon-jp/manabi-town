@@ -5,6 +5,7 @@ import { currentProfile, save } from './store.js';
 import { subjectNames } from './subjects.js';
 import { currentIslandId, START } from './islands.js';
 import { registerBuildingCard } from './eggui.js';
+import { subjectWord } from './eggs.js';
 import {
   registerBank, bankOpen, bankLevel, shown, nextGain, canDeposit, canWithdraw, deposit, withdraw, settle,
 } from './bank.js';
@@ -37,7 +38,7 @@ function tick(say) {
   if (typeof was !== 'number') { seen[p.id] = lv; writeLv(seen); return; }   // はじめて 見た レベルは ことばを 出さない
   if (lv > was) {
     seen[p.id] = lv; writeLv(seen);
-    (say || deps.say)?.(`ぎんこうが Lv${lv}に なったよ！`);
+    (say || deps.say)?.(`銀行が Lv${lv}に なったよ！`);
   }
 }
 
@@ -68,8 +69,8 @@ function openBank(p, d, t) {
     bal.textContent = `${shown(p)} pt`;
     if (ng.bal <= 0) words.textContent = 'あずけると まいにち ふえるよ';
     else if (ng.capped) words.textContent = `あした ${ng.gain}pt ふえるよ（いまは ここまで）`;
-    else words.textContent = `あした ${ng.bal} × ${ng.mult} = ${ng.bal + ng.gain}`;
-    next.textContent = lv.max ? 'ぎんこうは いちばん そだったよ！' : 'さんすうを べんきょうすると そだつよ';
+    else words.textContent = `あした ${ng.bal} × ${ng.mult} = ${ng.after}`;
+    next.textContent = lv.max ? '銀行は いちばん そだったよ！' : `${subjectWord(p, t.subject)}を べんきょうすると そだつよ`;
     meterI.style.width = `${Math.max(6, Math.round(lv.k * 100))}%`;
     depRow.replaceChildren(
       h('span', { class: 'bank-lab' }, 'あずける'),
