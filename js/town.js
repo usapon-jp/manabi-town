@@ -452,7 +452,8 @@ export function createTown(scene) {
     scene.add(group);
     return { ...p, x0: p.x, z0: p.z, rot0: p.rot || 0, group, shown: false, stored: false, pop: 1 };
   });
-  const vis = (it) => { it.group.visible = it.shown && !it.stored; };
+  let off = false;   // 町の建物が ない島に いるあいだ（見えない・ぶつからない・うごかせない）
+  const vis = (it) => { it.group.visible = !off && it.shown && !it.stored; };
   const walls = items.filter((it) => it.r > 0);
   let extraWalls = [];
   let lastLv = 0;
@@ -478,6 +479,8 @@ export function createTown(scene) {
       lastLv = lv;
       return fresh;
     },
+    // 町の建物が ある島（はじまりの島）に いるときだけ on。ほかの島では まるごと かくす
+    setOn(on) { off = !on; items.forEach(vis); },
     // 子どもがしまった・うごかした分を重ねる。map = { id: { x, z, rot, stored } }。ないものは、もとの場所にもどる
     setOverrides(map) {
       for (const it of items) {
@@ -491,11 +494,12 @@ export function createTown(scene) {
       }
     },
     // いま出ていて、うごかせる建物（しまってあるもの以外）
-    movables() { return items.filter((it) => it.movable && it.shown && !it.stored).map((it) => ({ id: it.id, label: it.label, x: it.x, z: it.z, r: it.r, rot: it.group.rotation.y })); },
+    movables() { if (off) return []; return items.filter((it) => it.movable && it.shown && !it.stored).map((it) => ({ id: it.id, label: it.label, x: it.x, z: it.z, r: it.r, rot: it.group.rotation.y })); },
     // バッグにしまってある建物
-    stored() { return items.filter((it) => it.movable && it.shown && it.stored).map((it) => ({ id: it.id, label: it.label, r: it.r })); },
+    stored() { if (off) return []; return items.filter((it) => it.movable && it.shown && it.stored).map((it) => ({ id: it.id, label: it.label, r: it.r })); },
     // (x,z) のちかくの、うごかせる建物
     itemAt(x, z) {
+      if (off) return null;
       let best = null; let bd = 1e9;
       for (const it of items) {
         if (!it.movable || !it.shown || it.stored) continue;
@@ -506,6 +510,7 @@ export function createTown(scene) {
     },
     // ここに置けるか（ほかの建物と かさならない）。r = 置くものの半径。じぶん（selfId）は のぞく
     canPlace(x, z, r, selfId) {
+      if (off) return true;
       for (const it of items) {
         if (it.id === selfId || !it.shown || it.stored || it.r <= 0) continue;
         if (Math.hypot(x - it.x, z - it.z) < it.r + r + 0.3) return false;
@@ -541,7 +546,7 @@ export function createTown(scene) {
         }
       }
       for (const it of walls) {
-        if (!it.shown || it.stored || it.pop < 0.6) continue;
+        if (off || !it.shown || it.stored || it.pop < 0.6) continue;
         const dx = pos.x - it.x;
         const dz = pos.z - it.z;
         const d = Math.hypot(dx, dz);

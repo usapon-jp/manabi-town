@@ -7,6 +7,7 @@
 // 画面の部品は world のコンテナの中に自分で作る（index.html・css・main.js には触らない）。
 import * as THREE from 'three';
 import { currentProfile, save, onChange } from './store.js';
+import { currentIslandId, islandOps, otherIslands, onIslandChange } from './islands.js';
 import { heightAt } from './terrain.js';
 import { createBuilds, STAMP_STEP, loopLength, LOOP_MIN } from './builds.js';
 import { SPECIES, SPECIES_KEYS } from './plants.js';
@@ -151,22 +152,45 @@ export function createEditor({ container, scene, cut, wind, pick, rotate, setWal
   };
   const builds = createBuilds({ scene, wind, cut, setWalls, setTown: (m) => town?.setOverrides(m) });
 
-  // ---- 保存（プロフィールごと） ----
+  // ---- 保存（プロフィールごと・島ごと。形は islands.js） ----
+  // いまいる島の「操作の並び」。画面に出すのも、書きたすのも、この島の分だけ
   const ops = () => {
     const p = currentProfile();
-    if (!p) return null;
-    if (!p.world || !Array.isArray(p.world.ops)) p.world = { v: 1, ops: [] };
-    return p.world.ops;
+    return p ? islandOps(p, currentIslandId(p)) : null;
   };
-  const replay = () => { builds.rebuild(ops() || []); refreshHand?.(); };
-  // プロフィールが変わったら、そのこの草原にきりかえる
-  function sync() {
+  // ほかの島に ならべてある おきもの（種類 → 島の名前）。ガチャで出た物は ぜんぶの島で 1こずつ
+  let elsewhere = new Map();
+  function refreshElsewhere() {
+    elsewhere = new Map();
     const p = currentProfile();
-    const id = p ? p.id : null;
+    if (!p) return;
+    for (const { def, ops: list } of otherIslands(p, currentIslandId(p))) {
+      for (const o of foldAll(list).eff) if (o.t === 'place' && !elsewhere.has(o.k)) elsewhere.set(o.k, def.name);
+    }
+  }
+  // その種類を もう ならべてあるか（この島・ほかの島）
+  const placedHere = (k) => foldAll(ops() || []).eff.some((o) => o.t === 'place' && o.k === k);
+  const usedUp = (k) => !ITEMS[k]?.own && (placedHere(k) || elsewhere.has(k));
+  const replay = () => { builds.rebuild(ops() || []); refreshHand?.(); };
+  // プロフィールか島が変わったら、そのこの・その島の草原にきりかえる
+  function sync() {
+    refreshElsewhere();
+    const p = currentProfile();
+    const id = p ? `${p.id}|${currentIslandId(p)}` : null;
     if (id === st.loadedId) return;
+    const first = st.loadedId === null;
     st.loadedId = id;
+    if (!first) leave();
     replay();
     refreshButtons();
+  }
+  // 島や人が かわるとき、やりかけ（なぞり・もっている物・うごかす先）を やめる
+  function leave() {
+    if (st.editing) setEditing(false);
+    walkEnd(null);
+    if (st.carry) stopCarry();
+    closeSelTap(); closeBag(); closeParts();
+    moving.target = null;
   }
 
   // ---- 画面の部品 ----
@@ -373,7 +397,7 @@ export function createEditor({ container, scene, cut, wind, pick, rotate, setWal
       } else {
         if (!isOwned(st.piece)) { say('それは まだ もっていないよ'); return; }
         // ガチャで出た物は、1こずつ（さいしょから持っている物は、なんこでも）
-        if (!ITEMS[st.piece]?.own && foldAll(ops() || []).eff.some((o) => o.t === 'place' && o.k === st.piece)) { say('もう ならべてるよ。うごかすなら「うごかす」を つかってね'); return; }
+        if (usedUp(st.piece)) { say(placedHere(st.piece) ? 'もう ならべてるよ。うごかすなら「うごかす」を つかってね' : `${elsewhere.get(st.piece)}に おいてあるよ`); return; }
         if (!validPlace(pts[0], pts[1], PIECE_R[st.piece] || 0.9, null, null)) { say('ここには おけないよ（赤い わっか）'); return; }
         op = { t: 'place', k: st.piece, seed, x: pts[0], z: pts[1], rot: pts[2] };
       }
@@ -524,9 +548,7 @@ export function createEditor({ container, scene, cut, wind, pick, rotate, setWal
   function pieceSel() {
     const bag = bagItems().find((b) => b.key === st.piece);
     if (bag) return { r: bag.r, selfId: bag.kind === 'town' ? bag.id : null, h: bag.kind === 'piece' ? bag.h : null, allowed: true };
-    const owned = isOwned(st.piece);
-    const placed = foldAll(ops() || []).eff.some((o) => o.t === 'place' && o.k === st.piece);
-    return { r: PIECE_R[st.piece] || 0.9, selfId: null, h: null, allowed: owned && (ITEMS[st.piece]?.own || !placed) };
+    return { r: PIECE_R[st.piece] || 0.9, selfId: null, h: null, allowed: isOwned(st.piece) && !usedUp(st.piece) };
   }
   // パーツ: ピヨが持って、はめられる場所（光る玉）に合わせる。合うとみどり
   function socketWorld(h, sid) {
@@ -622,8 +644,9 @@ export function createEditor({ container, scene, cut, wind, pick, rotate, setWal
     }[kind];
     const cards = PICK ? ownedOfKind(kind).map((id) => `<button type="button" data-k="${id}" class="${PICK.cur() === id ? 'on' : ''}">${pic(id)}<span>${esc(ITEMS[id]?.label || id)}</span></button>`) : [
       ...ownedOfKind('piece').map((id) => {
-        const used = !ITEMS[id]?.own && placed.has(id);   // ガチャで出た物は1こずつ
-        return `<button type="button" data-k="${id}" class="${used ? 'used' : ''}">${pic(id)}<span>${esc(ITEMS[id]?.label || id)}</span>${used ? '<small>おいてあるよ</small>' : ''}</button>`;
+        const away = !ITEMS[id]?.own && !placed.has(id) && elsewhere.get(id);   // ほかの島に おいてある
+        const used = !ITEMS[id]?.own && (placed.has(id) || !!away);   // ガチャで出た物は1こずつ（ぜんぶの島で）
+        return `<button type="button" data-k="${id}" class="${used ? 'used' : ''}"${away ? ` data-away="${esc(away)}"` : ''}>${pic(id)}<span>${esc(ITEMS[id]?.label || id)}</span>${used ? `<small>${away ? esc(away) : 'おいてあるよ'}</small>` : ''}</button>`;
       }),
       ...bagItems().map((b) => `<button type="button" data-k="${b.key}">${b.kind === 'piece' ? pic(b.h.k) : HOUSE_SVG}<span>${esc(b.label)}</span><small>しまった物</small></button>`),
     ];
@@ -635,7 +658,7 @@ export function createEditor({ container, scene, cut, wind, pick, rotate, setWal
       if (e.target === bagSheet || e.target.closest('.pclose')) { closeBag(); return; }
       const b = e.target.closest('button[data-k]'); if (!b) return;
       if (PICK) { PICK.set(b.dataset.k); closeBag(); refreshHand(); return; }
-      if (b.classList.contains('used')) { say('もう おいてあるよ。うごかすなら「つくる」の「うごかす」で'); return; }
+      if (b.classList.contains('used')) { say(b.dataset.away ? `${b.dataset.away}に おいてあるよ` : 'もう おいてあるよ。うごかすなら「つくる」の「うごかす」で'); return; }
       closeBag();
       startCarry(b.dataset.k);
     });
@@ -1009,6 +1032,7 @@ export function createEditor({ container, scene, cut, wind, pick, rotate, setWal
   }
 
   onChange(() => { sync(); refreshButtons(); });
+  onIslandChange(() => { sync(); refreshButtons(); });
   sync();
 
   return {

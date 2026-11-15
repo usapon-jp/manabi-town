@@ -6,6 +6,7 @@
 
 ## 今の実装（2026-11 時点）
 
+- 島ごとの保存（2026-11-15、`js/islands.js`）: はじまりの島は これまでどおり `p.world.ops`、2つめからの島は `p.world.isles.<島の id>.ops`。島ごとの おぼえがき（たまご など）は `islandData(p, id)`。町のコードは `p.world` を じかに読まず、`islandOps(p, currentIslandId(p))` を通す。いまいる島は端末ごと（`manabi-island`）。画面に出すのは いつも島1つ分。たしかめ: `node --experimental-default-type=module tools/island-checks.mjs`。きりかえの ためしは アドレスに `?shima=test`。
 - 保存: プロフィールの `p.world.ops`（操作の並び）。見た目は「操作を先頭から再生」してつくる。取り消し＝最後の操作を捨てて再生しなおし。
 - 地面の記録: `js/cutmask.js` の 256×256 の絵（赤＝みち、緑＝花だんの土、青＝ほった所）。ほり深さだけ CPU にも同じものを持つ。
 - 花: `js/plants.js` に5種類を手書き。野原の分と、子どもがうえた分（`createPlantLayer`）。
