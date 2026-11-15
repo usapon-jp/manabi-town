@@ -199,10 +199,14 @@ function editRow(p, s, deps, rerender) {
 
 // ---- BGM をえらぶ --------------------------------------------------------------
 
+// プレイリストの 名前入力（null | 'new' | 'rename'）と、けす ボタンの 2回おし確認
+let bgmListEdit = null;
+let bgmListDel = null;
+
 // live: タイマー中にひらく。曲をえらんでも とまらず、そのまま ながれる
 async function openBgmPicker(onClose, live = false) {
   const tracks = await bgm.listTracks();
-  const close = () => { if (!live) bgm.stop(); sheet.remove(); onClose?.(); };
+  const close = () => { bgmListEdit = null; bgmListDel = null; if (!live) bgm.stop(); sheet.remove(); onClose?.(); };
   const status = h('p', { class: 'sheet-sub' }, '');
   const fileIn = h('input', { type: 'file', accept: 'audio/*,video/*,.m4a,.mp3,.aac,.wav,.ogg,.mp4,.mov', hidden: true, onchange: async () => {
     const f = fileIn.files[0]; if (!f) return;
@@ -238,10 +242,55 @@ async function openBgmPicker(onClose, live = false) {
       icon(ic), h('b', {}, label), h('small', {}, sub)))));
 
   // ② 曲をえらぶ
+  // ② プレイリストを えらぶ（じゅんばん・シャッフルの とき）。名前を つけて いくつでも 作れる
+  const listName = bgm.activeListName();
+  const editBox = () => {
+    const isNew = bgmListEdit === 'new';
+    const input = h('input', { type: 'text', class: 'bgm-name-in', maxlength: 16, placeholder: 'なまえ（れい：しゅうちゅう）', value: isNew ? '' : listName });
+    const done = () => {
+      const name = input.value.trim();
+      if (!name) { input.focus(); return; }
+      if (isNew) bgm.createList(name); else bgm.renameList(bgm.activeListId(), name);
+      bgmListEdit = null; reopen();
+    };
+    input.addEventListener('keydown', (e) => { if (e.key === 'Enter') done(); });
+    setTimeout(() => input.focus(), 50);
+    return h('div', { class: 'bgm-edit' },
+      h('p', { class: 'label' }, isNew ? 'あたらしい プレイリストの なまえ' : 'プレイリストの なまえを かえる'),
+      input,
+      h('div', { class: 'row' },
+        h('button', { type: 'button', class: 'btn small', onclick: () => { bgmListEdit = null; reopen(); } }, 'やめる'),
+        h('button', { type: 'button', class: 'btn small primary', onclick: done }, isNew ? 'つくる' : 'かえる')));
+  };
+  const pls = bgm.playlists();
+  const curList = bgm.activeListId();
+  const pickList = (id) => {
+    bgm.selectList(id);
+    if (live && bgm.isPlaying()) bgm.play().catch(() => {});
+    reopen();
+  };
+  const listStep = style === 'one' ? null : h('div', { class: 'bgm-step' },
+    h('p', { class: 'bgm-step-title' }, h('span', { class: 'bgm-num' }, '2'), ' プレイリストを えらぶ'),
+    h('div', { class: 'bgm-lists' },
+      pls.map((l) => h('button', { type: 'button', class: `bgm-pl ${l.id === curList ? 'on' : ''}`, 'aria-pressed': l.id === curList ? 'true' : 'false', onclick: () => pickList(l.id) },
+        icon('list-music'), h('b', {}, l.name), h('small', {}, `${l.count}きょく`))),
+      bgm.canAddList() ? h('button', { type: 'button', class: 'bgm-pl add', onclick: () => { bgmListEdit = 'new'; reopen(); } }, icon('plus'), h('b', {}, 'つくる')) : null),
+    bgmListEdit ? editBox() : h('div', { class: 'bgm-pl-tools' },
+      h('button', { type: 'button', class: 'link', onclick: () => { bgmListEdit = 'rename'; reopen(); } }, icon('pencil'), ' なまえを かえる'),
+      pls.length > 1 ? h('button', { type: 'button', class: 'link danger', onclick: () => {
+        if (bgmListDel !== curList) { bgmListDel = curList; status.textContent = `もう一回 おすと「${listName}」を けすよ`; return; }
+        bgmListDel = null; bgm.deleteList(curList);
+        if (live && bgm.isPlaying()) bgm.play().catch(() => {});
+        reopen();
+      } }, icon('x'), ' このリストを けす') : null));
+
+  // ③ 曲を えらぶ
   const hint = style === 'one'
     ? 'ながしたい曲を 1つ タップしてね'
-    : `ながしたい曲に ✓ をつけてね（いま ${inList.length}きょく）`;
-  const warn = style === 'shuffle' && inList.length < 2 ? h('p', { class: 'bgm-warn' }, '2きょく いじょう ✓ をつけると、まざって ながれるよ') : null;
+    : `「${listName}」に 入れる曲に ✓ をつけてね（いま ${inList.length}きょく）`;
+  const warn = style === 'one' ? null
+    : !inList.length ? h('p', { class: 'bgm-warn' }, 'まだ 曲が 入っていないよ。✓ をつけてね')
+      : style === 'shuffle' && inList.length < 2 ? h('p', { class: 'bgm-warn' }, '2きょく いじょう ✓ をつけると、まざって ながれるよ') : null;
   const tapSong = (t) => {
     if (style === 'one') {
       bgm.setSelected(t.id);
@@ -249,11 +298,10 @@ async function openBgmPicker(onClose, live = false) {
       reopen();
       return;
     }
-    if (list.includes(t.id) && inList.length <= 1) { status.textContent = '1きょくは のこしてね'; return; }
     bgm.togglePlaylist(t.id);
-    // 1曲だけ↔2曲いじょう が かわると、ながし中の曲の くりかえし方も かわるので かけなおす
+    // 0〜1曲の あいだを 行き来すると、ながす曲や くりかえし方が かわるので かけなおす
     const after = bgm.playlist().filter((id) => byId.has(id)).length;
-    if (live && bgm.isPlaying() && (inList.length < 2) !== (after < 2)) bgm.play().catch(() => {});
+    if (live && bgm.isPlaying() && (inList.length < 2 || after < 2)) bgm.play().catch(() => {});
     reopen();
   };
   const groups = [['standard', 'いつものBGM'], ['old', '前のタイマーの曲'], ['own', 'とりこんだ曲']];
@@ -278,13 +326,14 @@ async function openBgmPicker(onClose, live = false) {
       h('button', { type: 'button', 'aria-label': 'うえへ', disabled: i === 0 || null, onclick: () => { bgm.movePlaylist(id, -1); reopen(); } }, icon('chevron-up')),
       h('button', { type: 'button', 'aria-label': 'したへ', disabled: i === a.length - 1 || null, onclick: () => { bgm.movePlaylist(id, 1); reopen(); } }, icon('chevron-down')))))) : null;
   const songBox = h('div', { class: 'bgm-step' },
-    h('p', { class: 'bgm-step-title' }, h('span', { class: 'bgm-num' }, '2'), ' 曲を えらぶ'),
+    h('p', { class: 'bgm-step-title' }, h('span', { class: 'bgm-num' }, style === 'one' ? '2' : '3'), ' 曲を えらぶ'),
     h('p', { class: 'sheet-sub bgm-hint' }, hint), warn, songRows, order);
 
   const sheet = h('div', { class: live ? 'sheet bgm-live' : 'sheet', onclick: (e) => { if (e.target === sheet) close(); } },
     h('div', { class: 'sheet-card bgm-card' },
       h('p', { class: 'sheet-title' }, icon('music-2'), ' おんがく（BGM）'),
       styleBox,
+      listStep,
       songBox,
       status,
       live ? h('button', { class: 'btn small', onclick: () => { bgm.stop(); close(); } }, icon('volume-x'), ' おんがくを とめる') : null,

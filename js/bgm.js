@@ -91,8 +91,50 @@ export function selectedId() { return meta.selected; }
 export function setSelected(id) { meta.selected = id; saveMeta(meta); }
 
 // ---- プレイリスト（長く聴く用） ------------------------------------------------
-// meta.playlist: 曲idの並び / meta.mode: 'one'=1曲くりかえし, 'all'=じゅんばんにくりかえし, 'shuffle'=シャッフル / meta.useList: リストで流す
-export const playlist = () => (Array.isArray(meta.playlist) ? meta.playlist : []);
+// meta.lists: [{ id, name, ids }] 名前をつけたプレイリスト / meta.listId: いま ながすリスト
+// meta.mode: 'one'=1曲くりかえし, 'all'=じゅんばんにくりかえし, 'shuffle'=シャッフル / meta.useList: リストで流す
+// （meta.playlist は いま えらんでいるリストの 曲の写し。前の版の 1つだけのリストも ここから引きつぐ）
+const MAX_LISTS = 12;
+const newListId = () => `list-${Date.now().toString(36)}${Math.random().toString(36).slice(2, 5)}`;
+function lists() {
+  if (!Array.isArray(meta.lists)) {
+    const old = Array.isArray(meta.playlist) ? meta.playlist : [];
+    meta.lists = old.length ? [{ id: 'list-1', name: 'わたしのリスト', ids: old.slice() }] : [];
+    meta.listId = meta.lists[0]?.id || null;
+  }
+  return meta.lists;
+}
+const activeList = () => { const ls = lists(); return ls.find((l) => l.id === meta.listId) || ls[0] || null; };
+function setIds(ids) {
+  let l = activeList();
+  if (!l) { l = { id: newListId(), name: 'わたしのリスト', ids: [] }; lists().push(l); }
+  l.ids = ids; meta.listId = l.id; meta.playlist = ids.slice(); resetShuffle();
+}
+export const playlist = () => activeList()?.ids || [];
+export const playlists = () => lists().map((l) => ({ id: l.id, name: l.name, count: l.ids.length }));
+export const activeListId = () => activeList()?.id || null;
+export const activeListName = () => activeList()?.name || '';
+export const canAddList = () => lists().length < MAX_LISTS;
+const cleanName = (name, fallback) => String(name || '').trim().slice(0, 16) || fallback;
+export function selectList(id) {
+  const l = lists().find((x) => x.id === id); if (!l) return;
+  meta.listId = l.id; meta.playlist = l.ids.slice(); resetShuffle(); saveMeta(meta);
+}
+// あたらしい リスト（ids を入れて つくる）。かえり値は id
+export function createList(name, ids = []) {
+  if (!canAddList()) return null;
+  const l = { id: newListId(), name: cleanName(name, `リスト${lists().length + 1}`), ids: ids.slice() };
+  lists().push(l);
+  meta.listId = l.id; meta.playlist = l.ids.slice(); resetShuffle(); saveMeta(meta);
+  return l.id;
+}
+export function renameList(id, name) { const l = lists().find((x) => x.id === id); if (!l) return; l.name = cleanName(name, l.name); saveMeta(meta); }
+export function deleteList(id) {
+  meta.lists = lists().filter((x) => x.id !== id);
+  if (meta.listId === id) meta.listId = meta.lists[0]?.id || null;
+  meta.playlist = playlist().slice(); resetShuffle();
+  saveMeta(meta);
+}
 export const mode = () => meta.mode || 'all';
 export const useList = () => !!meta.useList && playlist().length > 0;
 export function setMode(m) { meta.mode = m; resetShuffle(); saveMeta(meta); }
@@ -101,34 +143,35 @@ export function togglePlaylist(id) {
   const l = playlist().slice();
   const i = l.indexOf(id);
   if (i >= 0) l.splice(i, 1); else l.push(id);
-  meta.playlist = l; resetShuffle();
-  if (!l.length) meta.useList = false;
+  setIds(l);
   saveMeta(meta);
 }
 // 画面の「ながしかた」: 'one'=1きょくだけ（えらんだ曲をくりかえし）, 'all'=じゅんばん, 'shuffle'=シャッフル
-// 'all'/'shuffle' は プレイリストで ながす。リストが からなら allIds（いまある曲ぜんぶ）を入れて すぐ使えるように
-export const playStyle = () => (useList() && mode() !== 'one' ? mode() : 'one');
+// 'all'/'shuffle' は プレイリストで ながす。リストが ひとつもなければ「ぜんぶの曲」リストを つくって すぐ使えるように
+export const playStyle = () => (meta.useList && mode() !== 'one' ? mode() : 'one');
 export function setPlayStyle(style, allIds = []) {
   if (style === 'one') { meta.useList = false; saveMeta(meta); return; }
-  if (!playlist().length) meta.playlist = allIds.slice();
-  meta.mode = style; meta.useList = playlist().length > 0; resetShuffle();
+  if (!lists().length) lists().push({ id: newListId(), name: 'ぜんぶの曲', ids: allIds.slice() });
+  else if (!playlist().length) setIds(allIds.slice());
+  if (!meta.listId) meta.listId = lists()[0].id;
+  meta.playlist = playlist().slice();
+  meta.mode = style; meta.useList = true; resetShuffle();
   saveMeta(meta);
 }
-// タイマー画面に出す ひとこと（「シャッフル・4きょく」など）
+// タイマー画面に出す ひとこと（「シャッフル・ねるまえ（4きょく）」など）
 export function summary(tracks) {
   const valid = new Set(tracks.map((t) => t.id));
   const n = playlist().filter((id) => valid.has(id)).length;
   const style = playStyle();
-  if (style === 'shuffle') return `シャッフル・${n}きょく`;
-  if (style === 'all') return `じゅんばん・${n}きょく`;
-  return (tracks.find((t) => t.id === meta.selected) || tracks[0])?.name || '';
+  if (style === 'one') return (tracks.find((t) => t.id === meta.selected) || tracks[0])?.name || '';
+  return `${style === 'shuffle' ? 'シャッフル' : 'じゅんばん'}・${activeListName()}（${n}きょく）`;
 }
 export function movePlaylist(id, dir) {
   const l = playlist().slice();
   const i = l.indexOf(id); const j = i + dir;
   if (i < 0 || j < 0 || j >= l.length) return;
   [l[i], l[j]] = [l[j], l[i]];
-  meta.playlist = l; saveMeta(meta);
+  setIds(l); saveMeta(meta);
 }
 // シャッフル: 全曲を1回ずつ流し終えてから、次の周をまたシャッフルする（周の切れ目で同じ曲が続かない）
 let shuffleQueue = [];

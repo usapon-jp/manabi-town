@@ -1966,3 +1966,18 @@ input.pin { font-size: 26px; letter-spacing: 0.5em; text-align: center; }
 .bgm-mark .ic { width: 16px; height: 16px; }
 .bgm-more summary { cursor: pointer; font-size: 14px; color: var(--ink-soft); padding: 4px 0; }
 .bgm-more .row { margin-top: 8px; }
+.bgm-lists { display: grid; grid-template-columns: repeat(2, 1fr); gap: 6px; }
+.bgm-pl { display: grid; grid-template-columns: auto 1fr; grid-template-rows: auto auto; column-gap: 6px; align-items: center; text-align: left; font: inherit; background: #fff; border: 1.5px solid var(--line); border-radius: 12px; padding: 8px 10px; color: var(--navy); cursor: pointer; min-width: 0; }
+.bgm-pl .ic { grid-row: span 2; width: 20px; height: 20px; }
+.bgm-pl b { font-size: 14px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.bgm-pl small { font-size: 11px; color: var(--ink-soft); }
+.bgm-pl.on { background: var(--leaf-soft); border-color: var(--accent); color: var(--accent-dark); }
+.bgm-pl.add { border-style: dashed; color: var(--accent-dark); grid-template-rows: auto; }
+.bgm-pl.add .ic { grid-row: auto; }
+.bgm-pl-tools { display: flex; gap: 14px; flex-wrap: wrap; }
+.bgm-pl-tools .link { display: inline-flex; align-items: center; gap: 3px; font-size: 13px; font-weight: 700; color: var(--accent-dark); background: none; border: 0; padding: 4px 0; }
+.bgm-pl-tools .link .ic { width: 14px; height: 14px; }
+.bgm-pl-tools .link.danger { color: #b5651d; }
+.bgm-edit { display: grid; gap: 6px; background: #fffdf7; border: 1.5px solid var(--accent); border-radius: 12px; padding: 10px; }
+.bgm-edit .label { margin: 0; }
+.bgm-name-in { font: inherit; font-size: 16px; padding: 8px 10px; border: 1.5px solid var(--line); border-radius: 10px; background: #fff; }
