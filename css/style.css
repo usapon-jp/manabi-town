@@ -2165,3 +2165,45 @@ body:has(.avatar-name) #pad, body:has(.avatar-name) #bubble, body:has(.avatar-na
 body:has(.egg-intro) .wedit, body:has(.egg-intro) .wuse, body:has(.egg-born) .wedit, body:has(.egg-born) .wuse { visibility: hidden; }
 body:has(.egg-plant) #bubble, body:has(.egg-plant) .wedit { visibility: hidden; }
 @media (prefers-reduced-motion: reduce) { .egg-row .egg-ic, .egg-born-pic .egg-ic, .egg-go, .egg-confetti i { animation: none; } }
+
+/* ---- 町の カメラ（js/cameraui.js） ---- */
+.cam-fab {
+  position: fixed; z-index: 4; right: max(14px, env(safe-area-inset-right, 0px)); top: calc(env(safe-area-inset-top, 0px) + 170px);
+  display: grid; justify-items: center; gap: 1px; padding: 8px 10px 6px; min-width: 62px;
+  border-radius: 20px; border: 2px solid var(--line); background: #fffdf5; box-shadow: var(--soft);
+  font: inherit; font-size: 11px; font-weight: 700; color: var(--accent-dark); cursor: pointer;
+}
+.cam-fab .ic { width: 24px; height: 24px; }
+.cam-fab:active { transform: scale(0.94); }
+.cam-fab[hidden], body.cam-mode .cam-fab, body.running .cam-fab, body:has(.timer-run) .cam-fab, body.touring .cam-fab { display: none; }
+body.cam-mode .hud, body.cam-mode .bubble, body.cam-mode .tabs, body.cam-mode .menu-btn, body.cam-mode .ask-fab, body.cam-mode .egg-say, body.cam-mode .diary-fab, body.cam-mode .wedit, body.cam-mode .wuse, body.cam-mode .wedit-msg, body.cam-mode .wlevel { display: none !important; }
+.cam-ui { position: fixed; inset: 0; z-index: 5; pointer-events: none; }
+.cam-ui > * { pointer-events: auto; }
+.cam-tint { position: absolute; inset: 0; pointer-events: none !important; }
+.cam-flash { position: absolute; inset: 0; background: #fff; opacity: 0; pointer-events: none !important; }
+.cam-flash.go { animation: cam-flash 0.35s ease-out; }
+@keyframes cam-flash { 0% { opacity: 0.85; } 100% { opacity: 0; } }
+.cam-close, .cam-roll, .cam-tool {
+  border: 2px solid var(--line); background: rgba(255, 253, 245, 0.92); box-shadow: var(--soft); color: var(--navy);
+  font: inherit; font-weight: 700; cursor: pointer;
+}
+.cam-close { position: absolute; left: max(14px, env(safe-area-inset-left, 0px)); top: calc(env(safe-area-inset-top, 0px) + 14px); width: 46px; height: 46px; border-radius: 50%; display: grid; place-items: center; }
+.cam-roll { position: absolute; right: max(14px, env(safe-area-inset-right, 0px)); top: calc(env(safe-area-inset-top, 0px) + 14px); height: 46px; padding: 0 14px; border-radius: 23px; display: flex; align-items: center; gap: 6px; font-size: 14px; }
+.cam-roll.full { background: #ffe9a8; }
+.cam-tools { position: absolute; right: max(14px, env(safe-area-inset-right, 0px)); top: calc(env(safe-area-inset-top, 0px) + 74px); display: grid; gap: 8px; justify-items: end; }
+.cam-tool { display: flex; align-items: center; gap: 6px; height: 42px; padding: 0 14px; border-radius: 21px; font-size: 13px; }
+.cam-tool.on { background: #ffe9a8; border-color: #e6c36a; }
+.cam-tool .ic { width: 18px; height: 18px; }
+.cam-hint { position: absolute; left: 50%; transform: translateX(-50%); bottom: calc(env(safe-area-inset-bottom, 0px) + 138px); margin: 0; padding: 5px 12px; border-radius: 14px; background: rgba(255, 253, 245, 0.85); color: var(--navy); font-size: 12px; font-weight: 700; white-space: nowrap; }
+.cam-hint[hidden] { display: none; }
+.cam-shutter { position: absolute; left: 50%; transform: translateX(-50%); bottom: calc(env(safe-area-inset-bottom, 0px) + 28px); width: 72px; height: 72px; border-radius: 50%; border: 4px solid #fff; background: rgba(255, 255, 255, 0.25); box-shadow: 0 2px 10px rgba(0, 0, 0, 0.25); padding: 0; cursor: pointer; }
+.cam-shutter i { display: block; width: 52px; height: 52px; margin: 6px; border-radius: 50%; background: #fff; transition: transform 0.1s; }
+.cam-shutter:active i { transform: scale(0.86); }
+body.cam-mode .ctrl-pad { z-index: 6; bottom: env(safe-area-inset-bottom); }
+.cam-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; margin: 8px 0; max-height: 52dvh; overflow-y: auto; }
+.cam-thumb { border: 1.5px solid var(--line); border-radius: 12px; background: #fffdf5; padding: 4px; display: grid; gap: 2px; justify-items: center; font: inherit; cursor: pointer; }
+.cam-thumb img { width: 100%; aspect-ratio: 3 / 4; object-fit: cover; border-radius: 9px; }
+.cam-thumb small { font-size: 11px; color: var(--navy); }
+.cam-big-card img { width: 100%; max-height: 56dvh; object-fit: contain; border-radius: 12px; background: #f4ead6; }
+.cam-big-actions { display: flex; gap: 8px; justify-content: center; margin: 8px 0; }
+.cam-big { z-index: 60; }

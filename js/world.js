@@ -185,6 +185,7 @@ export function createWorld(container) {
       editor.pointer('up', e); return;
     }
     // タップした場所へ歩く機能は なし（2026-11-02 フミオさん）。ドラッグでまわすだけ
+    if (cam.on) { drag = null; return; }   // カメラの あいだは タップで なにも ひらかない
     if (drag && !drag.moved && api.onTapPiyo && hitsPiyo(e)) { drag = null; piyo.jump(); api.onTapPiyo(); return; }
     if (drag && !drag.moved && api.onTapEgg) {
       const hit = eggs.pick(rayAt(e));
@@ -296,11 +297,66 @@ export function createWorld(container) {
   const closeUp = { on: false, saved: null };
   // たまごを もらう・生まれる とき: しばらく 巣や たねの ほうを 見る
   const focus = { at: null, saved: null };
+  // カメラ（理科の たまごで ひらく）。js/cameraui.js から つかう。ズームは レンズ、自撮りは 女の子の 前から
+  const cam = { on: false, saved: null, selfie: false, zoom: 1 };
+  const BASE_FOV = camera.fov;
+  const camApi = {
+    get on() { return cam.on; },
+    start() {
+      if (cam.on) return;
+      cam.on = true; cam.zoom = 1; cam.selfie = false;
+      nameTag.hide(true);   // 近づくと 名前の ふだが 大きく うつるので、カメラの あいだは かくす
+      cam.saved = { angle: view.angle, dist: view.dist, height: view.height, lookY: view.lookY };
+    },
+    stop() {
+      if (!cam.on) return;
+      camApi.setZoom(1); camApi.setPose(null);
+      if (cam.selfie) camApi.setSelfie(false);
+      Object.assign(view, cam.saved); cam.saved = null; cam.on = false;
+      nameTag.hide(false);
+    },
+    setZoom(z) {
+      cam.zoom = Math.max(1, Math.min(4, z));
+      camera.fov = BASE_FOV / cam.zoom;
+      camera.updateProjectionMatrix();
+    },
+    // 自撮り: 女の子の 前に まわって、近くから ピヨ先生と いっしょに
+    setSelfie(on) {
+      if (on === cam.selfie || !cam.on) return;
+      cam.selfie = on;
+      if (on) {
+        cam.pre = { angle: view.angle, dist: view.dist, height: view.height, lookY: view.lookY };
+        view.angle = actor.heading; view.dist = 4.0; view.height = 1.7; view.lookY = 0.8;
+        view.target.copy(actor.position);
+        const sx = actor.position.x + Math.sin(actor.heading + 0.8) * 0.85; const sz = actor.position.z + Math.cos(actor.heading + 0.8) * 0.85;
+        piyo.position.set(sx, heightAt(sx, sz), sz);
+        piyo.face(Math.atan2(camera.position.x - sx, camera.position.z - sz));
+      } else if (cam.pre) { Object.assign(view, cam.pre); cam.pre = null; }
+    },
+    get selfie() { return cam.selfie; },
+    setPose(name) { actor.setPose(name); },
+    get pose() { return actor.pose; },
+    // いまの 画面を 1まいの 絵にして かえす（3Dだけ。ボタンは 入らない）。long = 長いほうの 大きさ
+    snap({ long = 1280 } = {}) {
+      const was = marker.material.opacity;
+      marker.material.opacity = 0;
+      renderer.render(scene, camera);
+      const src = renderer.domElement;
+      const k = Math.min(1, long / Math.max(src.width, src.height));
+      const out = document.createElement('canvas');
+      out.width = Math.max(1, Math.round(src.width * k)); out.height = Math.max(1, Math.round(src.height * k));
+      const g = out.getContext('2d');
+      g.drawImage(src, 0, 0, out.width, out.height);
+      marker.material.opacity = was;
+      return out;
+    },
+  };
 
   const api = {
     onTapPiyo: null,
     onTapEgg: null,
     eggs,
+    camera: camApi,
     // (x, z) の ほうを 見る。null で 女の子に もどす
     focus(x, z) {
       if (x == null) {
@@ -367,7 +423,7 @@ function createActor(scene, config, town, mount) {
     for (const [key, b] of Object.entries(found)) { if (b) { bones[key] = b; base[key] = b.rotation.clone(); } }
   });
 
-  const state = { target: null, phase: 0, idle: 0, nextWander: 3, jumpT: -1, y: 0, vy: 0, airJumps: 0, manual: 0, stuck: 0 };
+  const state = { pose: null, target: null, phase: 0, idle: 0, nextWander: 3, jumpT: -1, y: 0, vy: 0, airJumps: 0, manual: 0, stuck: 0 };
   const GRAVITY = 22;
   const JUMP_V = 7.2;
 
@@ -376,9 +432,21 @@ function createActor(scene, config, town, mount) {
     if (b) b.rotation[axis] = base[key][axis] + value;
   }
 
+  // 写真の ポーズ（立ち止まっている ときだけ）。手の 向きは 歩きの ふりと おなじ（z がプラス＝左手が ひらく）
+  function poseNow(t) {
+    switch (state.pose) {
+      case 'wave': rot('rightArm', 'z', -2.5 + Math.sin(t * 7) * 0.22); rot('head', 'z', 0.1); break;
+      case 'banzai': rot('leftArm', 'z', 2.7); rot('rightArm', 'z', -2.7); body.position.y = Math.abs(Math.sin(t * 5)) * 0.06; break;
+      case 'bow': rot('spine', 'x', 0.55); rot('head', 'x', 0.25); rot('leftArm', 'z', 0.25); rot('rightArm', 'z', -0.25); break;
+      default:
+    }
+  }
+
   return {
     object: root,
     position: root.position,
+    setPose(n) { state.pose = n || null; },
+    get pose() { return state.pose; },
     get heading() { return root.rotation.y; },
     face(a) { root.rotation.y = a; },
     walkTo(p) { state.target = p.clone(); },
@@ -468,6 +536,7 @@ function createActor(scene, config, town, mount) {
         rot('head', 'z', Math.sin(t * 0.8) * 0.12);
         rot('spine', 'x', Math.sin(t * 2.2) * 0.03);
         body.position.y = 0;
+        poseNow(t);
         // 勝手に歩き出す動きは なし（2026-11-02 フミオさん）。スティックで動かしたときだけ歩く
       }
 
@@ -536,7 +605,7 @@ function createNameTag(scene) {
   sprite.renderOrder = 10;
   sprite.scale.set(1.6, 0.4, 1);
   scene.add(sprite);
-  let left = 0; let text = '';
+  let left = 0; let text = ''; let off = false;
   return {
     set(n) {
       text = n;
@@ -553,13 +622,14 @@ function createNameTag(scene) {
       tex.needsUpdate = true;
     },
     show(sec) { if (text) left = sec; },
+    hide(on) { off = on; sprite.visible = false; },   // 写真を とる しゅんかんは 名前の ふだを かくす
     update(dt, pos, height, moving) {
       if (moving && left > 1) left = 1;   // 歩きだしたら すぐ きえる
       left = Math.max(0, left - dt);
       const want = left > 0 ? 1 : 0;
       const m = sprite.material;
       m.opacity += (want - m.opacity) * Math.min(1, dt * 5);
-      sprite.visible = m.opacity > 0.01;
+      sprite.visible = !off && m.opacity > 0.01;
       sprite.position.set(pos.x, pos.y + height + 0.45, pos.z);
     },
   };
