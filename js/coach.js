@@ -510,9 +510,11 @@ export async function rangeDrill(p, x, n, seedText) {
 export function rangeChoices(p, x, n, seedText) {
   const rand = seededRandom(seedText);
   const pool = poolOf(p, x);
-  const front = pool.filter((q) => q.bk && !q.pick);
+  // 漢字の 書きとりを えらぶ形に するのは 漢字の範囲だけ（地理・歴史の 教科書の 一問一答も bk を もつので そのまま出す）
+  const kanji = isKanjiRange(x);
+  const front = kanji ? pool.filter((q) => q.bk && !q.pick) : [];
   const qs = spreadSimilar(shuffle(pool, rand)).map((q) => {
-    if (!q.bk || q.pick) return { kind: 'choice', prompt: q.q, options: q.options, answer: q.answer, src: q };
+    if (!kanji || !q.bk || q.pick) return { kind: 'choice', prompt: q.q, options: q.options, answer: q.answer, src: q };
     // まちがいの 2つは 同じ ページで 字数が 同じ ことば（なければ 字数だけ そろえる）
     const like = (o) => o.w !== q.w && o.w.length === q.w.length;
     const others = [...new Set(shuffle(front.filter((o) => like(o) && o.page === q.page), rand).concat(shuffle(front.filter(like), rand)).map((o) => o.w))].slice(0, 2);
