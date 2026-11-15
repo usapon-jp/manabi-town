@@ -77,78 +77,73 @@ export function collectMisses(p) {
 export const missCount = (p) => (isAdult(p) ? 0 : collectMisses(p).length);
 
 const ICON = ['ア', 'イ', 'ウ', 'エ', 'オ'];
-const QCH = 14, ACH = 12, LINE = 4.4, PAD = 3.4, MIN = 11, BUDGET = 238;   // 1行の文字数(目安)・行の高さ(mm)・1列に のせる高さ
+const PAGE_MM = 260;   // 1ページの 1列に のせる 高さ(mm)。ヘッダー・余白を ひいた 目安（あまめに とる）
+const PX = 96 / 25.4;   // 1mm = 何px
 
-function parts(c) {
-  const q = c.q;
+function cell(q, n) {
   const opts = q.kind === 'choice' ? (q.options || []).map((o, i) => `${ICON[i] || i + 1} ${o}`).join('　') : '';
   const ctx = typeof q.context === 'string' ? q.context : '';
-  const qText = [q.prompt, q.big, ctx, opts].filter(Boolean).join(' ');
   const ans = answerOf(q);
-  const lines = Math.max(Math.ceil(qText.length / QCH) + 1, Math.ceil(ans.length / ACH), 2);
-  return { q, opts, ctx, ans, mm: Math.max(MIN, lines * LINE + PAD) };
-}
-
-function cell(c, n) {
-  const { q, opts, ctx, ans, mm } = c;
-  return [
-    h('span', { class: 'cd-no', style: `height:${mm}mm` }, n),
-    h('div', { class: 'cd-q', style: `height:${mm}mm` },
-      h('span', { class: 'cd-tag' }, [q.subject, q.topic].filter(Boolean).join(' ')),
+  return h('div', { class: 'ms-r' },
+    h('span', { class: 'ms-no' }, n),
+    h('div', { class: 'ms-q' },
       h('p', {}, q.prompt, q.big ? h('b', {}, ` ${q.big}`) : null),
       ctx ? h('small', {}, ctx) : null,
       opts ? h('small', {}, opts) : null),
-    h('div', { class: 'cd-a', style: `height:${mm}mm` }, ans, q.kind === 'write' && q.big ? h('small', {}, q.big) : null),
-  ];
+    h('div', { class: 'ms-a' }, ans, q.kind === 'write' && q.big ? h('small', {}, q.big) : null));
 }
 
+// 行の 高さは 文字が 折り返した あとの 本当の 高さを はかる（きれて しまわないように）。
 // 1まい(A4 片面)に 左の 組（問題|答え）→ 右の 組 の じゅんで つめる。ぜんぶ 上から 下へ 番号どおり
 export function buildSheet(cards, title) {
-  const items = cards.map(parts);
+  const rows = cards.map((c, i) => cell(c.q, i + 1));
+  const meas = h('div', { class: 'ms-page ms-meas' }, h('div', { class: 'ms-2' }, h('div', { class: 'ms-grp' }, h('div', { class: 'ms-body' }, rows))));
+  document.body.append(meas);
+  const hs = rows.map((r) => r.getBoundingClientRect().height / PX);
+  meas.remove();
   const pages = [];
   let cur = null, col = 0, used = 0;
   const newPage = () => { cur = [[], []]; pages.push(cur); col = 0; used = 0; };
   newPage();
-  items.forEach((it, i) => {
-    if (used + it.mm > BUDGET) {
+  rows.forEach((r, i) => {
+    if (used + hs[i] > PAGE_MM && used > 0) {
       if (col === 0) { col = 1; used = 0; } else { newPage(); }
     }
-    cur[col].push(cell(it, i + 1));
-    used += it.mm;
+    cur[col].push(r);
+    used += hs[i];
   });
-  return pages.map((pg, k) => h('section', { class: 'cd-page' },
-    h('div', { class: 'cd-head' }, h('b', {}, title), h('span', {}, `なまえ：　　　　　　　日づけ：　　月　　日　（${k + 1}/${pages.length}）`)),
-    h('div', { class: 'cd-2' }, pg.map((colRows) => h('div', { class: 'cd-grp' },
-      h('div', { class: 'cd-cols' }, h('span', {}), h('span', {}, '問題'), h('span', {}, '答え（紙でかくす）')),
-      h('div', { class: 'cd-body' }, colRows.flat()))))));
+  return pages.map((pg, k) => h('section', { class: 'ms-page' },
+    h('div', { class: 'ms-head' }, h('b', {}, `${title} ${k + 1}/${pages.length}`), h('span', {}, 'なまえ：　　　　　　　　日づけ：　　月　　日')),
+    h('div', { class: 'ms-2' }, pg.map((colRows) => h('div', { class: 'ms-grp' },
+      h('div', { class: 'ms-cols' }, h('span', {}), h('span', {}, '問題'), h('span', {}, '答え')),
+      h('div', { class: 'ms-body' }, colRows))))));
 }
 
 export function openCards(p) {
   const all = collectMisses(p);
   let subj = '';
-  const layer = h('div', { class: 'cd-layer', role: 'dialog', 'aria-label': 'まちがえた問題' });
-  const close = () => { layer.remove(); document.body.classList.remove('cd-printing'); };
-  const body = h('div', { class: 'cd-pages' });
-  const top = h('div', { class: 'cd-top' });
+  const layer = h('div', { class: 'ms-layer', role: 'dialog', 'aria-label': 'まちがえた問題' });
+  const close = () => { layer.remove(); document.body.classList.remove('ms-open'); document.documentElement.classList.remove('ms-open'); };
+  const body = h('div', { class: 'ms-pages' });
+  const top = h('div', { class: 'ms-top' });
 
   function draw() {
     const subjects = [...new Set(all.map((c) => c.q.subject).filter(Boolean))];
     const cards = all.filter((c) => !subj || c.q.subject === subj).slice(0, 150);
     top.replaceChildren(
-      h('div', { class: 'cd-bar' }, h('b', {}, 'まちがえた問題'), h('button', { class: 'close', 'aria-label': 'とじる', onclick: close }, '×')),
-      h('div', { class: 'cd-chips' },
+      h('div', { class: 'ms-bar' }, h('b', {}, 'まちがえた問題'), h('button', { class: 'close', 'aria-label': 'とじる', onclick: close }, '×')),
+      h('div', { class: 'ms-chips' },
         h('button', { class: `chip ${subj ? '' : 'on'}`, onclick: () => { subj = ''; draw(); } }, `ぜんぶ ${all.length}`),
         subjects.map((s) => h('button', { class: `chip ${subj === s ? 'on' : ''}`, onclick: () => { subj = s; draw(); } }, `${s} ${all.filter((c) => c.q.subject === s).length}`))),
-      h('p', { class: 'hint' }, '4列で 印刷。まんなかの 太い線で 半分に おって、右がわの 答えの 列を カードで かくして 上から じゅんに。教科は 上で えらべるよ（べつの たんまつの 分は、アプリを ひらいて 少し まってから）'),
+      h('p', { class: 'hint' }, '下の プレビューを 見て 印刷してね。まんなかの 線で 半分に おって、答えの 列を カードで かくして 上から じゅんに。教科は 上で えらべるよ'),
       h('button', { class: 'btn primary', disabled: !cards.length, onclick: () => {
-        document.body.classList.add('cd-printing');
-        window.addEventListener('afterprint', () => document.body.classList.remove('cd-printing'), { once: true });
-        window.print();
+        window.print();   // 印刷用の ようすは、この画面が ひらいている あいだ いつも 効く（スマホは 印刷の じゅんびが あとから 始まるため）
       } }, icon('printer'), ` 印刷する（${cards.length}もん）`));
     body.replaceChildren(...(cards.length ? buildSheet(cards, `まちがえた問題${subj ? `（${subj}）` : ''}`) : [h('p', { class: 'empty' }, 'まちがえた問題は まだ ないよ')]));
   }
   layer.append(top, body);
   document.body.append(layer);
+  document.body.classList.add('ms-open'); document.documentElement.classList.add('ms-open');
   draw();
 }
 
