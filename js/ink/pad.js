@@ -2,8 +2,13 @@
 // - ペンがあればペン優先、手のひらは無視
 // - 2本指でトンとたたくと1つもどす
 // - 線は CSS ピクセルで持ち、表示のときに画面の細かさに合わせて描く
+// - 指でも すぐ反応するように: 書きはじめに全部を描きなおさない・指の線のおくれを小さく・
+//   長おしで文字えらび（iPad）が出て線が消えないように touch の既定の動きを止める
 import { InputSession } from './input.js';
 import { StrokeBuilder } from './stroke.js';
+
+// 指の線を なめらかにする時間（ms）。うさぽんメモの 28 だと線が指からおくれて「反応が悪い」感じになる
+const TOUCH_SMOOTHING_MS = 10;
 
 const radius = (s, pressure) => (s.size / 2) * (0.25 + pressure * 0.75);
 
@@ -28,6 +33,9 @@ export function createInkPad({ className = '', color = '#3b3a36', size = 7, draw
   const canvas = document.createElement('canvas');
   canvas.className = `ink ${className}`;
   canvas.style.touchAction = 'none';
+  canvas.style.webkitUserSelect = 'none';
+  canvas.style.userSelect = 'none';
+  canvas.style.webkitTouchCallout = 'none';
   const ctx = canvas.getContext('2d');
   const strokes = [];
   let builder = null;
@@ -52,14 +60,19 @@ export function createInkPad({ className = '', color = '#3b3a36', size = 7, draw
     if (builder) paintStroke(ctx, builder.stroke);
   }
 
-  const rectOf = () => canvas.getBoundingClientRect();
+  let rect = null;
+  const rectOf = () => rect || canvas.getBoundingClientRect();
   const toLocal = (p) => { const r = rectOf(); return { ...p, x: p.x - r.left, y: p.y - r.top }; };
 
   const input = new InputSession({
     begin(p) {
       builder = new StrokeBuilder({ tool: 'pen', input: p.type, color, size, time: p.time });
+      if (p.type === 'touch') builder.stroke.smoothingMs = TOUCH_SMOOTHING_MS;
+      rect = canvas.getBoundingClientRect();   // 1本の線のあいだは 同じ位置（毎回はかると おそくなる）
       builder.sample(toLocal(p));
-      redraw();
+      // 全部を描きなおさず、さいしょの点だけ描く（線が多くても 指をおいた瞬間に出る）
+      const pts = builder.stroke.points;
+      if (pts.length) { ctx.setTransform(dpr, 0, 0, dpr, 0, 0); paintSegment(ctx, builder.stroke, pts[0], pts[0]); }
     },
     append(p) {
       if (!builder) return;
@@ -71,12 +84,25 @@ export function createInkPad({ className = '', color = '#3b3a36', size = 7, draw
       }
     },
     finish() {
-      if (builder?.stroke.points.length) strokes.push(builder.stroke);
+      // 線は もう描いてあるので、描きなおさない（指をはなした瞬間に つぎが書ける）
+      if (builder?.stroke.points.length) {
+        const s = builder.stroke;
+        const last = builder.lastInput;
+        const end = s.points[s.points.length - 1];
+        // なめらかにした分 指より手前で止まっているので、はなした所まで のばす
+        if (last && Math.hypot(last.x - end[0], last.y - end[1]) > 0.5) {
+          const tail = [last.x, last.y, end[2], end[3]];
+          s.points.push(tail);
+          ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+          paintSegment(ctx, s, end, tail);
+        }
+        strokes.push(s);
+      }
       builder = null;
-      redraw();
+      rect = null;
       changed();
     },
-    cancel() { builder = null; redraw(); },
+    cancel() { builder = null; rect = null; redraw(); },
     undo() { if (strokes.pop()) { redraw(); changed(); } },
   });
 
@@ -103,6 +129,14 @@ export function createInkPad({ className = '', color = '#3b3a36', size = 7, draw
   canvas.addEventListener('pointerup', (e) => { e.preventDefault(); input.up(point(e)); });
   canvas.addEventListener('pointercancel', (e) => input.up(point(e), true));
   canvas.addEventListener('lostpointercapture', (e) => { if (input.pointers.has(e.pointerId)) input.lostCapture(point(e)); });
+
+  // iPad の Safari は pointer だけ止めても、長おしの文字えらび・虫めがねで pointercancel を出して
+  // 指の線を消すことがある。touch の既定の動き（スクロール・ズーム・えらぶ）も ここで止める
+  const stopTouch = (e) => { if (e.cancelable) e.preventDefault(); };
+  canvas.addEventListener('touchstart', stopTouch, { passive: false });
+  canvas.addEventListener('touchmove', stopTouch, { passive: false });
+  canvas.addEventListener('contextmenu', stopTouch);
+  canvas.addEventListener('selectstart', stopTouch);
 
   const ro = new ResizeObserver(fit);
   ro.observe(canvas);
