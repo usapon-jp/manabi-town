@@ -31,6 +31,7 @@ export function stockWrong(q) {
   try {
     const p = cardsProfile(); if (!p || !ok(q)) return;
     const b = box(p), k = keyOf(q);
+    if (b.fixed?.keys) b.fixed.keys = b.fixed.keys.filter((x) => x !== k);
     b.todo = b.todo.filter((m) => keyOf(m.q) !== k);
     const f = b.miss.find((m) => keyOf(m.q) === k);
     if (f) { f.n = (f.n || 1) + 1; f.at = today(); } else b.miss.push({ q: pack(q), n: 1, at: today() });
@@ -41,10 +42,12 @@ export function stockWrong(q) {
 export function stockSolved(q) {
   try {
     const p = cardsProfile(); if (!p || !q) return;
-    const b = box(p), k = keyOf(q), n = b.miss.length + b.todo.length;
+    const b = box(p), k = keyOf(q);
+    if (!b.fixed || b.fixed.day !== today()) b.fixed = { day: today(), keys: [] };
+    if (!b.fixed.keys.includes(k)) { b.fixed.keys.push(k); if (b.fixed.keys.length > 400) b.fixed.keys.shift(); }
     b.miss = b.miss.filter((m) => keyOf(m.q) !== k);
     b.todo = b.todo.filter((m) => keyOf(m.q) !== k);
-    if (b.miss.length + b.todo.length !== n) save();
+    save();
   } catch (e) { console.log('cards', e); }
 }
 export function stockRest(qs) {
@@ -63,6 +66,11 @@ export function collectMisses(p) {
   const add = (q, n, at) => { if (ok(q) && !map.has(keyOf(q))) map.set(keyOf(q), { q, n, at: at || '' }); };
   [...b.miss].sort((x, y) => (y.at || '').localeCompare(x.at || '')).forEach((m) => add(m.q, m.n || 1, m.at));
   if (p.retry?.day === today() && Array.isArray(p.retry.qs)) p.retry.qs.forEach((q) => add(q, 1, p.retry.day));
+  // きょう(公開まえ)の まちがい: やりなおし(p.review)・見直しワーク(p.coach.misses) から。きょう なおせた ものは のぞく
+  const fixed = new Set(b.fixed?.day === today() ? b.fixed.keys : []);
+  const old = (q) => !fixed.has(keyOf(q));
+  (p.review || []).filter((i) => i.added === today()).forEach((i) => old(i.q) && add(i.q, i.misses || 1, i.added));
+  (p.coach?.misses || []).filter((m) => m.at === today()).forEach((m) => old(m.q) && add(m.q, m.n || 1, m.at));
   b.todo.forEach((m) => add(m.q, 0, m.at));
   return [...map.values()];
 }
