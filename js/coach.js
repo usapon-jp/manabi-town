@@ -153,9 +153,38 @@ function bookPool(b, mode = 'pick') {
     // front: 前半（書きとりの ページ）だけ / back: 後半（同音異義語などの ページ）だけ
     const back = (q) => b.choiceFrom && q.page >= b.choiceFrom;
     const use = qs.filter((q) => (mode === 'front' ? !back(q) : mode === 'back' ? back(q) : true));
-    bookCache.set(ck, mixPools(use.filter((q) => !q.pick), use.filter((q) => q.pick)));
+    bookCache.set(ck, mixPools(spreadPages(use.filter((q) => !q.pick)), spreadPages(use.filter((q) => q.pick))));
   }
   return bookCache.get(ck);
+}
+// 似た問題を つづけない（長女 2026-11-15「似たような漢字ばかり出る」）
+// - 前半: 同じ 例文の ペア（抽選／掲示 など）→ 同じ文が 2回 つづいて 見える
+// - 後半: 同じ よみの なかま（合う／会う／遭う など）→ 同じ 3つから えらぶ問題が つづく
+// なかまの 目じるし = 前半は 例文（＿に ことばを 入れた 文）、後半は ページと よみ
+const groupOf = (q) => (q.pick ? `${q.page}:${q.r}` : String(q.s || '').replace('＿', q.w));
+// ページの ならび（よく出る ページが 先）は そのまま、ページの 中では なかまの 1こめを 先に ぜんぶ、つぎに 2こめ…
+function spreadPages(list) {
+  const out = []; let i = 0;
+  while (i < list.length) {
+    let j = i; while (j < list.length && list[j].page === list[i].page) j++;
+    const groups = new Map();
+    list.slice(i, j).forEach((q) => { const g = groupOf(q); if (!groups.has(g)) groups.set(g, []); groups.get(g).push(q); });
+    const gs = [...groups.values()];
+    for (let r = 0; gs.some((g) => g[r]); r++) gs.forEach((g) => { if (g[r]) out.push(g[r]); });
+    i = j;
+  }
+  return out;
+}
+// きょうの 問題の ならびで、同じ なかまが 近くに 来ないように 入れかえる（あいだを GAP こ あける）
+const GAP = 6;
+export function spreadSimilar(list) {
+  const rest = [...list]; const out = [];
+  while (rest.length) {
+    const near = new Set(out.slice(-GAP).map(groupOf));
+    const k = rest.findIndex((q) => !near.has(groupOf(q)));
+    out.push(...rest.splice(k < 0 ? 0 : k, 1));
+  }
+  return out;
 }
 const bookKey = (q) => `${q.w}|${q.s}`;
 const BOOK_MAX = 999; // テストまでに 全部1周（のこりを 日数で わる・フミオさん 2026-11-09）
@@ -175,12 +204,12 @@ function bookToday(p, x, b, key = today()) {
     const fr = left.filter((q) => !back(q)); const bk = left.filter(back);
     const nf = Math.ceil(fr.length / days);
     const nb = Math.min(Math.ceil(bk.length / days), fr.length ? Math.ceil(nf / 2) : bk.length);
-    return mixPools(fr.slice(0, nf), bk.slice(0, nb)).slice(0, BOOK_MAX);
+    return spreadSimilar(mixPools(fr.slice(0, nf), bk.slice(0, nb)).slice(0, BOOK_MAX));
   }
   const day = Math.floor(Date.parse(`${key}T00:00:00Z`) / 86400000);
   const n = Math.min(perDayOf(x), pool.length);
   const start = (day * n) % pool.length;
-  return Array.from({ length: n }, (_, i) => pool[(start + i) % pool.length]);
+  return spreadSimilar(Array.from({ length: n }, (_, i) => pool[(start + i) % pool.length]));
 }
 // きょうの もん数（ワークの範囲は 1周の わりふり）
 export function perDayFor(p, x) {
@@ -469,8 +498,26 @@ export const hasPool = (p, x) => poolOf(p, x).length > 0;
 export const rangeFor = (p, core) => (p?.grade === 'adult' ? null : activeExtras(p).find((x) => subjOf(x) === core) || null);
 export async function rangeDrill(p, x, n, seedText) {
   if (!hasPool(p, x)) { toast('ピヨ先生が テスト範囲の問題を 作り中…', 8000); await ensurePool(p, x); }
-  return shuffle(poolOf(p, x), seededRandom(seedText)).slice(0, n)
-    .map((q) => ({ ...rangeQ(x, q), test: true }));
+  const qs = shuffle(poolOf(p, x), seededRandom(seedText)).slice(0, n);
+  return (bookFor(p, x) ? spreadSimilar(qs) : qs).map((q) => ({ ...rangeQ(x, q), test: true }));
+}
+
+// クイズチャレンジ（えらぶ問題だけ）の 漢字。テスト範囲が あれば 範囲から（長女 2026-11-15「矛盾とかが やたら出る」
+// ＝中学の 学年の漢字 24こから 毎回 出していた）。ワークの 書きとりの ことばは「どの 漢字？」の 3つから えらぶに する
+export function rangeChoices(p, x, n, seedText) {
+  const rand = seededRandom(seedText);
+  const pool = poolOf(p, x);
+  const front = pool.filter((q) => q.bk && !q.pick);
+  const qs = spreadSimilar(shuffle(pool, rand)).map((q) => {
+    if (!q.bk || q.pick) return { kind: 'choice', prompt: q.q, options: q.options, answer: q.answer };
+    // まちがいの 2つは 同じ ページで 字数が 同じ ことば（なければ 字数だけ そろえる）
+    const like = (o) => o.w !== q.w && o.w.length === q.w.length;
+    const others = [...new Set(shuffle(front.filter((o) => like(o) && o.page === q.page), rand).concat(shuffle(front.filter(like), rand)).map((o) => o.w))].slice(0, 2);
+    if (others.length < 2) return null;
+    const options = shuffle([q.w, ...others], rand);
+    return { kind: 'choice', prompt: `「${q.s.replace('＿', `（${q.r}）`)}」の（${q.r}）は どの 漢字？`, options, answer: options.indexOf(q.w) };
+  }).filter(Boolean).map((q) => ({ ...q, subject: x.subject, topic: x.topic, test: true }));
+  return dropKanjiReads(p, qs).slice(0, n);
 }
 
 // きょうの extra の問題。日にちで perDay もんずつ ずらして、ぜんぶ出たら また はじめから（何周も）

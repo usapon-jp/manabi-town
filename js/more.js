@@ -11,7 +11,7 @@ import { runQuestions } from './runner.js';
 import { recordResults } from './review.js';
 import { isAdult } from './adult.js';
 import { icon } from './icons.js';
-import { activeExtras, ensurePools, poolOf, rangeQ, isKanjiRange, rangeFor, rangeDrill, kanjiWriteOnly } from './coach.js';
+import { activeExtras, ensurePools, poolOf, rangeQ, isKanjiRange, rangeFor, rangeDrill, kanjiWriteOnly, spreadSimilar } from './coach.js';
 
 export const MORE_PER_CORRECT = 2;
 export const MORE_DAY_CAP = 40;
@@ -42,7 +42,7 @@ export const moreStats = (p) => ({ ...dayLog(p), left: Math.max(0, MORE_DAY_CAP 
 
 // 範囲の問題（同じ ことばは 1回・書きとりだけの 人には 読みを のぞいた もの）
 function poolQuestions(p, x, rand) {
-  return shuffle(poolOf(p, x).filter((q) => q && q.q && Array.isArray(q.options)), rand).slice(0, ROUND)
+  return spreadSimilar(shuffle(poolOf(p, x).filter((q) => q && q.q && Array.isArray(q.options)), rand).slice(0, ROUND))
     .map((q) => ({ ...rangeQ(x, q), test: true }));
 }
 
