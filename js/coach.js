@@ -187,6 +187,7 @@ export function spreadSimilar(list) {
   return out;
 }
 const bookKey = (q) => `${q.w}|${q.s}`;
+const FOCUS_OTHER = 5;   // focus の 本で ほかの ページから 出す 数
 const BOOK_MAX = 999; // テストまでに 全部1周（のこりを 日数で わる・フミオさん 2026-11-09）
 // テストの前の日まで あと何日（きょうも 入れる）
 const bookDaysLeft = (p, b) => Math.max(1, Math.min(...bookTests(p, b).map((i) => daysUntil(i.date))));
@@ -194,6 +195,22 @@ const bookDaysLeft = (p, b) => Math.max(1, Math.min(...bookTests(p, b).map((i) =
 function bookToday(p, x, b, key = today()) {
   const pool = poolOf(p, x);
   const seen = new Set(p.coach?.bookSeen?.[b.id] || []);
+  // focus: いちばん出る 見開き（hot）だけ 毎日 ぜんぶ ＋ ほかの ページから「出そう」を FOCUS_OTHER もん（まだ 出していない ものから）
+  // 1日 約200もんで おわらなかった（フミオさん 2026-11-15「一番ここが出るって問題だけに絞って」）
+  if (b.focus) {
+    const hot = new Set(b.hot || []);
+    const top = pool.filter((q) => hot.has(q.page));
+    if (top.length) {
+      const others = pool.filter((q) => !hot.has(q.page));
+      const fresh = others.filter((q) => !seen.has(bookKey(q)));
+      const src = fresh.length ? fresh : others;
+      const day = Math.floor(Date.parse(`${key}T00:00:00Z`) / 86400000);
+      const n = Math.min(FOCUS_OTHER, src.length);
+      const start = fresh.length ? 0 : (day * n) % Math.max(1, src.length);
+      const pick = Array.from({ length: n }, (_, i) => src[(start + i * Math.max(1, Math.floor(src.length / n))) % src.length]);
+      return spreadSimilar(mixPools(top, [...new Set(pick)]));
+    }
+  }
   const left = pool.filter((q) => !seen.has(bookKey(q)));
   if (left.length) {
     // 前半（書きとり）は のこりの 日数で わって テストまでに 1周（毎日 同じくらいの 数）。
