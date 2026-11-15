@@ -11,6 +11,7 @@ import { today, toISO, save, currentProfile } from './store.js';
 import { subjectNames, subjectColor, editSubjectsLink } from './subjects.js';
 import * as bgm from './bgm.js';
 import { openPiyo, piyoButton } from './challenge.js';
+import { studyButton } from './study.js';
 import { icon } from './icons.js';
 
 export const KINDS = [
@@ -120,7 +121,9 @@ export function renderTimerTab(panel, p, deps) {
         h('button', { class: 'link', onclick: () => openBgmPicker(rerender) }, 'えらぶ')),
       h('div', { class: 'start-row' },
         h('button', { class: 'btn primary start', onclick: () => startTimer(p, {}, deps) }, icon('play'), ' スタート'),
-        piyoButton(p, deps, { subject: pf.subject }))),
+        piyoButton(p, deps, { subject: pf.subject })),
+      // タイマーを セットしたら つぎは「何を やろう？」→ ここから すぐ（2026-11-15）
+      studyButton(p, deps, { small: true })),
 
     weekChart(p, wk),
     todayList(p, deps, rerender),
@@ -335,6 +338,7 @@ function openRunning(p, deps) {
       t.stepLabel ? h('p', { class: 'step-label' }, t.stepLabel) : null,
       h('div', { class: 'clock' }, svg, h('div', { class: 'face' }, time, sub)),
       h('div', { class: 'study-pic' }, h('img', { src: 'assets/icons/icon-192.png', alt: '' }), cheer),
+      studyButton(p, deps, { fromTimer: true, small: true }),
       h('div', { class: 'pts' }, h('span', {}, icon('sprout'), ' かくとくポイント'), ptsText, h('div', { class: 'pts-bar' }, ptsBar)),
       h('div', { class: 'timer-btns' }, pauseBtn, doneBtn),
       h('button', { class: 'link reset' }, 'やめる（記録しない）')));

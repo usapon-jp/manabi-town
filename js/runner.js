@@ -5,6 +5,7 @@ import { createInkPad } from './ink/pad.js';
 import { icon } from './icons.js';
 import { askAI, aiErrorText, aiLeft } from './ai.js';
 import { currentProfile, gradeLabel, updateProfile } from './store.js';
+import { markRangeProgress, rangeProgress } from './coach.js';
 
 const PRAISE = ['せいかい！', 'すごい！', 'やったね！', 'ばっちり！'];
 export const KYOKASHO = '"UD Digi Kyokasho N-R", "UD デジタル 教科書体 N-R", YuKyokasho, "Klee One", "Hiragino Mincho ProN", "Noto Serif CJK JP", "Noto Serif JP", "Yu Mincho", "MS Mincho", serif';
@@ -35,6 +36,11 @@ export function runQuestions(title, questions, onFinish, opts = {}) {
     clearInterval(clockId);
     // とちゅうで とじても、できた分は きろくに入れる
     if (!finished && results.length && opts.onAbort) opts.onAbort(score, results.length, results);
+    // テスト範囲の 問題は どの入口でも 進みに 入れる（採点まちは おわってから）
+    if (!finished && results.some((r) => r.q?.rk)) {
+      const p = currentProfile();
+      Promise.allSettled(results.map((r) => r.job).filter(Boolean)).then(() => markRangeProgress(p, results));
+    }
     layer.classList.remove('over');
     layer.hidden = true;
     layer.replaceChildren();
@@ -176,7 +182,12 @@ export function runQuestions(title, questions, onFinish, opts = {}) {
     if (results.length < questions.length) questions = questions.slice(0, results.length);
     setTimeout(() => { const b = layer.querySelector('.q-box'); if (b) burst(b, 14); }, 250);
     const perfect = score === questions.length;
+    const p0 = currentProfile();
+    const touched = new Set(results.map((r) => r.q?.rk).filter(Boolean));
+    const before = new Map(rangeProgress(p0).map((r) => [r.key, r.done]));
     const extra = onFinish(score, questions.length, results);
+    markRangeProgress(p0, results);
+    const prog = touched.size ? rangeResult(rangeProgress(p0).filter((r) => touched.has(r.key)), before) : null;
     // opts.again は 関数でもOK（けっかを見てから「もう1回」を出すか きめる）
     const again = typeof opts.again === 'function' ? opts.again(results) : opts.again;
     layer.replaceChildren(h('div', { class: 'runner-card result' },
@@ -184,6 +195,7 @@ export function runQuestions(title, questions, onFinish, opts = {}) {
         h('p', { class: 'big' }, perfect ? 'ぜんもんせいかい！' : `${score} / ${questions.length} もん せいかい`),
         h('p', { class: 'prompt' }, perfect ? 'ピヨ先生「かんぺき！あしたもいっしょにがんばろう」' : 'ピヨ先生「まちがえたところは、またやってみようね」'),
         extra ? h('p', { class: 'reward' }, extra) : null,
+        prog,
       ),
       again
         ? h('div', { class: 'result-btns' },
@@ -503,6 +515,18 @@ function englishVoice() {
     || vs.find((v) => /^en-US/i.test(v.lang)) || vs.find((v) => /^en/i.test(v.lang)) || null;
   return enVoice;
 }
+// けっか画面の「テスト範囲 ○ / ○」バー（きょう ふえた 分も）
+function rangeResult(list, before) {
+  if (!list.length) return null;
+  return h('div', { class: 'range-result' }, list.map((r) => {
+    const up = Math.max(0, r.done - (before.get(r.key) ?? r.done));
+    const pc = r.total ? Math.round((r.done / r.total) * 100) : 0;
+    return h('div', { class: 'rr-row' },
+      h('span', { class: 'rr-top' }, h('b', {}, `${r.label}の テスト範囲`), h('span', {}, `${r.done} / ${r.total}`, up ? h('em', {}, ` +${up}`) : null)),
+      h('span', { class: 'rbar' }, h('i', { style: `width:${pc}%` })));
+  }));
+}
+
 export function sayEnglish(text, slow = false) {
   try {
     speechSynthesis.cancel();

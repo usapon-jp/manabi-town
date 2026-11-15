@@ -395,7 +395,10 @@ export function dropKanjiReads(p, qs) {
 
 // 範囲の 一問一答 → 出す 形（漢字の範囲は 書きとりに できれば 書きとり）
 export const rangeQ = (x, q) => ({ ...(isKanjiRange(x) && !q.pick && kanjiWrite(q) || { kind: 'choice', prompt: q.q, options: q.options, answer: q.answer }),
-  subject: x.subject, topic: x.topic, ...(q.bk ? { bk: q.bk, bkey: `${q.w}|${q.s}` } : {}) });
+  subject: x.subject, topic: x.topic, ...rangeTag(x, q) });
+// 範囲の 問題の しるし（どの入口で といても 進みに 入れる）。rk: 範囲、rkey: 問題
+const rangeQKey = (q) => (q.bk ? `${q.w}|${q.s}` : String(q.q));
+const rangeTag = (x, q) => ({ rk: poolKey(x), rkey: rangeQKey(q), ...(q.bk ? { bk: q.bk, bkey: `${q.w}|${q.s}` } : {}) });
 
 export function uniqPool(x, pool) {
   if (!isKanjiRange(x)) return pool;
@@ -509,14 +512,14 @@ export function rangeChoices(p, x, n, seedText) {
   const pool = poolOf(p, x);
   const front = pool.filter((q) => q.bk && !q.pick);
   const qs = spreadSimilar(shuffle(pool, rand)).map((q) => {
-    if (!q.bk || q.pick) return { kind: 'choice', prompt: q.q, options: q.options, answer: q.answer };
+    if (!q.bk || q.pick) return { kind: 'choice', prompt: q.q, options: q.options, answer: q.answer, src: q };
     // まちがいの 2つは 同じ ページで 字数が 同じ ことば（なければ 字数だけ そろえる）
     const like = (o) => o.w !== q.w && o.w.length === q.w.length;
     const others = [...new Set(shuffle(front.filter((o) => like(o) && o.page === q.page), rand).concat(shuffle(front.filter(like), rand)).map((o) => o.w))].slice(0, 2);
     if (others.length < 2) return null;
     const options = shuffle([q.w, ...others], rand);
-    return { kind: 'choice', prompt: `「${q.s.replace('＿', `（${q.r}）`)}」の（${q.r}）は どの 漢字？`, options, answer: options.indexOf(q.w) };
-  }).filter(Boolean).map((q) => ({ ...q, subject: x.subject, topic: x.topic, test: true }));
+    return { kind: 'choice', prompt: `「${q.s.replace('＿', `（${q.r}）`)}」の（${q.r}）は どの 漢字？`, options, answer: options.indexOf(q.w), src: q };
+  }).filter(Boolean).map(({ src, ...q }) => ({ ...q, subject: x.subject, topic: x.topic, test: true, ...rangeTag(x, src) }));
   return dropKanjiReads(p, qs).slice(0, n);
 }
 
@@ -543,7 +546,9 @@ const missKey = (q) => `${q.topic}|${q.prompt}|${q.big || ''}`;
 // デイリーで まちがえた 一問一答を ためる（同じ問題は 回数だけ ふやす）
 export function stockMisses(p, results) {
   if (!p.coach) return;
+  results = results.filter((r) => !r.wait);
   markBookSeen(p, results);
+  markRangeDone(p, results);
   const keys = new Set(activeExtras(p).map((x) => x.topic));
   const misses = Array.isArray(p.coach.misses) ? p.coach.misses : (p.coach.misses = []);
   results.filter((r) => !r.ok && r.q?.topic && keys.has(r.q.topic)).forEach(({ q }) => {
@@ -552,6 +557,62 @@ export function stockMisses(p, results) {
     else misses.push({ q: JSON.parse(JSON.stringify(q)), n: 1, at: today() });
   });
   if (misses.length > 200) misses.splice(0, misses.length - 200);
+}
+
+// ---- テスト範囲の 進み（どの入口で といても 入る）----------------------------
+// 長女 2026-11-15「入り口が あっちこっちに あって わかりにくい」→ テスト期間は どこで といても 同じ 範囲の 問題・同じ 進み
+// p.coach.rangeDone[範囲] = といた 問題、p.coach.rangeOk[範囲] = 1回でも ○の 問題
+function markRangeDone(p, results) {
+  const add = (field, list) => {
+    const by = {};
+    list.forEach(({ q }) => { if (q?.rk && q.rkey) (by[q.rk] ||= []).push(q.rkey); });
+    if (!Object.keys(by).length) return;
+    const m = p.coach[field] || (p.coach[field] = {});
+    Object.entries(by).forEach(([k, keys]) => { m[k] = [...new Set([...(m[k] || []), ...keys])]; });
+  };
+  add('rangeDone', results);
+  add('rangeOk', results.filter((r) => r.ok));
+}
+// どの入口からでも 範囲の 問題を といたら（runner.js が おわり・とちゅうで やめた ときに 呼ぶ）。何回 呼んでも 同じ
+export function markRangeProgress(p, results) {
+  if (!p?.coach) return;
+  const list = (results || []).filter((r) => !r.wait && r.q?.rk);
+  if (!list.length) return;
+  markBookSeen(p, list);
+  markRangeDone(p, list);
+  save();
+}
+
+// いま テスト期間の 範囲ごとの 進み。done: といた、ok: ○に なった、total: 範囲の 問題の 数
+export function rangeProgress(p) {
+  if (!p?.coach || p.grade === 'adult') return [];
+  return activeExtras(p).filter(isTestRange).map((x) => {
+    const pool = poolOf(p, x);
+    const k = poolKey(x);
+    const b = bookFor(p, x);
+    const done = new Set([...(p.coach.rangeDone?.[k] || []), ...(b ? p.coach.bookSeen?.[b.id] || [] : [])]);
+    const ok = new Set(p.coach.rangeOk?.[k] || []);
+    const keys = pool.map(rangeQKey);
+    return {
+      x, key: k, label: isKanjiRange(x) ? '漢字' : x.subject, total: keys.length,
+      done: keys.filter((q) => done.has(q)).length, ok: keys.filter((q) => ok.has(q)).length,
+      days: x.until ? daysUntil(x.until) : null,
+    };
+  }).filter((r) => r.total);
+}
+export const rangeProgressText = (r) => `${r.label}の 範囲 ${r.done} / ${r.total}`;
+// 「つづき」の 問題: まだ といていない → まちがえたまま → ぜんぶ ○なら ランダム
+export function rangeNext(p, x, n, seedText) {
+  const k = poolKey(x);
+  const b = bookFor(p, x);
+  const done = new Set([...(p.coach?.rangeDone?.[k] || []), ...(b ? p.coach?.bookSeen?.[b.id] || [] : [])]);
+  const ok = new Set(p.coach?.rangeOk?.[k] || []);
+  const pool = poolOf(p, x);
+  const rand = seededRandom(seedText);
+  const fresh = pool.filter((q) => !done.has(rangeQKey(q)));
+  const wrong = shuffle(pool.filter((q) => done.has(rangeQKey(q)) && !ok.has(rangeQKey(q))), rand);
+  const rest = shuffle(pool.filter((q) => ok.has(rangeQKey(q))), rand);
+  return dropKanjiReads(p, spreadSimilar([...fresh, ...wrong, ...rest].slice(0, n)).map((q) => ({ ...rangeQ(x, q), test: true })));
 }
 
 // 見直しワークに出す問題（まだ テスト前の 範囲だけ。たくさん まちがえた順）
