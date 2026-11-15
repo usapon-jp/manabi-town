@@ -7,7 +7,7 @@
 //  - ポイントの記録（log）は両方をあわせて、新しい順に200こまで
 //  - どちらも同じところを変えていたら、この端末のほうをとる
 
-const ADD = new Set(['points', 'xp']); // ふえた分を足すもの
+const ADD = new Set(['points', 'xp', 'bankIn', 'bankOut']); // ふえた分を足すもの（bankIn/Out は 銀行の あずけた・おろした 合計）
 const LOG_MAX = 200;
 
 const isObj = (v) => v !== null && typeof v === 'object' && !Array.isArray(v);
@@ -95,11 +95,20 @@ export function mergeProfile(base, local, remote) {
     const rk = new Set((remote.log || []).map(logKey));
     const extra = (local.log || []).filter((e) => !rk.has(logKey(e)));
     const sum = extra.reduce((s, e) => s + (Number(e.n) || 0), 0);
-    const plus = extra.reduce((s, e) => s + Math.max(0, Number(e.n) || 0), 0);
+    const plus = extra.reduce((s, e) => s + (e.spend ? 0 : Math.max(0, Number(e.n) || 0)), 0);
     out.points = Math.max(0, (Number(remote.points) || 0) + sum);
     if (typeof remote.xp === 'number' || typeof local.xp === 'number') out.xp = Math.max(0, (Number(remote.xp) || 0) + plus);
     out.id = remote.id;
     out.name = remote.name;
+  }
+  // 銀行の あずけた・おろした 合計は、どちらの端末でも ふえた分を 足す（入れ子の 奥なので、ここで そろえる）
+  const bk = (x) => x?.world?.isles?.start?.bank;
+  if (isObj(bk(local)) && isObj(bk(remote)) && isObj(out?.world?.isles?.start)) {
+    const ob = isObj(out.world.isles.start.bank) ? out.world.isles.start.bank : (out.world.isles.start.bank = {});
+    for (const k of ['bankIn', 'bankOut']) {
+      const n = (v) => (typeof v === 'number' && Number.isFinite(v) ? v : 0);
+      ob[k] = Math.max(0, n(bk(remote)[k]) + n(bk(local)[k]) - n(bk(base)?.[k]));
+    }
   }
   // レベルの とっておき（js/progress.js）は、高いレベルのほうを のこす（レベルが下がらないように）
   const keeps = [local?.lvKeep, remote?.lvKeep].filter((k) => isObj(k) && typeof k.lv === 'number');

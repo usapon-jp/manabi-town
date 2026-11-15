@@ -52,7 +52,7 @@ export function diaryCard(p, stats, { render, kids, plain }) {
 }
 
 const isoOf = (y, m, d) => toISO(new Date(y, m, d));
-const gainOn = (p, key) => (p.log || []).reduce((n, e) => (e.n > 0 && toISO(new Date(e.at)) === key ? n + e.n : n), 0);
+const gainOn = (p, key) => (p.log || []).reduce((n, e) => (e.n > 0 && !e.spend && toISO(new Date(e.at)) === key ? n + e.n : n), 0);
 
 // 期間のまとめ（勉強した日・分・ポイント・スタンプ）
 function totals(p, keys) {
