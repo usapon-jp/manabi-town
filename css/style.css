@@ -2100,3 +2100,68 @@ body:has(.avatar-name) #pad, body:has(.avatar-name) #bubble, body:has(.avatar-na
 .bgm-edit { display: grid; gap: 6px; background: #fffdf7; border: 1.5px solid var(--accent); border-radius: 12px; padding: 10px; }
 .bgm-edit .label { margin: 0; }
 .bgm-name-in { font: inherit; font-size: 16px; padding: 8px 10px; border: 1.5px solid var(--line); border-radius: 10px; background: #fff; }
+
+/* ---- 教科の たまご（js/eggui.js）。草原は 見えたまま。カードは 下に 1まい ---- */
+.egg-ic { --c: #d8b85a; display: inline-block; width: 30px; height: 38px; flex: none; border-radius: 50% 50% 46% 46% / 58% 58% 42% 42%;
+  background: radial-gradient(circle at 35% 30%, rgba(255,255,255,0.75) 0 18%, transparent 19%),
+    repeating-linear-gradient(90deg, transparent 0 6px, rgba(255,255,255,0.0) 6px 12px),
+    linear-gradient(transparent 46%, rgba(255,255,255,0.85) 46% 58%, transparent 58%), var(--c);
+  box-shadow: inset -4px -5px 0 rgba(0,0,0,0.08), 0 2px 4px rgba(94,69,39,0.18); }
+.egg-ic.sm { width: 22px; height: 28px; }
+.egg-row { display: flex; justify-content: center; gap: 10px; }
+.egg-row .egg-ic { animation: egg-wob 2.6s ease-in-out infinite; }
+.egg-row .egg-ic:nth-child(2) { animation-delay: 0.3s; } .egg-row .egg-ic:nth-child(3) { animation-delay: 0.6s; }
+.egg-row .egg-ic:nth-child(4) { animation-delay: 0.9s; } .egg-row .egg-ic:nth-child(5) { animation-delay: 1.2s; }
+@keyframes egg-wob { 0%, 70%, 100% { transform: rotate(0); } 76% { transform: rotate(-9deg); } 84% { transform: rotate(8deg); } 92% { transform: rotate(-4deg); } }
+.egg-sub { margin: 0; text-align: center; font-size: 14px; color: var(--ink-soft); font-weight: 700; }
+.egg-intro-card .btn { justify-self: center; min-width: 160px; }
+
+.egg-card { position: fixed; inset: 0; z-index: 55; display: flex; align-items: flex-end; justify-content: center;
+  padding: 0 16px calc(16px + env(safe-area-inset-bottom)); animation: an-in 0.28s ease-out; }
+.egg-card.gone { opacity: 0; transform: translateY(16px); transition: opacity 0.25s, transform 0.25s; }
+.egg-card-in { position: relative; width: 100%; max-width: 380px; display: grid; gap: 10px; padding: 16px 16px 14px;
+  border-radius: 22px; background: rgba(255, 250, 240, 0.97); border: 2px solid #fff; box-shadow: var(--shadow); }
+.egg-x { all: unset; cursor: pointer; position: absolute; top: 8px; right: 10px; width: 32px; height: 32px; display: grid; place-items: center;
+  font-size: 22px; color: var(--ink-soft); border-radius: 50%; }
+.egg-head { display: flex; align-items: center; gap: 10px; padding-right: 28px; }
+.egg-head b { font-size: 18px; color: var(--navy); }
+.egg-words { margin: 0; font-size: 17px; font-weight: 800; color: var(--ink); }
+.egg-meter { height: 12px; border-radius: 6px; background: #f1e6d2; overflow: hidden; box-shadow: inset 0 1px 2px rgba(94,69,39,0.12); }
+.egg-meter i { --c: #d8b85a; display: block; height: 100%; border-radius: 6px; background: linear-gradient(90deg, #ffe9b0, var(--c)); transition: width 0.6s; }
+.egg-hint { margin: -2px 0 0; text-align: center; font-size: 13px; color: var(--ink-soft); }
+.egg-go { animation: egg-glow 1.4s ease-in-out infinite; }
+@keyframes egg-glow { 50% { box-shadow: 0 0 0 6px rgba(255, 216, 74, 0.45); } }
+.egg-link-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; font-size: 13px; color: var(--ink-soft); }
+.egg-link { font: inherit; font-size: 15px; padding: 6px 10px; border-radius: 12px; border: 2px solid var(--edge); background: #fff; color: var(--ink); }
+
+.egg-say { position: fixed; left: 50%; top: calc(env(safe-area-inset-top, 0px) + 70px); transform: translateX(-50%); z-index: 50;
+  display: flex; align-items: center; gap: 8px; max-width: calc(100vw - 32px); padding: 6px 14px 6px 6px; border-radius: 24px;
+  background: rgba(255, 250, 240, 0.95); border: 2px solid #fff; box-shadow: var(--soft); pointer-events: none; }
+.egg-say[hidden] { display: none; }
+.egg-say img { width: 34px; height: 34px; border-radius: 50%; flex: none; }
+.egg-say p { margin: 0; font-size: 15px; font-weight: 800; color: var(--navy); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.egg-say.pop { animation: egg-say-in 0.35s ease-out; }
+@keyframes egg-say-in { from { opacity: 0; transform: translate(-50%, -10px) scale(0.95); } }
+
+.egg-born { position: fixed; inset: 0; z-index: 62; display: grid; place-items: center; padding: 16px; background: rgba(70, 52, 32, 0.32); overflow: hidden; animation: an-in 0.3s ease-out; }
+.egg-born-card { position: relative; width: 100%; max-width: 340px; display: grid; gap: 8px; justify-items: center; text-align: center;
+  padding: 20px 18px 16px; border-radius: 26px; background: #fffaf0; border: 3px solid #fff; box-shadow: 0 16px 40px rgba(60, 40, 20, 0.3); }
+.egg-born-pic { width: 84px; height: 84px; display: grid; place-items: center; border-radius: 50%; background: radial-gradient(circle, #fff6cf, #ffe6a0); }
+.egg-born-pic .egg-ic { width: 44px; height: 56px; animation: egg-wob 1.6s ease-in-out infinite; }
+.egg-born-title { margin: 4px 0 0; font-size: 24px; font-weight: 900; color: var(--navy); }
+.egg-born-sub { margin: 0; font-size: 16px; font-weight: 800; color: var(--ink); }
+.egg-born-line { margin: 0; font-size: 14px; font-weight: 700; color: #6b854f; }
+.egg-born-card .btn { margin-top: 6px; min-width: 180px; }
+.egg-confetti { position: absolute; inset: 0; pointer-events: none; }
+.egg-confetti i { position: absolute; top: -12px; width: 9px; height: 14px; border-radius: 3px; animation: egg-fall linear infinite; }
+@keyframes egg-fall { to { transform: translateY(105vh) rotate(540deg); } }
+
+.egg-plant { position: fixed; left: 0; right: 0; bottom: calc(var(--tabs-h, 0px) + env(safe-area-inset-bottom, 0px) + 10px); z-index: 50; display: flex; justify-content: center; padding: 0 16px; pointer-events: none; }
+.egg-plant-in { pointer-events: auto; width: 100%; max-width: 360px; display: grid; gap: 10px; padding: 12px 14px; border-radius: 20px;
+  background: rgba(255, 250, 240, 0.95); border: 2px solid #fff; box-shadow: var(--shadow); }
+.egg-plant-in .egg-head p { margin: 0; font-weight: 800; font-size: 16px; color: var(--navy); }
+.egg-plant-row { display: grid; grid-template-columns: 1fr 1.6fr; gap: 8px; }
+/* たまごを もらう・生まれた ときは 町の ボタンを かくして 草原を 見せる */
+body:has(.egg-intro) .wedit, body:has(.egg-intro) .wuse, body:has(.egg-born) .wedit, body:has(.egg-born) .wuse { visibility: hidden; }
+body:has(.egg-plant) #bubble, body:has(.egg-plant) .wedit { visibility: hidden; }
+@media (prefers-reduced-motion: reduce) { .egg-row .egg-ic, .egg-born-pic .egg-ic, .egg-go, .egg-confetti i { animation: none; } }

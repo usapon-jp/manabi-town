@@ -6,6 +6,7 @@
 import { h, toast } from './ui.js';
 import { SUBJECTS, save } from './store.js';
 import { icon } from './icons.js';
+import { renameEggSubject } from './eggs.js';
 import { kanjiWriteOnly, setKanjiStyle, kanjiPickMode, setKanjiPick, bookFor } from './coach.js';
 
 export const ADULT_DEFAULT = ['資格・勉強', '仕事', '健康', 'くらし', 'しゅみ', 'その他'];
@@ -40,6 +41,7 @@ function own(p) {
 }
 
 function renameRecords(p, from, to) {
+  renameEggSubject(p, from, to, subjectNames(p));   // 教科の たまごの つながりも
   const fix = (arr) => (Array.isArray(arr) ? arr : []).forEach((x) => { if (x && x.subject === from) x.subject = to; });
   fix(p.sessions); fix(p.items); fix(p.quizzes);
   if (p.timerPrefs?.subject === from) p.timerPrefs.subject = to;
