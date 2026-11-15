@@ -105,6 +105,24 @@ export function togglePlaylist(id) {
   if (!l.length) meta.useList = false;
   saveMeta(meta);
 }
+// 画面の「ながしかた」: 'one'=1きょくだけ（えらんだ曲をくりかえし）, 'all'=じゅんばん, 'shuffle'=シャッフル
+// 'all'/'shuffle' は プレイリストで ながす。リストが からなら allIds（いまある曲ぜんぶ）を入れて すぐ使えるように
+export const playStyle = () => (useList() && mode() !== 'one' ? mode() : 'one');
+export function setPlayStyle(style, allIds = []) {
+  if (style === 'one') { meta.useList = false; saveMeta(meta); return; }
+  if (!playlist().length) meta.playlist = allIds.slice();
+  meta.mode = style; meta.useList = playlist().length > 0; resetShuffle();
+  saveMeta(meta);
+}
+// タイマー画面に出す ひとこと（「シャッフル・4きょく」など）
+export function summary(tracks) {
+  const valid = new Set(tracks.map((t) => t.id));
+  const n = playlist().filter((id) => valid.has(id)).length;
+  const style = playStyle();
+  if (style === 'shuffle') return `シャッフル・${n}きょく`;
+  if (style === 'all') return `じゅんばん・${n}きょく`;
+  return (tracks.find((t) => t.id === meta.selected) || tracks[0])?.name || '';
+}
 export function movePlaylist(id, dir) {
   const l = playlist().slice();
   const i = l.indexOf(id); const j = i + dir;
