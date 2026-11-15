@@ -395,7 +395,9 @@ textarea { resize: vertical; }
     -webkit-user-select: none; user-select: none;
   }
   .kind-number .runner-top { grid-area: top; }
-  .kind-number .q-box { grid-area: q; min-height: 0; overflow-y: auto; overscroll-behavior: contain; display: flex; flex-direction: column; justify-content: center; padding: 18px 18px 20px; }
+  .kind-number .q-box { grid-area: q; min-height: 0; overflow-y: auto; overscroll-behavior: contain; display: flex; flex-direction: column; padding: 18px 18px 20px; }
+  /* まん中よせは 前後の空きで（はみ出したときは上から読めて、上が切れない） */
+  .kind-number .q-box::before, .kind-number .q-box::after { content: ''; flex: 1 1 0; }
   .kind-number .q-box > * { flex-shrink: 0; }
   .kind-number .math-area { display: contents; }
   .kind-number .memo { grid-area: memo; display: flex; flex-direction: column; min-height: 0; }
