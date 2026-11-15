@@ -7,7 +7,7 @@
 //  - ポイントの記録（log）は両方をあわせて、新しい順に200こまで
 //  - どちらも同じところを変えていたら、この端末のほうをとる
 
-const ADD = new Set(['points', 'xp']); // ふえた分を足すもの
+const ADD = new Set(['points', 'xp', 'bankIn', 'bankOut']); // ふえた分を足すもの（bankIn/Out は 銀行の あずけた・おろした 合計）
 const LOG_MAX = 200;
 
 const isObj = (v) => v !== null && typeof v === 'object' && !Array.isArray(v);
@@ -95,7 +95,7 @@ export function mergeProfile(base, local, remote) {
     const rk = new Set((remote.log || []).map(logKey));
     const extra = (local.log || []).filter((e) => !rk.has(logKey(e)));
     const sum = extra.reduce((s, e) => s + (Number(e.n) || 0), 0);
-    const plus = extra.reduce((s, e) => s + Math.max(0, Number(e.n) || 0), 0);
+    const plus = extra.reduce((s, e) => s + (e.spend ? 0 : Math.max(0, Number(e.n) || 0)), 0);
     out.points = Math.max(0, (Number(remote.points) || 0) + sum);
     if (typeof remote.xp === 'number' || typeof local.xp === 'number') out.xp = Math.max(0, (Number(remote.xp) || 0) + plus);
     out.id = remote.id;

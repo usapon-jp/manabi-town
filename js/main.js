@@ -17,7 +17,8 @@ import { openAsk } from './ask.js';
 import { townAskButton, openTownAsk } from './townask.js';
 import { openAvatarNaming } from './avatarname.js';
 import { hasAvatarName, avatarName } from './avatar.js';
-import { initEggs, offerEggs } from './eggui.js';
+import { initEggs, offerEggs, piyoSay } from './eggui.js';
+import { initBank } from './bankui.js';
 import { hasEggs, addWarmth, questSubjectFor, TUNE as EGG_TUNE } from './eggs.js';
 import { currentIslandId, START as START_ISLE } from './islands.js';
 import { bindControls } from './controls.js';
@@ -103,6 +104,7 @@ requestAnimationFrame(() => setTimeout(() => {
         world.onTapPiyo = () => { const p = currentProfile(); if (p && !document.querySelector('.tour, .avatar-name, .egg-intro, .egg-born, .egg-plant')) openTownAsk(p); };
         // 教科の たまご: タッチで ようすを 見る・「〇〇を べんきょうする」で タイマーへ（教科を えらんだ ところから）
         initEggs(world, { isHome: () => tab === 'home' && !covered(), study: (p, subject) => studySubject(p, subject) });
+        initBank({ isHome: () => tab === 'home' && !covered(), say: (t) => piyoSay(t), render: () => render() });
         worldReady();
         requestAnimationFrame(() => worldEl.classList.replace('loading', 'ready'));
       })
