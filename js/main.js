@@ -98,6 +98,8 @@ requestAnimationFrame(() => setTimeout(() => {
         world.setActive(tab === 'home');
         // ピヨ先生を タップすると「まちの つかいかた」を きける
         world.onTapPiyo = () => { const p = currentProfile(); if (p && !document.querySelector('.tour, .avatar-name')) openTownAsk(p); };
+        // 時計塔（Lv10）を タップすると 町の 時計を まわせる（空が 朝・昼・夕方・夜に かわる）
+        world.onTapClock = () => { if (!document.querySelector('.tour, .avatar-name, .clock-dial, .wlevel')) import('./clockdial.js').then((m) => m.openClockDial(world)).catch(() => {}); };
         worldReady();
         requestAnimationFrame(() => worldEl.classList.replace('loading', 'ready'));
       })
