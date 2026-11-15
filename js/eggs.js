@@ -280,7 +280,8 @@ export function addWarmth(p, subject, min, key, now = Date.now()) {
 // たまごも 建物も ぜんぶ おわった 教科の 記録は もう いらない
 function pruneWarm(p) {
   const e = own(p);
-  const done = new Set(EGGS.filter((d) => e.built[d.id]).map((d) => eggSubject(p, d.id)));
+  // 算数の 記録は 銀行の そだちに つかうので のこす
+  const done = new Set(EGGS.filter((d) => e.built[d.id] && d.id !== 'sansu').map((d) => eggSubject(p, d.id)));
   const live = new Set(EGGS.filter((d) => !e.built[d.id]).map((d) => eggSubject(p, d.id)));
   e.warm = e.warm.filter((w) => !(done.has(w?.subject) && !live.has(w?.subject)));
 }

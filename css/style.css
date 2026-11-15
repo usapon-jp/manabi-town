@@ -2101,6 +2101,26 @@ body:has(.avatar-name) #pad, body:has(.avatar-name) #bubble, body:has(.avatar-na
 .bgm-edit .label { margin: 0; }
 .bgm-name-in { font: inherit; font-size: 16px; padding: 8px 10px; border: 1.5px solid var(--line); border-radius: 10px; background: #fff; }
 
+/* 時計塔の 時計（clockdial.js）。名前カードと 同じ 下の カード */
+.clock-dial {
+  position: fixed; left: 0; right: 0; bottom: 0; z-index: 60; display: flex; justify-content: center;
+  padding: 0 16px calc(16px + env(safe-area-inset-bottom)); pointer-events: none;
+  animation: an-in 0.35s ease-out;
+}
+.clock-dial.gone { opacity: 0; transform: translateY(20px); transition: opacity 0.3s, transform 0.3s; }
+.cd-body { display: flex; align-items: center; justify-content: center; gap: 14px; }
+.cd-face { width: min(210px, 52vw); height: auto; flex: none; touch-action: none; cursor: grab; user-select: none; -webkit-user-select: none; }
+.cd-knob { filter: drop-shadow(0 2px 3px rgba(90, 74, 122, 0.35)); }
+.cd-side { display: grid; gap: 10px; justify-items: center; }
+.cd-now { font-size: 22px; font-weight: 800; color: var(--navy); }
+.cd-jumps { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+.cd-jump { font: inherit; font-weight: 800; font-size: 15px; min-width: 3.6em; padding: 8px 6px; border-radius: 14px; cursor: pointer;
+  border: 2px solid #fff; border-bottom-width: 4px; color: #fff; }
+.cd-jump:active { transform: translateY(2px); border-bottom-width: 2px; }
+.cd-jump.asa { background: #d98bb5; } .cd-jump.hiru { background: #5fb3e3; } .cd-jump.yugata { background: #f08a45; } .cd-jump.yoru { background: #3e4a8a; }
+.cd-jump.on { outline: 3px solid var(--accent); outline-offset: 1px; }
+.cd-close { justify-self: center; }
+body:has(.clock-dial) #pad, body:has(.clock-dial) #bubble, body:has(.clock-dial) .tabs, body:has(.clock-dial) .ask-fab, body:has(.clock-dial) .diary-fab, body:has(.clock-dial) .wedit, body:has(.clock-dial) .wuse { visibility: hidden; }
 /* ---- 教科の たまご（js/eggui.js）。草原は 見えたまま。カードは 下に 1まい ---- */
 .egg-ic { --c: #d8b85a; display: inline-block; width: 30px; height: 38px; flex: none; border-radius: 50% 50% 46% 46% / 58% 58% 42% 42%;
   background: radial-gradient(circle at 35% 30%, rgba(255,255,255,0.75) 0 18%, transparent 19%),

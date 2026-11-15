@@ -51,11 +51,11 @@ const ART = {
   '虹': frame(`
     ${['#ff6b6b', '#ffa94d', '#ffe066', '#8ce99a', '#74c0fc', '#b197fc'].map((c, i) => `<path d="M${22 + i * 7} 160 a${78 - i * 7} ${78 - i * 7} 0 0 1 ${(78 - i * 7) * 2} 0" fill="none" stroke="${c}" stroke-width="8"/>`).join('')}
     <ellipse cx="40" cy="162" rx="30" ry="14" fill="#fff"/><ellipse cx="160" cy="162" rx="30" ry="14" fill="#fff"/>`),
-  '塔': frame(`
+  '時計塔': frame(`
     <rect x="76" y="70" width="48" height="100" rx="6" fill="#f4e9ff"/><path d="M68 76 L100 28 L132 76 Z" fill="#ff8fb3"/>
     <path d="M100 14 l4 9 10 1 -7 7 2 10 -9 -5 -9 5 2 -10 -7 -7 10 -1 Z" fill="#ffe066"/>
     <path d="M92 170 V148 a8 8 0 0 1 16 0 V170 Z" fill="#c78a4f"/>
-    <rect x="90" y="92" width="20" height="26" rx="8" fill="#ffe39a"/>
+    <circle cx="100" cy="104" r="15" fill="#fffaf0" stroke="#c7a6ff" stroke-width="4"/><path d="M100 104 V93" stroke="#5a4a7a" stroke-width="3" stroke-linecap="round"/><circle cx="100" cy="104" r="2.5" fill="#5a4a7a"/>
     <rect x="46" y="112" width="30" height="58" rx="6" fill="#f4e9ff"/><path d="M42 116 L61 86 L80 116 Z" fill="#74c0fc"/>
     <rect x="124" y="112" width="30" height="58" rx="6" fill="#f4e9ff"/><path d="M120 116 L139 86 L158 116 Z" fill="#74c0fc"/>`),
 };

@@ -255,6 +255,24 @@ const BUILDINGS = {
     const coin = cyl(0.2, 0.2, 0.05, 0xf3c94a, 0, 1.64, 0.82, 24); coin.rotation.x = Math.PI / 2; g.add(coin);
     g.add(box(0.06, 0.2, 0.02, 0xc99a2a, 0, 1.64, 0.85));
     door(g, 0, 0.52, 0x6f8c52);
+    // 算数を 勉強して 銀行が そだつと 飾りが ふえる（lv は eggui.js の view.lv）
+    const gold = 0xf3c94a;
+    const pile = new THREE.Group();
+    for (let i = 0; i < 4; i++) { const c2 = cyl(0.17, 0.17, 0.05, gold, 0, 0.03 + i * 0.055, 0, 20); pile.add(c2); }
+    pile.position.set(1.28, 0, 0.62);
+    const flag = new THREE.Group();
+    flag.add(cyl(0.025, 0.025, 0.9, 0xd9d2c0, 0, 0.45, 0, 8), box(0.34, 0.2, 0.02, gold, 0.18, 0.78, 0));
+    flag.position.set(-0.78, 1.46, -0.3);
+    const lamps = new THREE.Group();
+    for (const sx of [-1, 1]) { lamps.add(cyl(0.03, 0.03, 0.7, 0x5e5548, sx * 1.15, 0.35, 0.95, 8), ball(0.09, 0xfff2a8, sx * 1.15, 0.78, 0.95)); }
+    const crown = new THREE.Group();
+    for (let i = 0; i < 3; i++) { const s = ball(0.07 + (i === 1 ? 0.03 : 0), gold, -0.18 + i * 0.18, 1.98 + (i === 1 ? 0.05 : 0), 0.05); crown.add(s); }
+    const big = new THREE.Group();
+    for (let i = 0; i < 6; i++) { const c3 = cyl(0.2, 0.2, 0.05, gold, -1.2, 0.03 + i * 0.055, 0.7 + (i % 2) * 0.03, 20); big.add(c3); }
+    const tiers = [[], [pile], [flag], [lamps], [crown], [big]];
+    g.add(pile, flag, lamps, crown, big);
+    g.userData.setLv = (lv) => tiers.forEach((list, i) => list.forEach((o) => { o.visible = (lv || 1) >= i + 1; }));
+    g.userData.setLv(1);
     return g;
   },
   // 理科: 発電所（屋根の パネル・ひかる 電球）
@@ -441,6 +459,7 @@ export function createEggs({ scene, town, cut }) {
     const planted = v && v.seed;
     it.sprout.group.visible = !!planted && v.phase === 'seed';
     it.building.visible = !!planted && v.phase === 'built';
+    it.building.userData.setLv?.(v.lv);
     if (planted) {
       const y = heightAt(v.seed.x, v.seed.z);
       it.sprout.group.position.set(v.seed.x, y, v.seed.z);

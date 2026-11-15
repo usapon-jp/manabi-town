@@ -53,6 +53,8 @@ export function shots(p) {
 export const isFull = (p) => shots(p).length >= MAX_SHOTS;
 
 // 写真に つける 名前（日づけと 島）。町の データに 入るのは これだけ
-export function shotLabel(at = new Date()) {
-  return `${at.getMonth() + 1}月${at.getDate()}日の 町`;
+export const SKY_NAMES = { asa: '朝焼け', hiru: '昼', yugata: '夕焼け', yoru: '夜' };
+export function shotLabel(at = new Date(), sky = '') {
+  const when = SKY_NAMES[sky];
+  return `${at.getMonth() + 1}月${at.getDate()}日 ${when ? `${when}の 町` : 'の 町'}`.replace('日 の', '日の');
 }

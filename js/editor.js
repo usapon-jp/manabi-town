@@ -844,7 +844,7 @@ export function createEditor({ container, scene, cut, wind, pick, rotate, setWal
       <div class="lcard"><p class="lt">レベル ${q.lv}！！</p>
       <p class="ln">${announceText(q.label)}</p>
       <div class="lpic">${art}<span class="spark s1">✦</span><span class="spark s2">✦</span><span class="spark s3">✦</span></div>
-      <p class="lh">しまう・うごかす:<br>つくる → うごかす → たてものを タップ</p><button type="button">やったね！</button></div>`;
+      <p class="lh">${q.label === '時計塔' ? '時計塔を タップすると<br>空の 時間を かえられるよ' : 'しまう・うごかす:<br>つくる → うごかす → たてものを タップ'}</p><button type="button">やったね！</button></div>`;
     const done = () => { el.remove(); levelShowing = false; setTimeout(showLevel, 350); };
     el.addEventListener('click', (e) => { if (e.target === el || e.target.closest('button')) done(); });
     document.body.appendChild(el);

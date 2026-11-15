@@ -1,6 +1,6 @@
 // オフラインでも開けるように、アプリの部品を端末にしまっておく。
 // 部品を変えたら VERSION を上げる（古いしまい場所は消える）。
-const VERSION = 'manabi-v148';
+const VERSION = 'manabi-v150';
 const FILES = [
   './',
   'index.html',
@@ -15,18 +15,19 @@ const FILES = [
   'assets/gacha/fence-iron.webp', 'assets/gacha/fence-stone.webp', 'assets/gacha/fence-white.webp', 'assets/gacha/fence-wood.webp', 'assets/gacha/part-archdoor-brown.webp', 'assets/gacha/part-archdoor.webp', 'assets/gacha/part-door.webp', 'assets/gacha/part-flowerbox.webp', 'assets/gacha/part-roundwindow.webp', 'assets/gacha/part-window.webp', 'assets/gacha/part-wreath.webp', 'assets/gacha/piece-awning.webp', 'assets/gacha/piece-bench.webp', 'assets/gacha/piece-flowerpot.webp', 'assets/gacha/piece-hill.webp', 'assets/gacha/piece-lamppost.webp', 'assets/gacha/piece-lantern.webp', 'assets/gacha/piece-mailbox.webp', 'assets/gacha/piece-raisedbed.webp', 'assets/gacha/piece-rosearch.webp', 'assets/gacha/seed-cosmos.webp', 'assets/gacha/seed-lavender.webp', 'assets/gacha/seed-sunflower.webp',
   'css/style.css',
   'js/characters.js', 'js/avatar.js', 'js/avatar3d.js', 'js/avatarname.js',
-  'js/eggs.js', 'js/eggs3d.js', 'js/eggui.js',
+  'js/eggs.js', 'js/eggs3d.js', 'js/eggui.js', 'js/bank.js', 'js/bankui.js',
   'js/camera.js', 'js/cameraui.js',
   'js/bgm.js',
   'js/builds.js',
   'js/islands.js', 'js/islanddev.js',
+  'js/daytime.js', 'js/sky.js', 'js/clockdial.js',
   'js/bonus.js',
   'js/more.js',
   'js/study.js',
   'js/brain.js',
   'js/thinking.js',
   'js/thinking-bank.js', 'js/thinking-progress.js', 'js/thinking-art.js',
-  'css/thinking.css', 'docs/thinking-classroom.html',
+  'css/thinking.css', 'css/bank.css', 'docs/thinking-classroom.html',
   'assets/brain/piyo-paper.svg',
   'js/brain/choice.js',
   'js/brain/icepath.js',

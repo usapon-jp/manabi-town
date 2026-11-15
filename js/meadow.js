@@ -7,6 +7,7 @@ import { isTownSpot } from './town.js';
 import { makeWind, addWind } from './wind.js';
 import { makePlants } from './plants.js';
 import { createCutMask } from './cutmask.js';
+import { createSky } from './sky.js';
 
 export const SUN_DIR = new THREE.Vector3(0.5, 0.42, -0.75).normalize();
 export const HORIZON = new THREE.Color(0xf6e9cf);
@@ -71,31 +72,8 @@ function cloudTexture(seed) {
   return t;
 }
 
-// ---- 空 ------------------------------------------------------------------
-
-function makeSky() {
-  const mat = new THREE.ShaderMaterial({
-    side: THREE.BackSide, depthWrite: false, fog: false,
-    uniforms: { uSun: { value: SUN_DIR }, uHorizon: { value: HORIZON } },
-    vertexShader: 'varying vec3 vDir; void main(){ vDir = normalize(position); gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); }',
-    fragmentShader: `
-      varying vec3 vDir; uniform vec3 uSun; uniform vec3 uHorizon;
-      void main(){
-        float h = clamp(vDir.y, -0.2, 1.0);
-        vec3 mid = vec3(0.74, 0.88, 0.96);
-        vec3 top = vec3(0.42, 0.68, 0.92);
-        vec3 col = mix(uHorizon, mid, smoothstep(0.0, 0.14, h));
-        col = mix(col, top, smoothstep(0.1, 0.6, h));
-        float s = max(dot(normalize(vDir), uSun), 0.0);
-        col += vec3(1.0, 0.82, 0.55) * pow(s, 6.0) * 0.28;   // ひろがる光
-        col += vec3(1.0, 0.95, 0.8) * pow(s, 90.0) * 0.9;    // 太陽
-        col = mix(col, uHorizon, smoothstep(0.0, -0.2, vDir.y)); // 地平線の下は霞
-        gl_FragColor = vec4(col, 1.0);
-        #include <colorspace_fragment>
-      }`,
-  });
-  return new THREE.Mesh(new THREE.SphereGeometry(160, 32, 16), mat);
-}
+// ---- 雲 ------------------------------------------------------------------
+// 空そのもの（朝焼け・昼・夕焼け・夜の色、星、月）は sky.js
 
 function makeClouds() {
   const group = new THREE.Group();
@@ -422,11 +400,8 @@ function makeButterflies() {
 export function createMeadow(scene) {
   const cut = createCutMask();
   const wind = makeWind(cut.uniforms);
-  const sky = makeSky();
-  scene.add(sky);
-  scene.fog = new THREE.Fog(HORIZON, 34, 150);
-
-  scene.add(new THREE.HemisphereLight(0xfff4de, 0x7fa758, 1.55));
+  const hemi = new THREE.HemisphereLight(0xfff4de, 0x7fa758, 1.55);
+  scene.add(hemi);
   const sun = new THREE.DirectionalLight(0xffe2b0, 2.1);
   sun.position.copy(SUN_DIR).multiplyScalar(30);
   scene.add(sun);
@@ -440,6 +415,8 @@ export function createMeadow(scene) {
   const motes = makeMotes();
   const butterflies = makeButterflies();
   scene.add(ground, clouds, grass, flowers, plants, motes, butterflies);
+  // 空（時間で 色が かわる）。光と 雲・光のつぶ・ちょうちょも 時間に あわせる
+  const sky = createSky(scene, { hemi, sun, clouds, motes, butterflies, dot: softDot() });
   makeTrees().forEach((t) => scene.add(t));
 
   // 画質: 'low' のときは、草・花・光のつぶを少なくする（かずは前もって多めに作っておいて、見せる数だけ変える）
@@ -461,13 +438,16 @@ export function createMeadow(scene) {
     cut,
     wind,
     setQuality,
-    update(dt, t, actorPos, camPos) {
+    setPixelRatio: (px) => sky.setPixelRatio(px),
+    // minute: 町の時刻（daytime.js の 分）。空の ようすを かえす
+    update(dt, t, actorPos, camPos, minute) {
       wind.uTime.value = t;
       wind.uActor.value.copy(actorPos);
-      sky.position.copy(camPos);
+      const now = sky.update(minute, t, camPos);
       clouds.userData.update(t);
       motes.userData.update(t);
-      butterflies.userData.update(t);
+      if (butterflies.visible) butterflies.userData.update(t);
+      return now;
     },
   };
 }

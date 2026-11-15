@@ -8,6 +8,7 @@ import {
   EGGS, eggDef, eggsOf, hasEggs, giveEggs, stateOf, wordsOf, needsTap, eggSubject, setEggSubject, warmMinutes,
   hatchEgg, plantSeed, finishBuilding, unlockLabels, hatchedCount,
 } from './eggs.js';
+import { bankLevel } from './bank.js';
 
 const css = (hex) => `#${hex.toString(16).padStart(6, '0')}`;
 const subjOf = (p) => subjectNames(p);
@@ -41,7 +42,7 @@ export function refreshView() {
   const e = p ? eggsOf(p) : null;
   const views = EGGS.map((d) => {
     const st = has ? stateOf(p, d.id, now, subs) : null;
-    return st ? { id: d.id, ...st, seed: e.seed?.[d.id] || null, tap: needsTap(st) } : { id: d.id, phase: 'none' };
+    return st ? { id: d.id, ...st, seed: e.seed?.[d.id] || null, tap: needsTap(st), lv: d.id === 'sansu' && st.phase === 'built' ? bankLevel(p, subs).lv : 0 } : { id: d.id, phase: 'none' };
   });
   world.eggs.setView(views, has);
 }
@@ -173,6 +174,10 @@ function studyBtn(p, subject) {
   return h('button', { class: 'btn primary', type: 'button', onclick: () => { closeCard(); deps.study(p, subject); } }, `${subject}を べんきょうする`);
 }
 
+// 建物の カードを しくみごとに 入れかえる（bankui.js など）。fn(p, d, 道具)
+const buildingCards = new Map();
+export function registerBuildingCard(id, fn) { buildingCards.set(id, fn); }
+
 // その教科の カードを ひらく（ほかの 画面から「たまごを 見る」に つかえる）
 export function openEggCard(p, id) {
   if (p && hasEggs(p)) openFor(p, { id, what: 'egg' });
@@ -215,7 +220,9 @@ function openFor(p, hit) {
       ready ? null : h('p', { class: 'egg-hint' }, `${subject}で 水を あげられるよ`));
     return;
   }
-  // できた 建物・そこに すむ なかま
+  // できた 建物・そこに すむ なかま。しくみ（銀行 など）が あれば そちらの カードを 出す
+  const custom = buildingCards.get(d.id);
+  if (custom) { custom(p, d, { showCard, closeCard, eggIcon, studyBtn, piyoSay, chime, subject, subs }); return; }
   showCard(
     h('div', { class: 'egg-head' }, eggIcon(d.color), h('b', {}, `${d.chara.name}の ${d.building.name}`)),
     h('p', { class: 'egg-words' }, 'いつも ありがとう！'),

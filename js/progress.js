@@ -53,13 +53,13 @@ export const levelOf = (p) => levelInfo(totalXp(p), p);
 export function activeDays(p) {
   if (!p.activeDays) {
     p.activeDays = {};
-    (p.log || []).forEach((e) => { if (e.n > 0) p.activeDays[toISO(new Date(e.at))] = true; });
+    (p.log || []).forEach((e) => { if (e.n > 0 && !e.spend) p.activeDays[toISO(new Date(e.at))] = true; });
   }
   return p.activeDays;
 }
 
 export function totalXp(p) {
-  if (typeof p.xp !== 'number') p.xp = (p.log || []).reduce((n, e) => n + Math.max(0, e.n), 0);
+  if (typeof p.xp !== 'number') p.xp = (p.log || []).reduce((n, e) => n + (e.spend ? 0 : Math.max(0, e.n)), 0);
   return p.xp;
 }
 

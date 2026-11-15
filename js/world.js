@@ -5,7 +5,8 @@ import { CHARACTERS } from './characters.js';
 import { partOf, lookOf, lookKey, avatarName, hasAvatarName } from './avatar.js';
 import { mountAvatar } from './avatar3d.js';
 import { readMove, takeJump } from './controls.js';
-import { createTown } from './town.js';
+import { createTown, CLOCK_TOWER } from './town.js';
+import { createClock, CLOCK_KEY } from './daytime.js';
 import { createMeadow } from './meadow.js';
 import { heightAt } from './terrain.js';
 import { createEditor } from './editor.js';
@@ -39,6 +40,18 @@ export function createWorld(container) {
   meadow.setQuality(quality);
   const ground = meadow.ground;
   const time = { value: 0 };
+
+  // 町の時計: アプリが 見えている あいだだけ 進む（1日60分）。きょうだいごと・端末ごとに おぼえる（daytime.js）
+  const townClock = createClock({ store: { get: () => localStorage.getItem(CLOCK_KEY), set: (v) => localStorage.setItem(CLOCK_KEY, v) } });
+  townClock.setProfile(currentProfile()?.id);
+  onChange(() => townClock.setProfile(currentProfile()?.id));
+  const visible = () => document.visibilityState !== 'hidden';
+  townClock.setRunning(visible());
+  document.addEventListener('visibilitychange', () => townClock.setRunning(visible()));
+  window.addEventListener('pagehide', () => townClock.save());
+  // 町の画面を 見ていない（勉強している）あいだも 進むように、ときどき 数えて ときどき おぼえる
+  setInterval(() => townClock.minute(), 5000);
+  setInterval(() => townClock.save(), 20000);
 
   // タップした場所のしるし
   const marker = new THREE.Mesh(
@@ -191,6 +204,7 @@ export function createWorld(container) {
       const hit = eggs.pick(rayAt(e));
       if (hit) { drag = null; api.onTapEgg(hit); return; }
     }
+    if (drag && !drag.moved && api.onTapClock && hitsClockTower(e)) { drag = null; api.onTapClock(); return; }
     if (drag && !drag.moved) editor.tapWorld?.(e);   // 柵の道具を持っているとき、置いた柵をタップでしまう
     drag = null;
   });
@@ -211,6 +225,7 @@ export function createWorld(container) {
     const w = container.clientWidth || 1;
     const h = container.clientHeight || 1;
     renderer.setSize(w, h, false);
+    meadow.setPixelRatio(renderer.getPixelRatio());   // 星の 大きさを 画面の こまかさに あわせる
     camera.aspect = w / h;
     camera.updateProjectionMatrix();
   }
@@ -264,7 +279,7 @@ export function createWorld(container) {
       view.target.z + Math.cos(view.angle) * view.dist,
     );
     camera.lookAt(view.target.x, view.target.y + view.lookY, view.target.z);
-    meadow.update(dt, time.value, actor.position, camera.position);
+    meadow.update(dt, time.value, actor.position, camera.position, townClock.minute());
     renderer.render(scene, camera);
     requestAnimationFrame(frame);
   }
@@ -292,6 +307,14 @@ export function createWorld(container) {
   }
   function hitsPiyo(e) {
     return rayAt(e).intersectObject(piyo.object, true).length > 0;
+  }
+  function hitsClockTower(e) {
+    const g = town.groupOf(CLOCK_TOWER);
+    if (!g) return false;
+    const rect = canvas.getBoundingClientRect();
+    pointer.set(((e.clientX - rect.left) / rect.width) * 2 - 1, -((e.clientY - rect.top) / rect.height) * 2 + 1);
+    raycaster.setFromCamera(pointer, camera);
+    return raycaster.intersectObject(g, true).some((h) => h.object.isMesh && !h.object.material.transparent);   // 足もとの かげ（すきとおった 板）は のぞく
   }
   // 名前を つけるとき: 女の子と ピヨ先生を 前から ちかくで 見る
   const closeUp = { on: false, saved: null };
@@ -354,6 +377,11 @@ export function createWorld(container) {
 
   const api = {
     onTapPiyo: null,
+    onTapClock: null,   // 時計塔を タップしたとき（main.js が 時計の カードを ひらく）
+    // 町の時計（clockdial.js が つかう）。minute は 0〜60、set で あわせる
+    clock: { minute: () => townClock.minute(), set: (m, keep) => townClock.set(m, keep), save: () => townClock.save() },
+    // 時計塔が いま 町に 出ているか（Lv10 から。しまっている ときは 出ていない）
+    hasClockTower: () => !!town.groupOf(CLOCK_TOWER),
     onTapEgg: null,
     eggs,
     camera: camApi,

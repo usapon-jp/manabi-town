@@ -75,5 +75,7 @@ registerFeature(FEATURE, { label: 'カメラ' });
   assert.deepEqual(m.photos.map((x) => x.id).sort(), ['ca', 'cb', 'old1']);
 }
 assert.equal(shotLabel(new Date(2026, 10, 15)), '11月15日の 町');
+assert.equal(shotLabel(new Date(2026, 10, 15), 'yugata'), '11月15日 夕焼けの 町');
+assert.equal(shotLabel(new Date(2026, 10, 15), 'zzz'), '11月15日の 町');
 assert.ok(ZOOMS[0] === 1 && ZOOMS.length === 3 && POSES.length === 3);
 console.log('camera-checks: ok');

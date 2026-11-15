@@ -6,6 +6,7 @@ import { currentProfile, onChange } from './store.js';
 import { currentIslandId } from './islands.js';
 import { addPhoto, removePhoto, getData } from './photos.js';
 import { registerFeature } from './eggs.js';
+import { skyNow } from './daytime.js';
 import { piyoSay } from './eggui.js';
 import {
   FEATURE, FOLDER, MAX_SHOTS, SUBJECT, ZOOMS, POSES, SUNSET, cameraLevel, can, nextHint, shots, isFull, shotLabel,
@@ -113,7 +114,7 @@ function open() {
       const cv = world.camera.snap();
       if (st.filter) tintCanvas(cv);
       const dataUrl = cv.toDataURL('image/jpeg', 0.82);
-      await addPhoto(now, { dataUrl, folder: FOLDER, subject: SUBJECT, label: shotLabel(), extra: { kind: 'town', isle: currentIslandId(now) } });
+      await addPhoto(now, { dataUrl, folder: FOLDER, subject: SUBJECT, label: shotLabel(new Date(), skyNow.phase), extra: { kind: 'town', isle: currentIslandId(now), sky: skyNow.phase } });
       const n = shots(now).length;
       toast(n >= MAX_SHOTS ? `とれた！ ${n}/${MAX_SHOTS}（いっぱい）` : `とれた！ ${n}/${MAX_SHOTS}`);
     } catch (_) { toast('うまく とれなかった。もういちど'); }

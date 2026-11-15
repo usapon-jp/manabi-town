@@ -209,7 +209,7 @@ export function updateProfile(p, fields) {
 export function addPoints(p, n, reason, { study = true } = {}) {
   p.points += n;
   // けいけんち（へらない）と、勉強した日のしるし
-  if (typeof p.xp !== 'number') p.xp = (p.log || []).reduce((sum, e) => sum + Math.max(0, e.n), 0);
+  if (typeof p.xp !== 'number') p.xp = (p.log || []).reduce((sum, e) => sum + (e.spend ? 0 : Math.max(0, e.n)), 0);
   if (n > 0) {
     p.xp += n;
     if (study) p.activeDays = { ...(p.activeDays || {}), [today()]: true };
