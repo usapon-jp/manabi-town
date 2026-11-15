@@ -502,6 +502,24 @@ export async function rangeDrill(p, x, n, seedText) {
   return (bookFor(p, x) ? spreadSimilar(qs) : qs).map((q) => ({ ...rangeQ(x, q), test: true }));
 }
 
+// クイズチャレンジ（えらぶ問題だけ）の 漢字。テスト範囲が あれば 範囲から（長女 2026-11-15「矛盾とかが やたら出る」
+// ＝中学の 学年の漢字 24こから 毎回 出していた）。ワークの 書きとりの ことばは「どの 漢字？」の 3つから えらぶに する
+export function rangeChoices(p, x, n, seedText) {
+  const rand = seededRandom(seedText);
+  const pool = poolOf(p, x);
+  const front = pool.filter((q) => q.bk && !q.pick);
+  const qs = spreadSimilar(shuffle(pool, rand)).map((q) => {
+    if (!q.bk || q.pick) return { kind: 'choice', prompt: q.q, options: q.options, answer: q.answer };
+    // まちがいの 2つは 同じ ページで 字数が 同じ ことば（なければ 字数だけ そろえる）
+    const like = (o) => o.w !== q.w && o.w.length === q.w.length;
+    const others = [...new Set(shuffle(front.filter((o) => like(o) && o.page === q.page), rand).concat(shuffle(front.filter(like), rand)).map((o) => o.w))].slice(0, 2);
+    if (others.length < 2) return null;
+    const options = shuffle([q.w, ...others], rand);
+    return { kind: 'choice', prompt: `「${q.s.replace('＿', `（${q.r}）`)}」の（${q.r}）は どの 漢字？`, options, answer: options.indexOf(q.w) };
+  }).filter(Boolean).map((q) => ({ ...q, subject: x.subject, topic: x.topic, test: true }));
+  return dropKanjiReads(p, qs).slice(0, n);
+}
+
 // きょうの extra の問題。日にちで perDay もんずつ ずらして、ぜんぶ出たら また はじめから（何周も）
 // テストの範囲（テスト日まで の範囲・テスト予定から 自動）→ 問題に「テストに出るよ」ハンコ
 export const isTestRange = (x) => !!(x.auto || x.until);

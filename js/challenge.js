@@ -14,6 +14,7 @@ import { isAdult } from './adult.js';
 import { sessions } from './timer.js';
 import { icon } from './icons.js';
 import { practicePoints } from './more.js';
+import { rangeFor, hasPool, rangeChoices, dropKanjiReads } from './coach.js';
 
 export const CHALLENGE_MIN = 20;
 const CORE = ['国語', '算数・数学', '理科', '社会', '英語'];
@@ -56,10 +57,18 @@ async function makeFor(p, subject, n, seed, pics = []) {
   const bucket = gradeBucket(p);
   const rand = seededRandom(`chal:${subject}:${seed}`);
   if (!pics.length && subject === '国語') {
-    // 書きとりは ノートに書く形なので、チャレンジでは よみ（えらぶ）だけ
-    const reads = [];
-    for (let i = 0; i < 6 && reads.length < n; i += 1) reads.push(...buildDrill('kanji', bucket, `${seed}:${i}`).filter((q) => q.kind !== 'write'));
-    return shuffle(reads, rand).slice(0, n);
+    // テスト前は 漢字の テスト範囲から（学年の 漢字は 中学だと 24こしかなく、矛盾などが 何度も 出ていた）
+    const kx = rangeFor(p, 'kanji');
+    if (kx && hasPool(p, kx)) {
+      const qs = rangeChoices(p, kx, n, `chal:${seed}`);
+      if (qs.length) return qs;
+    }
+    // 書きとりは ノートに書く形なので、チャレンジでは よみ（えらぶ）だけ。同じ ことばは 1回だけ
+    const reads = []; const seen = new Set();
+    for (let i = 0; i < 6 && reads.length < n; i += 1) {
+      buildDrill('kanji', bucket, `${seed}:${i}`).filter((q) => q.kind !== 'write' && !seen.has(q.big)).forEach((q) => { seen.add(q.big); reads.push(q); });
+    }
+    return shuffle(dropKanjiReads(p, reads), rand).slice(0, n);
   }
   if (!pics.length && subject === '英語') {
     // つづり（書く）は ドリルとクエストで。ここは いみ（えらぶ）だけ
