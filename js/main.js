@@ -114,6 +114,7 @@ new MutationObserver(() => {
   if (c === wasCovered) return;
   wasCovered = c;
   world?.setActive(tab === 'home' && !c);
+  if (!c && tab === 'home') retryHome();   // シートを とじたら、出せなかった 名前・チュートリアルを
 }).observe(document.body, { childList: true, attributes: true, attributeFilter: ['class'] });
 
 // 保存まわりのお知らせ
@@ -224,6 +225,7 @@ function show(next) {
   tab = next;
   tabs.forEach((b) => b.classList.toggle('active', b.dataset.tab === tab));
   render();
+  if (tab === 'home') retryHome();
 }
 
 function render() {
@@ -1147,12 +1149,20 @@ function renderSettings(p) {
 
 // 町を ひらいたとき: 女の子に 名前が まだ なければ つける → チュートリアルが まだなら つづけて
 let namingLater = false;   // 「あとで」を おしたら、この回は もう 出さない
+let homePending = null;    // ほかの画面・シートで 出せなかったとき、ホームに もどったら もういちど
+function retryHome() {
+  const p = currentProfile();
+  if (!homePending || !p || p.id !== homePending) return;
+  homePending = null;
+  setTimeout(() => startHome(currentProfile()), 300);
+}
 function startHome(p) {
   if (!p) return;
   const tutorial = () => { if (!p.tutorialDone && currentProfile() === p) runTutorial(p); };
   if (hasAvatarName(p) || namingLater) { tutorial(); return; }
   worldLoaded.then(() => {
-    if (currentProfile() !== p || tab !== 'home' || document.querySelector('.tour, .sheet, .avatar-name')) return;
+    if (currentProfile() !== p) return;
+    if (tab !== 'home' || document.querySelector('.tour, .sheet, .avatar-name')) { homePending = p.id; return; }
     openAvatarNaming(p, { world, onDone: (named) => { if (!named) namingLater = true; render(); setTimeout(tutorial, 300); } });
   });
 }
