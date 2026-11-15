@@ -39,6 +39,7 @@ import { startNotify, notifyCard } from './notify.js';
 import { isAdult, todayRoutines, checkRoutine, renderRoutineTab, consultCta, openConsult, ROUTINE_POINTS } from './adult.js';
 import { subjectNames, subjectColor, openSubjectEditor } from './subjects.js';
 import { setStudyHooks, studyButton } from './study.js';
+import { cardsButton } from './cards.js';
 import { openStoryList } from './story.js';
 import { brainCard, openBrain } from './brain.js';
 import { openDiary, diaryFab } from './diary.js';
@@ -916,6 +917,7 @@ function renderQuest(p) {
   fill(panel,
     h('h2', {}, 'やること'),
     studyButton(p, moreDeps),
+    cardsButton(p),
     todayCard(p),
     h('div', { class: 'card quest' },
       h('h3', {}, 'きょうのクエスト', result ? h('small', { class: 'today-left' }, ' ぜんぶ クリア！') : null),

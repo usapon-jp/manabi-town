@@ -5,6 +5,7 @@ import { createInkPad } from './ink/pad.js';
 import { icon } from './icons.js';
 import { askAI, aiErrorText, aiLeft } from './ai.js';
 import { currentProfile, gradeLabel, updateProfile } from './store.js';
+import { stockWrong, stockSolved, stockRest, openCards } from './cards.js';
 import { markRangeProgress, rangeProgress } from './coach.js';
 
 const PRAISE = ['せいかい！', 'すごい！', 'やったね！', 'ばっちり！'];
@@ -31,9 +32,12 @@ export function runQuestions(title, questions, onFinish, opts = {}) {
 
   function cleanup() { pads.forEach((p) => p.destroy()); pads = []; }
 
+  const stashRest = () => stockRest(questions.filter((x) => !results.some((r) => r.q === x)));
+
   function close() {
     cleanup();
     clearInterval(clockId);
+    if (!finished) stashRest();   // 解ききれなかった問題を のこす
     // とちゅうで とじても、できた分は きろくに入れる
     if (!finished && results.length && opts.onAbort) opts.onAbort(score, results.length, results);
     // テスト範囲の 問題は どの入口でも 進みに 入れる（採点まちは おわってから）
@@ -58,6 +62,7 @@ export function runQuestions(title, questions, onFinish, opts = {}) {
 
     function judge(ok, answerText) {
       react(ok);
+      (ok ? stockSolved : stockWrong)(q);   // まちがいは すぐ のこす（途中で とじても 消えない）
       results.push({ q, ok });
       if (ok) score += 1;
       feedback.className = `feedback ${ok ? 'ok' : 'ng'}`;
@@ -86,8 +91,10 @@ export function runQuestions(title, questions, onFinish, opts = {}) {
           react(ok);
           mine = { q, ok };
           results.push(mine);
+          (ok ? stockSolved : stockWrong)(q);
         } else {
-          mine.ok = ok;   // 「ほんとは 書けてたよ」で なおしたとき
+          mine.ok = ok;
+          (ok ? stockSolved : stockWrong)(q);   // 「ほんとは 書けてたよ」で なおしたとき
         }
         score = results.filter((r) => r.ok).length;
         feedback.className = `feedback ${ok ? 'ok' : 'ng'}`;
@@ -127,6 +134,7 @@ export function runQuestions(title, questions, onFinish, opts = {}) {
         h('span', { class: 'chip' }, q.subject),
         endAt ? clock : dots,
         h('span', { class: 'progress' }, `${index + 1} / ${questions.length}`),
+        h('button', { class: 'close print-now', 'aria-label': 'ここまでを 印刷', title: 'ここまでで 印刷', onclick: () => { stashRest(); const pr = currentProfile(); if (pr) openCards(pr); } }, icon('printer')),
         h('button', { class: 'close', 'aria-label': 'とじる', onclick: close }, '×'),
       ),
       h('div', { class: `q-box${q.test ? ' has-stamp' : ''}` },
@@ -178,6 +186,7 @@ export function runQuestions(title, questions, onFinish, opts = {}) {
     finished = true;
     cleanup();
     clearInterval(clockId);
+    if (results.length < questions.length) stashRest();
     // 時間で おわった とき、やっていない問題は かぞえない
     if (results.length < questions.length) questions = questions.slice(0, results.length);
     setTimeout(() => { const b = layer.querySelector('.q-box'); if (b) burst(b, 14); }, 250);
