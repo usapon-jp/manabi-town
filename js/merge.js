@@ -101,6 +101,15 @@ export function mergeProfile(base, local, remote) {
     out.id = remote.id;
     out.name = remote.name;
   }
+  // 銀行の あずけた・おろした 合計は、どちらの端末でも ふえた分を 足す（入れ子の 奥なので、ここで そろえる）
+  const bk = (x) => x?.world?.isles?.start?.bank;
+  if (isObj(bk(local)) && isObj(bk(remote)) && isObj(out?.world?.isles?.start)) {
+    const ob = isObj(out.world.isles.start.bank) ? out.world.isles.start.bank : (out.world.isles.start.bank = {});
+    for (const k of ['bankIn', 'bankOut']) {
+      const n = (v) => (typeof v === 'number' && Number.isFinite(v) ? v : 0);
+      ob[k] = Math.max(0, n(bk(remote)[k]) + n(bk(local)[k]) - n(bk(base)?.[k]));
+    }
+  }
   // レベルの とっておき（js/progress.js）は、高いレベルのほうを のこす（レベルが下がらないように）
   const keeps = [local?.lvKeep, remote?.lvKeep].filter((k) => isObj(k) && typeof k.lv === 'number');
   if (keeps.length && isObj(out)) out.lvKeep = keeps.reduce((a, b) => (b.lv > a.lv || (b.lv === a.lv && b.base > a.base) ? b : a));

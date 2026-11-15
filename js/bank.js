@@ -156,6 +156,7 @@ export function deposit(p, n, now = Date.now(), subjects) {
   if (!bankOpen(p) || !(n > 0) || n > canDeposit(p, subjects)) return false;
   settle(p, now, subjects);                       // 先に 今日までの 利子を つけてから
   const b = own(p);
+  mend(b);
   const t = toISO(new Date(now));
   if (b.int[t] == null) b.int[t] = 0;             // 今日の 利子は もう つけた ことに する（あずけた 日の 分は つかない）
   b.bankIn += n;

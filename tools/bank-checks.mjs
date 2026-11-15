@@ -202,4 +202,21 @@ const day = (n) => NOW + n * DAY;
     assert.equal(deposit(p, 5, NOW, SUBS), false);
   }
 }
+// 13. 同じ量を 2台で おろしても あずけた・おろした 合計は 足される。はじめての あずけが 2台で あっても 消えない
+{
+  const base = openKid(); deposit(base, 100, NOW, SUBS);
+  const a = clone(base); const b = clone(base);
+  withdraw(a, 100, NOW, SUBS); withdraw(b, 60, NOW, SUBS);
+  const m = mergeProfile(base, a, b);
+  assert.equal(bankOf(m).bankOut, 160);
+  assert.equal(balance(m), 0);
+  const before = m.points;
+  assert.equal(deposit(m, 50, NOW, SUBS), true);
+  assert.equal(shown(m), 50); assert.equal(m.points, before - 50);   // あずけた 分が きえない
+  const f0 = openKid(); const x = clone(f0); const y = clone(f0);
+  deposit(x, 100, NOW, SUBS); deposit(y, 50, NOW, SUBS);
+  const m2 = mergeProfile(f0, x, y);
+  assert.equal(bankOf(m2).bankIn, 150);
+  assert.equal(m2.points + shown(m2), f0.points);
+}
 console.log('bank-checks: ok');
