@@ -295,6 +295,8 @@ function startPlant(p, d) {
     h('div', { class: 'egg-plant-row' }, h('button', { class: 'btn', type: 'button', onclick: end }, 'やめる'), ok)));
   document.body.append(plantBar);
   const tick = setInterval(() => {
+    // ほかの タブへ いった・ほかの 子に かわった ときは やめる
+    if (!deps.isHome() || currentProfile() !== p) { if (!document.querySelector('.egg-born')) end(); return; }
     const good = !!world.eggs.plantSpot();
     ok.disabled = !good;
     msg.textContent = good ? 'ここで いい？' : 'あるいて 場所を きめてね';

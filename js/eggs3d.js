@@ -463,7 +463,8 @@ export function createEggs({ scene, town, cut }) {
   }
 
   // ---- たねを うえる 場所えらび（女の子の まえに わっか） ----
-  const ghost = new THREE.Mesh(new THREE.RingGeometry(PLANT.r - 0.14, PLANT.r, 48), new THREE.MeshBasicMaterial({ color: 0x9fe07a, transparent: true, opacity: 0.85, depthWrite: false }));
+  const ghost = new THREE.Mesh(new THREE.RingGeometry(PLANT.r - 0.14, PLANT.r, 48), new THREE.MeshBasicMaterial({ color: 0x9fe07a, transparent: true, opacity: 0.85, depthWrite: false, depthTest: false }));
+  ghost.renderOrder = 8;
   ghost.rotation.x = -Math.PI / 2;
   ghost.visible = false;
   root.add(ghost);
