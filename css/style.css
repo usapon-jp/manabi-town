@@ -1980,3 +1980,38 @@ input.pin { font-size: 26px; letter-spacing: 0.5em; text-align: center; }
 .vd-print small { font-size: 12px; opacity: 0.75; line-height: 1.5; }
 .vd-times { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; }
 .sheet-card .vd-print .btn.small { width: auto; font-size: 15px; padding: 10px 16px; text-decoration: none; color: var(--navy); background: #fffdf6; display: inline-flex; align-items: center; gap: 6px; }
+
+/* BGMの えらぶ画面（小学生にも わかるように ①ながしかた → ②曲） */
+.bgm-step { display: grid; gap: 8px; }
+.bgm-step-title { margin: 0; display: flex; align-items: center; gap: 6px; font-weight: 700; font-size: 16px; color: var(--navy); }
+.bgm-num { display: inline-grid; place-items: center; width: 24px; height: 24px; border-radius: 50%; background: var(--accent); color: #fff; font-size: 14px; font-weight: 700; }
+.bgm-card .bgm-mode { gap: 3px; padding: 10px 4px; font-size: 13px; }
+.bgm-card .bgm-mode b { font-size: 14px; }
+.bgm-card .bgm-mode small { font-size: 11px; line-height: 1.3; color: var(--ink-soft); }
+.bgm-card .bgm-mode.on small { color: var(--accent-dark); }
+.bgm-card .bgm-mode .ic { width: 26px; height: 26px; }
+.bgm-hint { margin: 0; text-align: left; }
+.bgm-warn { margin: 0; font-size: 13px; color: #b5651d; background: #fff4e5; border-radius: 10px; padding: 6px 10px; }
+.bgm-item .name { display: flex; align-items: center; gap: 8px; }
+.bgm-mark { display: inline-grid; place-items: center; width: 24px; height: 24px; flex-shrink: 0; border: 2px solid var(--line); background: #fff; color: #fff; }
+.bgm-mark.radio { border-radius: 50%; }
+.bgm-mark.box { border-radius: 6px; }
+.bgm-mark.on { background: var(--accent); border-color: var(--accent); }
+.bgm-mark .ic { width: 16px; height: 16px; }
+.bgm-more summary { cursor: pointer; font-size: 14px; color: var(--ink-soft); padding: 4px 0; }
+.bgm-more .row { margin-top: 8px; }
+.bgm-lists { display: grid; grid-template-columns: repeat(2, 1fr); gap: 6px; }
+.bgm-pl { display: grid; grid-template-columns: auto 1fr; grid-template-rows: auto auto; column-gap: 6px; align-items: center; text-align: left; font: inherit; background: #fff; border: 1.5px solid var(--line); border-radius: 12px; padding: 8px 10px; color: var(--navy); cursor: pointer; min-width: 0; }
+.bgm-pl .ic { grid-row: span 2; width: 20px; height: 20px; }
+.bgm-pl b { font-size: 14px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.bgm-pl small { font-size: 11px; color: var(--ink-soft); }
+.bgm-pl.on { background: var(--leaf-soft); border-color: var(--accent); color: var(--accent-dark); }
+.bgm-pl.add { border-style: dashed; color: var(--accent-dark); grid-template-rows: auto; }
+.bgm-pl.add .ic { grid-row: auto; }
+.bgm-pl-tools { display: flex; gap: 14px; flex-wrap: wrap; }
+.bgm-pl-tools .link { display: inline-flex; align-items: center; gap: 3px; font-size: 13px; font-weight: 700; color: var(--accent-dark); background: none; border: 0; padding: 4px 0; }
+.bgm-pl-tools .link .ic { width: 14px; height: 14px; }
+.bgm-pl-tools .link.danger { color: #b5651d; }
+.bgm-edit { display: grid; gap: 6px; background: #fffdf7; border: 1.5px solid var(--accent); border-radius: 12px; padding: 10px; }
+.bgm-edit .label { margin: 0; }
+.bgm-name-in { font: inherit; font-size: 16px; padding: 8px 10px; border: 1.5px solid var(--line); border-radius: 10px; background: #fff; }
