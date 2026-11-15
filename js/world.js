@@ -8,6 +8,7 @@ import { createMeadow } from './meadow.js';
 import { heightAt } from './terrain.js';
 import { createEditor } from './editor.js';
 import { currentProfile, onChange } from './store.js';
+import { currentIslandId, islandDef, onIslandChange } from './islands.js';
 import { levelOf } from './progress.js';
 import { loadQuality, saveLowQuality, SLOW_FRAME_SEC, WARMUP_FRAMES, SAMPLE_FRAMES } from './quality.js';
 
@@ -47,18 +48,23 @@ export function createWorld(container) {
 
   // 勉強したぶんだけ街が育つ（レベルに合わせて建物がふえる）
   const town = createTown(scene);
-  let shownLv = 0;
+  // 画面に出すのは いつも島1つ分。町の建物は「はじまりの島」にだけ ある（islands.js の town: true）
+  let shownLv = 0; let shownTown = null;
   const refreshTown = () => {
     const p = currentProfile();
     const lv = p ? levelOf(p).lv : 1;
+    const here = !!islandDef(currentIslandId(p))?.town;
+    if (lv === shownLv && here === shownTown) return;
     if (lv !== shownLv) {
       const fresh = town.setLevel(lv, shownLv > 0);
       shownLv = lv;
       if (fresh.length) editor.announce(lv, fresh);   // あたらしい たてものが出たら、おしらせ
-      // レベル3から町に池がある。そこへ溝をつなぐと、水がながれこむ
-      meadow.cut.setSources(lv >= 3 ? [{ x: -9.5, z: 3.5, r: 2.7 }] : []);
-      meadow.cut.updateWater();
     }
+    shownTown = here;
+    town.setOn(here);
+    // レベル3から町に池がある。そこへ溝をつなぐと、水がながれこむ
+    meadow.cut.setSources(here && lv >= 3 ? [{ x: -9.5, z: 3.5, r: 2.7 }] : []);
+    meadow.cut.updateWater();
   };
   refreshTown();
   onChange(refreshTown);
@@ -91,6 +97,14 @@ export function createWorld(container) {
       return hit ? { x: hit.point.x, z: hit.point.z } : null;
     },
   });
+  // 島を うつったら、その島の まんなかに 立つ（草原の中身は editor が その島の分に 入れかえる）
+  onIslandChange(() => {
+    refreshTown();
+    actor.position.set(0, heightAt(0, 0), 0);
+    view.target.copy(actor.position);
+  });
+  // ためしの島（アドレスに ?shima=test を つけたときだけ。ふだんは 読みこまない）
+  if (new URLSearchParams(location.search).get('shima') === 'test') import('./islanddev.js').then((m) => m.startIslandDev(container)).catch(() => {});
   // 2本指: ピンチで カメラを ちかづける／はなす。2本指の あいだは「つくる」の なぞりは しない
   let wasEditing = false; let savedDist = 0;
   const touches = new Map();

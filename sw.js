@@ -17,6 +17,7 @@ const FILES = [
   'js/characters.js',
   'js/bgm.js',
   'js/builds.js',
+  'js/islands.js', 'js/islanddev.js',
   'js/bonus.js',
   'js/more.js',
   'js/brain.js',
