@@ -41,10 +41,10 @@ const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 
 const metas = (p) => (Array.isArray(p.photos) ? p.photos : (p.photos = []));
 
 // 1まい入れる。folder は テスト予定の id か OTHER
-export async function addPhoto(p, { dataUrl, folder = OTHER, subject = '', label = '' }) {
+export async function addPhoto(p, { dataUrl, folder = OTHER, subject = '', label = '', extra = null }) {
   const id = uid();
   await tx('readwrite', (s) => s.put({ id, data: dataUrl }));
-  metas(p).push({ id, folder, subject, name: label, takenAt: new Date().toISOString() });
+  metas(p).push({ ...(extra || {}), id, folder, subject, name: label, takenAt: new Date().toISOString() });
   save();
   return id;
 }
