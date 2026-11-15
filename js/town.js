@@ -2,6 +2,7 @@
 // 置く場所は決まっているので、いつ開いても同じ街になる。world.js から使う。
 import * as THREE from 'three';
 import { heightAt } from './terrain.js';
+import { skyNow, DAY_MIN } from './daytime.js';
 
 import { cottage, mushroomHouse, bed } from './cottage.js';
 import { mat, glass, box, cyl, cone, ball, softDot, blob, smoke } from './townkit.js';
@@ -342,13 +343,23 @@ function rainbow() {
     sparkles.push(s);
     g.add(s);
   }
+  const fades = [];
+  g.traverse((o) => { if (o.material && o !== g) fades.push([o.material, o.material.uniforms ? o.material.uniforms.uAlpha.value : o.material.opacity]); });
+  let shownDay = -1;
   g.userData.update = (t, cam, pos) => {
+    // 虹は 日の光で かかるので、夕焼けの おわりから 夜は うすれて きえる
+    const day = 1 - skyNow.night;
+    if (Math.abs(day - shownDay) > 0.01) {
+      shownDay = day;
+      for (const [m, a] of fades) { if (m.uniforms) m.uniforms.uAlpha.value = a * day; else m.opacity = a * day; }
+    }
+    for (const c of g.children) c.visible = day > 0.01;   // g.visible は 町が きめる（しまう・ほかの島）ので さわらない
     if (cam) g.rotation.y = Math.atan2(cam.x - pos.x, cam.z - pos.z);
     sparkles.forEach((s, i) => {
       const a = (i / sparkles.length) * Math.PI + Math.sin(t * 0.3 + i) * 0.04;
       const r = 11.5 + ((i * 7) % 5) * 0.9;
       s.position.set(Math.cos(a) * r, Math.sin(a) * r, 0.2);
-      s.material.opacity = 0.3 + 0.5 * Math.max(0, Math.sin(t * 1.6 + i * 1.9));
+      s.material.opacity = (0.3 + 0.5 * Math.max(0, Math.sin(t * 1.6 + i * 1.9))) * day;
     });
   };
   return g;
@@ -377,7 +388,27 @@ function tower() {
   archDoor(door, 0, 0, 0, 0.9, 1.5);
   door.position.set(0, 0.4, 1.44);
   g.add(door);
-  for (const [y, a] of [[2.6, 0.5], [3.9, -0.5], [4.8, 0.9], [2.4, -1.2]]) {
+  // 時計（町の時刻で 針が まわる。上が 昼の まんなか）。Lv10 から「時計塔」
+  const clock = new THREE.Group();
+  clock.position.set(0, 3.95, 1.39);
+  clock.rotation.x = -0.04;
+  clock.add(new THREE.Mesh(new THREE.CircleGeometry(0.56, 32), mat(0xfffaf0)));
+  const rim = new THREE.Mesh(new THREE.TorusGeometry(0.56, 0.06, 8, 32), mat(0xc7a6ff));
+  clock.add(rim);
+  for (let i = 0; i < 12; i++) {
+    const a = (i / 12) * Math.PI * 2;
+    const tick = box(i % 3 ? 0.04 : 0.07, i % 3 ? 0.08 : 0.13, 0.02, 0x8a6fb8, Math.sin(a) * 0.45, Math.cos(a) * 0.45, 0.02);
+    tick.rotation.z = -a;
+    clock.add(tick);
+  }
+  const sunMark = ball(0.07, 0xffc94a, 0, 0.3, 0.02); sunMark.scale.z = 0.3;
+  const moonMark = ball(0.06, 0x8fa8e8, 0, -0.3, 0.02); moonMark.scale.z = 0.3;
+  clock.add(sunMark, moonMark);
+  const hand = new THREE.Group();
+  hand.add(box(0.06, 0.4, 0.025, 0x5a4a7a, 0, 0.18, 0.05), ball(0.06, 0xffd45c, 0, 0, 0.06));
+  clock.add(hand);
+  g.add(clock);
+  for (const [y, a] of [[2.6, 0.5], [3.7, -1.0], [4.8, 1.0], [2.4, -1.2]]) {
     const win = new THREE.Group();
     win.add(box(0.5, 0.7, 0.05, 0xffffff, 0, 0, 0), box(0.4, 0.6, 0.07, 0xffe6a6, 0, 0, 0.01));
     win.children[1].material = glass;
@@ -399,6 +430,7 @@ function tower() {
   g.userData.update = (t) => {
     star.rotation.y = t * 1.5; star.position.y = 9.2 + Math.sin(t * 2) * 0.12;
     halo.position.y = star.position.y; halo.material.opacity = 0.6 + Math.sin(t * 2.4) * 0.2;
+    hand.rotation.z = -((skyNow.minute - 20) / DAY_MIN) * Math.PI * 2;   // 昼の まんなか（20分）で 真上
   };
   return g;
 }
@@ -429,7 +461,8 @@ const PLAN = [
 ];
 
 // 名前と、動かせるか。id は「PLAN の何番目か」なので、足すときは かならず うしろに足す（保存した操作が id で呼ぶ）
-const NAMES = ['看板', '花だん', '池', 'コテージ', '柵', 'きのこの家', '風車', '学校', '噴水', '虹', '塔'];
+const NAMES = ['看板', '花だん', '池', 'コテージ', '柵', 'きのこの家', '風車', '学校', '噴水', '虹', '時計塔'];
+export const CLOCK_TOWER = 'town:10';   // 時計塔（タップすると 町の 時計を まわせる）
 // レベルアップのおしらせに出す名前（同じ名前は、ひとつにまとめる）。1レベルに1つになるようにそろえてある
 const UNLOCK = { 0: '看板と花だん', 1: '看板と花だん', 3: 'コテージと柵', 4: 'コテージと柵' };
 PLAN.forEach((p, i) => {
@@ -501,6 +534,8 @@ export function createTown(scene) {
     movables() { if (off) return []; return items.filter((it) => it.movable && it.shown && !it.stored).map((it) => ({ id: it.id, label: it.label, x: it.x, z: it.z, r: it.r, rot: it.group.rotation.y })); },
     // バッグにしまってある建物
     stored() { if (off) return []; return items.filter((it) => it.movable && it.shown && it.stored).map((it) => ({ id: it.id, label: it.label, r: it.r })); },
+    // いま 町に 出ている 建物の 3D（しまってある・ほかの島に いるときは null）。タップの あたり判定に つかう
+    groupOf(id) { const it = items.find((x) => x.id === id); return !off && it?.shown && !it.stored && it.pop >= 1 ? it.group : null; },
     // (x,z) のちかくの、うごかせる建物
     itemAt(x, z) {
       if (off) return null;
