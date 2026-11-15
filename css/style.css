@@ -378,6 +378,40 @@ textarea { resize: vertical; }
 .key.fn { background: #eef3e2; }
 .pad-ok { padding: 0 18px !important; }
 
+/* 算数（iPad などの横向き）: 左に 問題と答えるボタン、右に 広いメモ。
+   画面にぴったり入れて スクロールしない（問題が動かない）。スマホの横（高さ540まで）と縦は今まで通り */
+@media (orientation: landscape) and (min-height: 541px) and (min-width: 900px) {
+  .runner:has(.kind-number) { overflow: hidden; overscroll-behavior: none; }
+  .runner-card.kind-number {
+    max-width: 1280px;
+    height: 100%;
+    min-height: 0;
+    display: grid;
+    grid-template-columns: minmax(340px, 0.85fr) 1.15fr;
+    grid-template-rows: auto minmax(0, 1fr) auto auto;
+    grid-template-areas: "top top" "q memo" "ans memo" "foot memo";
+    column-gap: 20px;
+    row-gap: 12px;
+    -webkit-user-select: none; user-select: none;
+  }
+  .kind-number .runner-top { grid-area: top; }
+  .kind-number .q-box { grid-area: q; min-height: 0; overflow-y: auto; overscroll-behavior: contain; display: flex; flex-direction: column; padding: 18px 18px 20px; }
+  /* まん中よせは 前後の空きで（はみ出したときは上から読めて、上が切れない） */
+  .kind-number .q-box::before, .kind-number .q-box::after { content: ''; flex: 1 1 0; }
+  .kind-number .q-box > * { flex-shrink: 0; }
+  .kind-number .math-area { display: contents; }
+  .kind-number .memo { grid-area: memo; display: flex; flex-direction: column; min-height: 0; }
+  .kind-number .memo-head { padding: 10px 16px; font-size: 15px; }
+  .kind-number .memo-head .link { font-size: 17px; padding: 6px 4px; }
+  .kind-number .memo-pad { flex: 1; height: auto; min-height: 0; }
+  .kind-number .number-answer { grid-area: ans; }
+  .kind-number .answer-row { margin-bottom: 10px; }
+  .kind-number .pad-display { min-height: 52px; font-size: 28px; }
+  .kind-number .key { padding: 8px 0; min-height: 52px; }
+  .kind-number .runner-foot { grid-area: foot; margin-top: 0; padding-bottom: 0; gap: 6px; }
+  .kind-number .feedback:empty { min-height: 0; }
+}
+
 .toast {
   position: fixed;
   left: 50%;
