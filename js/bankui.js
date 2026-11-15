@@ -1,7 +1,7 @@
 // 銀行の 画面（建物を タッチした ときの カード・レベルアップの ことば）。きまりは js/bank.js。
 // カードは 下に 1まい。草原は 見えたまま。説明は みじかく。
 import { h } from './ui.js';
-import { currentProfile, save, onChange } from './store.js';
+import { currentProfile, save } from './store.js';
 import { subjectNames } from './subjects.js';
 import { currentIslandId, START } from './islands.js';
 import { registerBuildingCard } from './eggui.js';
@@ -22,7 +22,6 @@ export function initBank(d = {}) {
   registerBuildingCard('sansu', openBank);
   // 日が かわった ぶんの 利子と、レベルアップの ことば（町が 見えている ときだけ）
   setInterval(() => { if (deps.isHome()) tick(); }, 5000);
-  onChange(() => { /* 利子は tick で つける。ここでは 何もしない */ });
   setTimeout(tick, 2500);
 }
 
