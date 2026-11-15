@@ -105,6 +105,8 @@ requestAnimationFrame(() => setTimeout(() => {
         // 教科の たまご: タッチで ようすを 見る・「〇〇を べんきょうする」で タイマーへ（教科を えらんだ ところから）
         initEggs(world, { isHome: () => tab === 'home' && !covered(), study: (p, subject) => studySubject(p, subject) });
         initBank({ isHome: () => tab === 'home' && !covered(), say: (t) => piyoSay(t), render: () => render() });
+        // 時計塔（Lv10）を タップすると 町の 時計を まわせる（空が 朝・昼・夕方・夜に かわる）
+        world.onTapClock = () => { if (!document.querySelector('.tour, .avatar-name, .clock-dial, .wlevel, .egg-intro, .egg-born, .egg-plant')) import('./clockdial.js').then((m) => m.openClockDial(world)).catch(() => {}); };
         worldReady();
         requestAnimationFrame(() => worldEl.classList.replace('loading', 'ready'));
       })
