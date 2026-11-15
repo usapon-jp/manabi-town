@@ -141,7 +141,11 @@ export function createSky(scene, parts) {
     });
   }
 
+  // 色の きまりの 値は、絵の具の色（sRGB。#7fa758 などと 同じ 見かた）。光・霞・雲・地平線は そのまま 変換して わたす
+  // （昼が いままでの 0x… の 色と ぴったり 同じに なるように）。空の 上のほうと 太陽の 光の わは、もとの シェーダーと 同じく そのまま
+  const SRGB = THREE.SRGBColorSpace;
   const set = (u, c) => u.value.setRGB(c[0], c[1], c[2]);
+  const setS = (col, c) => col.setRGB(c[0], c[1], c[2], SRGB);
   let pxRatio = 1;
   return {
     mesh,
@@ -151,12 +155,12 @@ export function createSky(scene, parts) {
       publishSky(s);
       const u = mat.uniforms;
       u.uSun.value.set(s.sunDir[0], s.sunDir[1], s.sunDir[2]);
-      set(u.uTop, s.top); set(u.uMid, s.mid); set(u.uHz, s.hz); set(u.uHzAway, s.hzAway); set(u.uSunCol, s.sun);
+      set(u.uTop, s.top); set(u.uMid, s.mid); setS(u.uHz.value, s.hz); setS(u.uHzAway.value, s.hzAway); set(u.uSunCol, s.sun);
       u.uGlow.value = s.glow;
       u.uDisc.value = Math.min(1, Math.max(0, (s.sunDir[1] + 0.02) * 12));
       mesh.position.copy(camPos);
       // 霞（フォグ）は 地平線と 同じ色に
-      fog.color.setRGB((s.hz[0] + s.hzAway[0]) / 2, (s.hz[1] + s.hzAway[1]) / 2, (s.hz[2] + s.hzAway[2]) / 2);
+      setS(fog.color, [(s.hz[0] + s.hzAway[0]) / 2, (s.hz[1] + s.hzAway[1]) / 2, (s.hz[2] + s.hzAway[2]) / 2]);
       // 星と月
       stars.material.uniforms.uA.value = s.stars;
       stars.material.uniforms.uT.value = t;
@@ -166,16 +170,16 @@ export function createSky(scene, parts) {
       moon.position.copy(moonVec);
       moon.userData.set(Math.min(1, s.stars * 1.2));
       // 光
-      if (parts.hemi) { parts.hemi.color.setRGB(s.hemi[0], s.hemi[1], s.hemi[2]); parts.hemi.groundColor.setRGB(s.ground[0], s.ground[1], s.ground[2]); parts.hemi.intensity = s.hemiI; }
+      if (parts.hemi) { setS(parts.hemi.color, s.hemi); setS(parts.hemi.groundColor, s.ground); parts.hemi.intensity = s.hemiI; }
       if (parts.sun) {
-        parts.sun.color.setRGB(s.sun[0], s.sun[1], s.sun[2]);
+        setS(parts.sun.color, s.sun);
         // 日の入り・日の出の まぎわは 光を よわく（月と 入れかわる ときに パッと かわらない ように）
         const low = Math.min(1, Math.abs(s.lightDir[1]) * 6);
         parts.sun.intensity = s.sunI * (0.25 + 0.75 * low);
         parts.sun.position.set(s.lightDir[0], Math.max(0.05, s.lightDir[1]), s.lightDir[2]).multiplyScalar(30);
       }
       // 雲は 空の色に そまる
-      tmp.setRGB(s.cloud[0], s.cloud[1], s.cloud[2]);
+      setS(tmp, s.cloud);
       for (const m of cloudMats) m.color.copy(tmp);
       // 夜は ちょうちょが ねて、光の つぶが ほたるに
       if (parts.butterflies) parts.butterflies.visible = s.night < 0.5;
