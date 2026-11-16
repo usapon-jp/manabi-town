@@ -3,7 +3,16 @@
 // もくじ（東京書籍 新編 新しい社会 地理）の 単元から 中2地理の 基本を 一問一答に した（2026-11-09 フミオさん）。
 // match: テスト予定の range に 合えば この問題で 出す。subject: 教科名。
 // qa: [問題, 正解, [ちがう答え…], ページ]
+import { ART_SYMBOL_QA } from './art-symbols.js';
+
 export const TEXT_BOOKS = [
+  {
+    id: 'art-symbols-p94-95',
+    subject: /美術/,
+    title: '中2美術 P94〜95 シンボルマーク・ピクトグラム（厳選17問）',
+    match: /シンボル|ピクトグラム|マーク|デザイン|[PpＰｐ]\s*9[45]|(?:^|[^\d])94\s*[〜～~\-]\s*95(?!\d)/,
+    qa: ART_SYMBOL_QA,
+  },
   {
     id: 'chiri-p156',
     subject: /社会|地理/,

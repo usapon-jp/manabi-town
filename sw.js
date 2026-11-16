@@ -1,6 +1,6 @@
 // オフラインでも開けるように、アプリの部品を端末にしまっておく。
 // 部品を変えたら VERSION を上げる（古いしまい場所は消える）。
-const VERSION = 'manabi-v155';
+const VERSION = 'manabi-v156';
 const FILES = [
   './',
   'index.html',
@@ -23,7 +23,7 @@ const FILES = [
   'js/daytime.js', 'js/sky.js', 'js/clockdial.js',
   'js/bonus.js',
   'js/more.js',
-  'js/study.js', 'js/cards.js',
+  'js/study.js', 'js/art-quiz.js', 'js/cards.js',
   'js/brain.js',
   'js/thinking.js',
   'js/thinking-bank.js', 'js/thinking-progress.js', 'js/thinking-art.js',
@@ -52,6 +52,7 @@ const FILES = [
   'js/editor.js',
   'js/cottage.js',
   'js/data/english.js',
+  'js/data/art-symbols.js',
   'js/data/kanji.js',
   'js/data/kanjibooks.js', 'js/data/textbooks.js', 'js/data/stories.js', 'js/story.js',
   'js/video.js', 'js/data/science-magnet.js', 'assets/video/denryu-jikai-poster.jpg', 'assets/print/denryu-jikai-mondai.pdf', 'assets/print/denryu-jikai-kaitou.pdf',   // 動画 mp4 は 大きいので しまわない（下の fetch でも 素通し）
