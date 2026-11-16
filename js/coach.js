@@ -123,11 +123,11 @@ function bookPool(b, mode = 'pick') {
   if (b.qa) {
     // 教科書の 一問一答（4つから えらぶ。ならびは 問題ごとに かえる）
     if (!bookCache.has(b.id)) {
-      bookCache.set(b.id, b.qa.map(([q, a, wrong, page, explain], k) => {
+      bookCache.set(b.id, b.qa.map(([q, a, wrong, page, explain, imageSrc], k) => {
         const opts = [a, ...wrong];
         const rot = k % opts.length;
         const options = [...opts.slice(rot), ...opts.slice(0, rot)];
-        return { q, options, answer: options.indexOf(a), w: a, s: q, bk: b.id, page, explain };
+        return { q, options, answer: options.indexOf(a), w: a, s: q, bk: b.id, page, explain, imageSrc };
       }));
     }
     return bookCache.get(b.id);
@@ -412,7 +412,8 @@ export function dropKanjiReads(p, qs) {
 
 // 範囲の 一問一答 → 出す 形（漢字の範囲は 書きとりに できれば 書きとり）
 export const rangeQ = (x, q) => ({ ...(isKanjiRange(x) && !q.pick && kanjiWrite(q) || { kind: 'choice', prompt: q.q, options: q.options, answer: q.answer }),
-  subject: x.subject, topic: x.topic, ...(q.explain ? { explain: q.explain } : {}), ...rangeTag(x, q) });
+  subject: x.subject, topic: x.topic, ...(q.explain ? { explain: q.explain } : {}),
+  ...(q.imageSrc ? { imageSrc: q.imageSrc } : {}), ...rangeTag(x, q) });
 // 範囲の 問題の しるし（どの入口で といても 進みに 入れる）。rk: 範囲、rkey: 問題
 const rangeQKey = (q) => (q.bk ? `${q.w}|${q.s}` : String(q.q));
 const rangeTag = (x, q) => ({ rk: poolKey(x), rkey: rangeQKey(q), ...(q.bk ? { bk: q.bk, bkey: `${q.w}|${q.s}` } : {}) });

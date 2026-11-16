@@ -286,6 +286,13 @@ textarea { resize: vertical; }
   padding: 22px 18px 24px;
 }
 .prompt { font-size: 17px; font-weight: 800; line-height: 1.6; margin: 0; letter-spacing: 0.04em; }
+.q-symbol-frame { display: grid; place-items: center; min-height: 140px; margin: 12px auto 4px; padding: 12px; border-radius: 15px; background: #fff; border: 1px solid var(--line); }
+.q-symbol-image { display: block; width: min(100%, 250px); max-height: 180px; object-fit: contain; }
+.q-symbol-note { margin-top: 2px; font-size: 11px; color: #796f63; }
+@media (max-height: 560px) {
+  .q-symbol-frame { min-height: 90px; margin: 6px auto 0; padding: 6px; }
+  .q-symbol-image { max-height: 108px; }
+}
 .big { font-size: 40px; font-weight: 800; margin: 10px 0 0; line-height: 1.25; overflow-wrap: anywhere; color: var(--navy); }
 .big.reading { letter-spacing: 0.12em; }
 .options { display: grid; gap: 14px; }
