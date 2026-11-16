@@ -1,6 +1,6 @@
 // オフラインでも開けるように、アプリの部品を端末にしまっておく。
 // 部品を変えたら VERSION を上げる（古いしまい場所は消える）。
-const VERSION = 'manabi-v157';
+const VERSION = 'manabi-v158';
 const FILES = [
   './',
   'index.html',
@@ -10,6 +10,16 @@ const FILES = [
   'assets/icons/icon-192.png',
   'assets/icons/icon-512.png',
   'assets/icons/maskable-512.png',
+  'assets/artmarks/aomori.svg', 'assets/artmarks/apple.svg', 'assets/artmarks/chiba.svg', 'assets/artmarks/fukui.png',
+  'assets/artmarks/fukuoka.svg', 'assets/artmarks/gifu.png', 'assets/artmarks/help.png', 'assets/artmarks/hokkaido.svg',
+  'assets/artmarks/hyogo.svg', 'assets/artmarks/ibaraki.png', 'assets/artmarks/ishikawa.svg', 'assets/artmarks/kyoto.svg',
+  'assets/artmarks/miyagi.svg', 'assets/artmarks/nagano.svg', 'assets/artmarks/niigata.png', 'assets/artmarks/nike.svg',
+  'assets/artmarks/no-camera.svg', 'assets/artmarks/okinawa.svg', 'assets/artmarks/osaka.svg', 'assets/artmarks/pictogram-example.svg',
+  'assets/artmarks/ps-example.svg', 'assets/artmarks/region-example.svg', 'assets/artmarks/saitama.png', 'assets/artmarks/shizuoka.svg',
+  'assets/artmarks/single-file.svg', 'assets/artmarks/sports-example.svg', 'assets/artmarks/star-of-life.png', 'assets/artmarks/tokyo.svg',
+  'assets/artmarks/tottori.png', 'assets/artmarks/toyama.svg', 'assets/artmarks/tsunami-building.svg', 'assets/artmarks/tsunami-hill.svg',
+  'assets/artmarks/tsunami-warning.svg', 'assets/artmarks/visualized-meaning.svg', 'assets/artmarks/wakayama.png', 'assets/artmarks/yamagata.svg',
+  'assets/artmarks/yamaha-example.svg', 'assets/artmarks/yamanashi.png',
   'assets/models/piyo_base_rig.glb',
   'assets/models/lamppost.json',
   'assets/gacha/fence-iron.webp', 'assets/gacha/fence-stone.webp', 'assets/gacha/fence-white.webp', 'assets/gacha/fence-wood.webp', 'assets/gacha/part-archdoor-brown.webp', 'assets/gacha/part-archdoor.webp', 'assets/gacha/part-door.webp', 'assets/gacha/part-flowerbox.webp', 'assets/gacha/part-roundwindow.webp', 'assets/gacha/part-window.webp', 'assets/gacha/part-wreath.webp', 'assets/gacha/piece-awning.webp', 'assets/gacha/piece-bench.webp', 'assets/gacha/piece-flowerpot.webp', 'assets/gacha/piece-hill.webp', 'assets/gacha/piece-lamppost.webp', 'assets/gacha/piece-lantern.webp', 'assets/gacha/piece-mailbox.webp', 'assets/gacha/piece-raisedbed.webp', 'assets/gacha/piece-rosearch.webp', 'assets/gacha/seed-cosmos.webp', 'assets/gacha/seed-lavender.webp', 'assets/gacha/seed-sunflower.webp',

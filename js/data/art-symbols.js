@@ -4,6 +4,24 @@
 // 県章の意味は各自治体の公式解説で照合。章の画像は許可なく転載しない。
 // [問題, 正解, まぎらわしい選択肢3つ, 教科書ページ, 答え合わせの説明]
 export const ART_SYMBOL_REGION_COUNT = 23;
+// 県名を画像内に記載せず、答え合わせ後の説明で伝える。
+const REGION_IMAGES = [
+  'aomori.svg', 'yamagata.svg', 'shizuoka.svg', 'toyama.svg',
+  'ishikawa.svg', 'nagano.svg', 'miyagi.svg', 'fukuoka.svg',
+  'hokkaido.svg', 'osaka.svg', 'kyoto.svg', 'okinawa.svg',
+  'hyogo.svg', 'ibaraki.png', 'saitama.png', 'chiba.svg',
+  'tokyo.svg', 'niigata.png', 'tottori.png', 'yamanashi.png',
+  'wakayama.png', 'gifu.png', 'fukui.png',
+];
+// 後半は公開資料の実物画像と、意味を示す自作の説明図を使用。
+// クロネコヤマト／スターバックスのロゴは無断転載せず文字問題のまま。
+const OTHER_IMAGES = [
+  'region-example.svg', 'pictogram-example.svg', 'no-camera.svg',
+  'tsunami-hill.svg', 'tsunami-building.svg', 'tsunami-warning.svg',
+  'single-file.svg', 'sports-example.svg', 'apple.svg', null, null,
+  'nike.svg', 'yamaha-example.svg', 'ps-example.svg', 'help.png',
+  'star-of-life.png', 'visualized-meaning.svg',
+];
 export const ART_SYMBOL_QA = [
   ['下北半島・津軽半島・陸奥湾など、県そのものの地形を図案化したマークは？', '青森県', ['岩手県', '秋田県', '宮城県'], 95, '青森県章は、2つの半島と陸奥湾を含む県の形を表している。'],
   ['3つの山の形で県内の山々と最上川の流れを表す県章は？', '山形県', ['富山県', '長野県', '岩手県'], 95, '山形県章の3つの山形は、県内の山々と最上川の流れを表す。'],
@@ -45,4 +63,8 @@ export const ART_SYMBOL_QA = [
   ['赤い四角に白い十字とハートを描いたマークは？', 'ヘルプマーク', ['AEDマーク', 'スターオブライフ', '津波避難ビル'], 94, 'ヘルプマークは援助や配慮が必要なことを周囲に知らせる。'],
   ['青色の6本の腕を持つ星の中に、蛇の巻きついた杖が描かれたマークは？', 'スターオブライフ', ['ヘルプマーク', 'NASAのロゴ', '日本赤十字社のマーク'], 94, '救急医療の象徴で、青い六本腕の星とアスクレピオスの杖を組み合わせる。'],
   ['AEDマークやヘルプマークのように、伝えたい意味を図にしたものは教科書のどの発想法？', 'イメージを視覚化する', ['文字から発想する', '地図を写し取る', '企業名をそのまま書く'], 94, '教科書94ページでは、伝えたいイメージを視覚的に示す例として紹介されている。'],
-];
+].map((item, index) => {
+  const image = index < ART_SYMBOL_REGION_COUNT
+    ? REGION_IMAGES[index] : OTHER_IMAGES[index - ART_SYMBOL_REGION_COUNT];
+  return image ? [...item, 'assets/artmarks/' + image] : item;
+});

@@ -141,6 +141,10 @@ export function runQuestions(title, questions, onFinish, opts = {}) {
       h('div', { class: `q-box${q.test ? ' has-stamp' : ''}` },
         q.test ? h('span', { class: 'test-stamp', 'aria-label': 'テストに出るよ' }, 'テストに', h('br'), '出るよ') : null,
         h('p', { class: 'prompt' }, q.prompt),
+        q.imageSrc ? h('div', { class: 'q-symbol-frame' },
+          h('img', { class: 'q-symbol-image', src: q.imageSrc, alt: '問題のシンボルマーク画像' }),
+          /(?:-example|no-camera|tsunami-hill|tsunami-building|tsunami-warning|single-file|visualized-meaning)\.svg$/.test(q.imageSrc)
+            ? h('small', { class: 'q-symbol-note' }, '学習用イメージ図') : null) : null,
         q.big ? h('p', { class: `big ${kind === 'write' ? 'reading' : ''}` }, q.big, isEnglish(q.big) ? sayButton(q.big) : null) : null,
         q.context ? contextLine(q.context, q.big) : null,
         hintArea(q, () => !next.hidden),

@@ -27,11 +27,11 @@ export function startArtSymbolQuiz(p, deps) {
     }
     const selected = pool.slice(at, at + ROUND);
     at += selected.length;
-    const qs = selected.map(([prompt, correct, wrong, , explain]) => {
+    const qs = selected.map(([prompt, correct, wrong, , explain, imageSrc]) => {
       const options = shuffle([correct, ...wrong], Math.random);
       return {
         kind: 'choice', subject: '美術', topic: '中2美術 P94〜95 地域のシンボルマーク',
-        prompt, options, answer: options.indexOf(correct), explain, test: true,
+        prompt, options, answer: options.indexOf(correct), explain, imageSrc, test: true,
       };
     });
     runQuestions('中2美術・シンボルマーク', qs, (score, total, results) => {
