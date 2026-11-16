@@ -87,6 +87,9 @@ export function balance(p) {
   return Math.max(0, r2(num(b.bankIn) - num(b.bankOut) + num(b.old) + sum));
 }
 export const shown = (p) => Math.floor(balance(p));
+// 通帳に 出す ちょきん（小数 1けたまで・切りすて）。少しだけ あずけても 毎日 ふえるのが 見える。
+// あずける・おろす は 整数の shown で 数える
+export const shownTenth = (p) => Math.floor(balance(p) * 10 + 1e-9) / 10;
 
 // 1日ぶんの 利子（レベルの わりあい。上限を こえない）
 export function dailyGain(bal, level) {
@@ -97,11 +100,13 @@ export function dailyGain(bal, level) {
 // あした ふえる 見こみ { gain, capped }（通帳に 出す）
 export function nextGain(p, subjects) {
   const lv = bankLevel(p, subjects);
-  const bal = shown(p);
+  const bal = shownTenth(p);
   const raw = bal * lv.rate / 100;
   const mult = Math.round((100 + lv.rate) * 10) / 1000;
-  // after: 通帳の 式の 答え（50 × 1.01 = 50.5。切りすてると「= 50」に なって 式が まちがって 見える）
-  return { bal, gain: Math.floor(Math.min(raw, lv.cap)), capped: raw > lv.cap, mult, after: r2(bal * mult) };
+  // after: 通帳の 式の 答え（50 × 1.01 = 50.5）。小数 2けたより 細かい ときは exact: false で「≒ 51」と 出す
+  const exactV = Math.round(bal * mult * 100000) / 100000;
+  const after = Math.floor(exactV * 10 + 1e-9) / 10;
+  return { bal, gain: Math.floor(Math.min(raw, lv.cap)), capped: raw > lv.cap, mult, after, exact: Math.abs(exactV - after) < 1e-9 };
 }
 
 const addDays = (iso, n) => { const [y, m, d] = iso.split('-').map(Number); return toISO(new Date(y, m - 1, d + n)); };

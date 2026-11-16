@@ -6,7 +6,7 @@ import assert from 'node:assert/strict';
 globalThis.window = { dispatchEvent() {}, addEventListener() {} };
 globalThis.CustomEvent = class { constructor(t) { this.type = t; } };
 import { giveEggs, hatchEgg, plantSeed, finishBuilding, registerFeature, addWarmth } from '../js/eggs.js';
-import { TUNE, bankOpen, bankLevel, balance, shown, settle, deposit, withdraw, canDeposit, nextGain, dailyGain, registerBank, bankOf } from '../js/bank.js';
+import { TUNE, bankOpen, bankLevel, balance, shown, shownTenth, settle, deposit, withdraw, canDeposit, nextGain, dailyGain, registerBank, bankOf } from '../js/bank.js';
 import { mergeProfile } from '../js/merge.js';
 import { levelOf } from '../js/progress.js';
 
@@ -160,7 +160,12 @@ const day = (n) => NOW + n * DAY;
   assert.equal(n.bal, 100); assert.equal(n.mult, 1.01); assert.equal(n.gain, 1); assert.equal(n.capped, false); assert.equal(n.after, 101);
   // 50 あずけた ときも 式が 正しい（「50 × 1.01 = 50」に ならない）
   const p2 = openKid(); deposit(p2, 50, NOW, SUBS);
-  assert.equal(nextGain(p2, SUBS).after, 50.5);
+  assert.equal(nextGain(p2, SUBS).after, 50.5); assert.equal(nextGain(p2, SUBS).exact, true);
+  // 1日たつと 50.5 と 見える（切りすてて 50 の ままに しない）。つぎの 式は 50.5 × 1.01 ≒ 51
+  settle(p2, day(1), SUBS);
+  assert.equal(shownTenth(p2), 50.5); assert.equal(shown(p2), 50);
+  const n2 = nextGain(p2, SUBS);
+  assert.equal(n2.bal, 50.5); assert.equal(n2.after, 51); assert.equal(n2.exact, false);
 }
 // 10. 2台の 端末で 同じ日に 開いても 利子が 二重に ならない / あずけた 分が 消えない・ふえない
 {
