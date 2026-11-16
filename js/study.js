@@ -117,7 +117,7 @@ export function openStudy(p, deps, ctx = {}) {
             h('span', { class: 'st-dot' }),
             h('span', { class: 'st-main' },
               h('b', {}, '中2美術｜シンボルマーク'),
-              h('small', {}, '教科書 P94〜95・地域の特徴から当てる17問')),
+              h('small', {}, '教科書 P94〜95・地域のマーク優先40問')),
             h('span', { class: 'st-go' }, 'やる'))) : null,
       plain.length ? h('p', { class: 'st-sec' }, plain.some((t) => !done[t.id]) ? 'きょうの分' : 'きょうの分 クリア！') : null,
       plain.length ? h('div', { class: 'st-list' }, plain.map(partRow)) : null,

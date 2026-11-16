@@ -9,7 +9,7 @@ export const TEXT_BOOKS = [
   {
     id: 'art-symbols-p94-95',
     subject: /美術/,
-    title: '中2美術 P94〜95 シンボルマーク・ピクトグラム（厳選17問）',
+    title: '中2美術 P94〜95 シンボルマーク・ピクトグラム（厳選40問）',
     match: /シンボル|ピクトグラム|マーク|デザイン|[PpＰｐ]\s*9[45]|(?:^|[^\d])94\s*[〜～~\-]\s*95(?!\d)/,
     qa: ART_SYMBOL_QA,
   },
