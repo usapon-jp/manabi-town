@@ -60,7 +60,7 @@ function goals(p) {
       { id: 'min120', ic: 'timer', label: '今週 120分 勉強', tab: 'timer', now: weekMin, goal: 120, reward: 50 },
       adult
         ? { id: 'routine5', ic: 'trophy', label: 'ルーティーンを 5日 やる', tab: 'quest', now: routineDays, goal: 5, reward: 30 }
-        : { id: 'quest5', ic: 'trophy', label: 'まいにちクエストを 5回', tab: 'quest', now: quests, goal: 5, reward: 30 },
+        : { id: 'quest5', ic: 'trophy', label: 'きょうのクエストを 5回', tab: 'quest', now: quests, goal: 5, reward: 30 },
     ],
   };
 }

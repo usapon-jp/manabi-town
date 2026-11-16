@@ -9,10 +9,10 @@ const STEPS = [
   { text: '進み具合と テスト・宿題は ここ', target: () => tab('todo'), tap: 'target', open: 'todo' },
   { text: 'ここから 入れるよ。毎日の分に わけるよ', target: () => document.querySelector('.goal-add > summary'), tap: 'any', pad: 6 },
   { text: 'ホームに もどろう', target: () => tab('home'), tap: 'target', open: 'home' },
-  { text: 'きょう やることは ここ。数字は のこりの 数', target: () => document.querySelector('.quest-mark') || document.querySelector('.go'), tap: 'any', pad: 6 },
+  { text: 'きょうやることは ここ。数字は のこりの 数', target: () => document.querySelector('.quest-mark') || document.querySelector('.go'), tap: 'any', pad: 6 },
   { text: '毎日つづけて れんぞく日数を のばそう', target: () => streakAndPoints(), tap: 'any', pad: 6 },
   { text: 'ポイントを もっと ほしいときは ここ', target: () => document.querySelector('.bonus-btn'), tap: 'any', pad: 6 },
-  { text: 'やることの ページ。自分で 書いて ふやせるよ', target: () => tab('quest'), tap: 'target', open: 'quest' },
+  { text: 'きょうやることの ぜんぶ。自分で 書いて ふやせるよ', target: () => tab('quest'), tap: 'target', open: 'quest' },
   { text: 'タイマーで 勉強を計ろう', target: () => tab('timer'), tap: 'target', open: 'timer' },
 ];
 

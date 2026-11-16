@@ -7,7 +7,7 @@ import { currentIslandId, START } from './islands.js';
 import { registerBuildingCard } from './eggui.js';
 import { subjectWord } from './eggs.js';
 import {
-  registerBank, bankOpen, bankLevel, shown, nextGain, canDeposit, canWithdraw, deposit, withdraw, settle,
+  registerBank, bankOpen, bankLevel, shown, shownTenth, nextGain, canDeposit, canWithdraw, deposit, withdraw, settle,
 } from './bank.js';
 
 const LV_KEY = 'manabi-bank-lv';
@@ -66,10 +66,10 @@ function openBank(p, d, t) {
     const dMax = canDeposit(p, subs);
     const wMax = canWithdraw(p);
     lvTag.textContent = `Lv${lv.lv}`;
-    bal.textContent = `${shown(p)} pt`;
+    bal.textContent = `${shownTenth(p)} pt`;
     if (ng.bal <= 0) words.textContent = 'あずけると まいにち ふえるよ';
     else if (ng.capped) words.textContent = `あした ${ng.gain}pt ふえるよ（いまは ここまで）`;
-    else words.textContent = `あした ${ng.bal} × ${ng.mult} = ${ng.after}`;
+    else words.textContent = `あした ${ng.bal} × ${ng.mult} ${ng.exact ? '=' : '≒'} ${ng.after}`;
     next.textContent = lv.max ? '銀行は いちばん そだったよ！' : `${subjectWord(p, t.subject)}を べんきょうすると そだつよ`;
     meterI.style.width = `${Math.max(6, Math.round(lv.k * 100))}%`;
     depRow.replaceChildren(
@@ -85,7 +85,8 @@ function openBank(p, d, t) {
   const doDeposit = (n) => { if (deposit(p, n, Date.now(), subs)) { msg.textContent = `${n}pt あずけたよ`; refresh(); deps.render?.(); } };
   const doWithdraw = (n) => { if (withdraw(p, n, Date.now(), subs)) { msg.textContent = `${n}pt おろしたよ`; refresh(); deps.render?.(); } };
 
-  msg.textContent = gained >= 1 ? `きょうは +${Math.floor(gained)}pt ふえたよ！` : '';
+  const plus = Math.floor(gained * 10 + 1e-9) / 10;   // ちょきんと おなじ 小数 1けた
+  msg.textContent = plus > 0 ? `きょうは +${plus}pt ふえたよ！` : '';
   t.showCard(
     h('div', { class: 'egg-head' }, t.eggIcon(d.color), h('b', {}, `${d.chara.name}の ${d.building.name}`), lvTag),
     h('div', { class: 'bank-book' }, h('small', {}, 'ちょきん'), bal, words),

@@ -285,7 +285,7 @@ function startPlant(p, d) {
   world.focus(null);
   world.eggs.beginPlant(d.id);
   const ok = h('button', { class: 'btn primary', type: 'button' }, 'ここに うえる');
-  const msg = h('p', {}, 'あるいて 場所を きめてね');
+  const msg = h('p', {}, 'みどりの まるへ あるこう');
   const end = () => { clearInterval(tick); world.eggs.endPlant(); plantBar?.remove(); plantBar = null; refreshView(); };
   ok.addEventListener('click', () => {
     const at = world.eggs.plantSpot();
@@ -306,7 +306,7 @@ function startPlant(p, d) {
     if (!deps.isHome() || currentProfile() !== p) { if (!document.querySelector('.egg-born')) end(); return; }
     const good = !!world.eggs.plantSpot();
     ok.disabled = !good;
-    msg.textContent = good ? 'ここで いい？' : 'ひろい 場所まで あるいてね';   // わっかが あかい ときは せまい
+    msg.textContent = good ? 'ここで いい？' : 'みどりの まるへ あるこう';   // うえられる 場所に みどりの まる（eggs3d.js）
   }, 200);
 }
 

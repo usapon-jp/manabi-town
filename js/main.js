@@ -914,8 +914,9 @@ function renderQuest(p) {
   ));
 
   // 「やること」タブ: きょうの リスト（書いて たせる）→ きょうのクエスト → やりなおし → 小テスト → しつもん
+  // 見出しは ホームの「きょうやること」ボタンと おなじ 名前（同じ ものに 2つの 名前を つけない）
   fill(panel,
-    h('h2', {}, 'やること'),
+    h('h2', {}, 'きょうやること'),
     studyButton(p, moreDeps),
     cardsButton(p),
     todayCard(p),

@@ -40,7 +40,7 @@ const ART = {
   '学校': frame(`
     <rect x="22" y="104" width="156" height="64" rx="8" fill="#fff3dc"/><rect x="14" y="96" width="172" height="14" rx="4" fill="#d9644f"/>
     <rect x="80" y="48" width="40" height="52" rx="4" fill="#fff3dc"/><path d="M74 54 L100 22 L126 54 Z" fill="#d9644f"/>
-    <circle cx="100" cy="72" r="13" fill="#fff" stroke="#93603e" stroke-width="3"/><path d="M100 72 V63 M100 72 L107 75" stroke="#4a4a4a" stroke-width="2.5" stroke-linecap="round"/>
+    <circle cx="100" cy="72" r="13" fill="#9fd3e8" stroke="#93603e" stroke-width="3"/><path d="M93 78 Q93 64 100 64 Q107 64 107 78 Z" fill="#ffd45c"/><circle cx="100" cy="80" r="2.5" fill="#d9a83a"/>
     <path d="M90 168 V138 a10 10 0 0 1 20 0 V168 Z" fill="#c78a4f"/>
     ${[40, 62, 128, 150].map((x) => `<rect x="${x}" y="120" width="18" height="24" rx="4" fill="#bfe6ff" stroke="#fff" stroke-width="3"/>`).join('')}
     <rect x="168" y="62" width="3" height="40" fill="#8a8a8a"/><rect x="171" y="62" width="18" height="11" fill="#ff7a7a"/>`),

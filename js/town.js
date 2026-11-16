@@ -222,15 +222,15 @@ function school() {
   spire.rotation.y = Math.PI / 4;
   g.add(spire);
   g.add(ball(0.13, 0xffd45c, 0, 7.35, 0.3));
-  const face = new THREE.Mesh(new THREE.CircleGeometry(0.5, 28), mat(0xffffff));
+  // 塔の まるまどに 金の かね（時計に すると Lv10 の 時計塔と まちがえて タップしてしまうので、時計は 時計塔だけ）
+  const face = new THREE.Mesh(new THREE.CircleGeometry(0.5, 28), mat(0x9fd3e8));
   face.position.set(0, 4.6, 1.06);
   g.add(face);
   const rim = new THREE.Mesh(new THREE.TorusGeometry(0.5, 0.05, 8, 28), mat(wood));
   rim.position.set(0, 4.6, 1.07);
   g.add(rim);
-  const hand1 = box(0.05, 0.34, 0.02, 0x4a4a4a, 0, 4.7, 1.09);
-  const hand2 = box(0.04, 0.24, 0.02, 0x4a4a4a, 0, 4.6, 1.09);
-  g.add(hand1, hand2);
+  const bell = cone(0.24, 0.38, 0xffd45c, 0, 4.58, 1.12, 16);
+  g.add(bell, ball(0.07, 0xffd45c, 0, 4.82, 1.12), ball(0.06, 0xd9a83a, 0, 4.36, 1.12));
   g.add(box(0.5, 0.55, 0.06, 0xffe6a6, 0, 5.1, 1.06)).children.at(-1).material = glass;
   // げんかん
   const door = new THREE.Group();

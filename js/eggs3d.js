@@ -488,6 +488,39 @@ export function createEggs({ scene, town, cut }) {
   ghost.rotation.x = -Math.PI / 2;
   ghost.visible = false;
   root.add(ghost);
+  // うえられる 場所の しるし（みどりに ひかる まる）。草に かくれないよう 草の 上に うかべる。女の子の まわりを ときどき しらべる
+  const SPOT_MAX = 36;
+  const spotPos = new Float32Array(SPOT_MAX * 3);
+  const spotGeo = new THREE.BufferGeometry();
+  spotGeo.setAttribute('position', new THREE.BufferAttribute(spotPos, 3));
+  spotGeo.setDrawRange(0, 0);
+  const spotTex = (() => {   // しろい ふちの みどりの まる（ほたると まちがえない くっきりした 形）
+    const c = document.createElement('canvas'); c.width = c.height = 64;
+    const x = c.getContext('2d');
+    x.fillStyle = '#ffffff'; x.beginPath(); x.arc(32, 32, 26, 0, TAU); x.fill();
+    x.fillStyle = '#6cc04a'; x.beginPath(); x.arc(32, 32, 20, 0, TAU); x.fill();
+    x.fillStyle = '#ffffff'; x.beginPath(); x.ellipse(26, 30, 5, 8, -0.6, 0, TAU); x.ellipse(38, 30, 5, 8, 0.6, 0, TAU); x.fill();   // ふたばの しるし
+    const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; return t;
+  })();
+  const spots = new THREE.Points(spotGeo, new THREE.PointsMaterial({ map: spotTex, size: 0.7, sizeAttenuation: true, transparent: true, opacity: 0.95, depthWrite: false, fog: false, alphaTest: 0.05 }));
+  spots.renderOrder = 7; spots.visible = false; spots.frustumCulled = false;
+  root.add(spots);
+  let spotT = 0;
+  function findSpots(cx, cz) {
+    const step = 1.6; const R = 10; const list = [];
+    const gx = Math.round(cx / step) * step; const gz = Math.round(cz / step) * step;   // 歩いても しるしが ぴょこぴょこ うごかない ように 格子に
+    for (let x = gx - R; x <= gx + R; x += step) {
+      for (let z = gz - R; z <= gz + R; z += step) {
+        const d = Math.hypot(x - cx, z - cz);
+        if (d <= R && validSpot(x, z)) list.push({ x, z, d });
+      }
+    }
+    list.sort((a, b) => a.d - b.d);
+    const n = Math.min(SPOT_MAX, list.length);
+    for (let i = 0; i < n; i++) { const q = list[i]; spotPos.set([q.x, heightAt(q.x, q.z) + 0.55, q.z], i * 3); }
+    spotGeo.setDrawRange(0, n);
+    spotGeo.attributes.position.needsUpdate = true;
+  }
   const plant = { id: null, at: null, sprout: null };
   function validSpot(x, z) {
     if (Math.hypot(x, z) > PLANT.max) return false;
@@ -595,11 +628,13 @@ export function createEggs({ scene, town, cut }) {
       it.sprout.set('seed', 0);
       it.sprout.group.visible = true;
       plant.sprout = it.sprout.group;
+      spots.visible = true; spotT = 0;
     },
     endPlant() {
       if (plant.sprout) { const it = byId.get(plant.id); plant.sprout.visible = it?.view?.phase === 'seed'; if (it) apply(it); }
       plant.id = null; plant.at = null; plant.sprout = null;
       ghost.visible = false;
+      spots.visible = false; spotGeo.setDrawRange(0, 0);
     },
     plantSpot: () => plant.at,
     get planting() { return !!plant.id; },
@@ -624,6 +659,9 @@ export function createEggs({ scene, town, cut }) {
         plant.sprout.position.set(x, heightAt(x, z) + 0.05 + Math.sin(t * 4) * 0.04, z);
         plant.sprout.rotation.y = dir;
         plant.at = ok ? { x, z, rot: Math.round(away0(dir, camPos, x, z) * 100) / 100 } : null;
+        spotT -= dt;
+        if (spotT <= 0) { spotT = 0.5; findSpots(actorPos.x, actorPos.z); }
+        spots.material.size = 0.7 + Math.sin(t * 3) * 0.06;
       }
       // じょうろ
       if (canAnim.t >= 0) {
