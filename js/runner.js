@@ -69,6 +69,7 @@ export function runQuestions(title, questions, onFinish, opts = {}) {
       feedback.textContent = ok
         ? `ピヨ先生「${PRAISE[index % PRAISE.length]}」`
         : `ピヨ先生「おしい！こたえは ${answerText} だよ」`;
+      if (q.explain) feedback.append(' ' + q.explain);
       next.hidden = false;
       next.scrollIntoView?.({ block: 'nearest' });
     }

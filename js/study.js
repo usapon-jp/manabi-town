@@ -11,6 +11,7 @@ import { subjectNames, subjectColor } from './subjects.js';
 import { rangeProgress, isKanjiRange, poolKey } from './coach.js';
 import { startRangeRun } from './more.js';
 import { practice } from './challenge.js';
+import { startArtSymbolQuiz } from './art-quiz.js';
 
 const SOON = 14;   // テストの 何日前から「テスト勉強」に するか（自動の 範囲問題と 同じ）
 const EXTRA = ['音楽', '美術', '保健体育', '技術家庭'];
@@ -88,7 +89,9 @@ export function openStudy(p, deps, ctx = {}) {
     const todo = part && !done[part.id];
     const pc = r ? Math.round((r.done / r.total) * 100) : 0;
     const all = r && r.done >= r.total;
-    const run = todo ? () => hooks.start(p, part) : r ? () => startRangeRun(p, r.x, deps) : () => practice(p, deps, canonPractice(row.name), !!ctx.fromTimer);
+    const run = todo ? () => hooks.start(p, part) : r ? () => startRangeRun(p, r.x, deps)
+      : p.grade === 'j2' && row.name === '美術' ? () => startArtSymbolQuiz(p, deps)
+        : () => practice(p, deps, canonPractice(row.name), !!ctx.fromTimer);
     const status = [part ? (done[part.id] ? 'きょうの分 クリア' : `きょうの分 ${part.n}もん`) : '',
       r ? (all ? `ぜんぶ といた！ ○ ${r.ok} / ${r.total}` : `といた ${r.done} / ${r.total}`) : (part ? '' : 'テストに あわせて 5もん')].filter(Boolean).join('・');
     return h('button', { type: 'button', class: `st-row subj ${firstTodo === row ? 'ready' : ''} ${part && !todo && all ? 'done' : ''}`, style: `--c:${subjectColor(p, row.color)}`, onclick: go(run) },
@@ -107,6 +110,15 @@ export function openStudy(p, deps, ctx = {}) {
       h('h3', { class: 'st-title' }, icon('book-open'), ` ${label}`),
       subjRows.length ? h('p', { class: 'st-sec' }, 'テストの 教科（近い じゅん）') : null,
       subjRows.length ? h('div', { class: 'st-list' }, subjRows.map(subjRow)) : null,
+      p.grade === 'j2' && !subjRows.some((r) => /美術/.test(r.name))
+        ? h('div', { class: 'st-list' },
+          h('button', { type: 'button', class: 'st-row subj', style: '--c:#9c86c4',
+            onclick: go(() => startArtSymbolQuiz(p, deps)) },
+            h('span', { class: 'st-dot' }),
+            h('span', { class: 'st-main' },
+              h('b', {}, '中2美術｜シンボルマーク'),
+              h('small', {}, '教科書 P94〜95・地域の特徴から当てる17問')),
+            h('span', { class: 'st-go' }, 'やる'))) : null,
       plain.length ? h('p', { class: 'st-sec' }, plain.some((t) => !done[t.id]) ? 'きょうの分' : 'きょうの分 クリア！') : null,
       plain.length ? h('div', { class: 'st-list' }, plain.map(partRow)) : null,
       others.length ? h('p', { class: 'st-sec' }, subjRows.length ? 'ほかの 教科' : '教科を えらんで 5もん') : null,
