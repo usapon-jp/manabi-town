@@ -9,6 +9,7 @@ import {
   hatchEgg, plantSeed, finishBuilding, unlockLines, builtLines, hatchedCount, subjectWord,
 } from './eggs.js';
 import { bankLevel } from './bank.js';
+import { addTayori } from './tayori.js';
 
 const css = (hex) => `#${hex.toString(16).padStart(6, '0')}`;
 const subjOf = (p) => subjectNames(p);
@@ -50,6 +51,7 @@ export function refreshView() {
 // ---- ピヨ先生の ひとこと（上に 小さく。1文 20字ほど） ----
 let sayEl = null; let sayTimer = 0; const sayQueue = [];
 export function piyoSay(text, sec = 3.2) {
+  addTayori(text);   // あとから「ピヨだより」で 読める
   sayQueue.push({ text, sec });
   if (!sayEl || sayEl.hidden) nextSay();
 }

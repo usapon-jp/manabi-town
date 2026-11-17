@@ -204,7 +204,7 @@ export function openGame(p, game, deps) {
   const close = () => sheet.remove();
   const sheet = h('div', { class: 'sheet bz-sheet', onclick: (e) => { if (e.target === sheet) close(); } },
     h('div', { class: 'sheet-card bz-game-card' },
-      h('button', { class: 'bz-back', type: 'button', onclick: () => { close(); openBrain(p, deps); } }, icon('chevron-left'), h('span', {}, 'もどる')),
+      h('button', { class: 'bz-back', type: 'button', onclick: () => { close(); if (!deps.inline) openBrain(p, deps); } }, icon('chevron-left'), h('span', {}, 'もどる')),
       h('p', { class: 'sheet-title' }, game.title),
       h('p', { class: 'sheet-sub' }, floorLabel(g.floor)),
       h('div', { class: 'bz-tower', html: towerSvg(g.floor) }),
@@ -264,4 +264,24 @@ export function brainCard(p, deps) {
         h('p', {}, '1分で 何もん とける？ 塔を のぼろう'))),
     floors ? h('p', { class: 'more-meter' }, `のぼった 階 ぜんぶで ${floors}階`) : null,
     h('button', { class: 'btn', onclick: () => openBrain(p, deps) }, icon('puzzle'), ' あそぶ'));
+}
+
+// 「勉強」タブの「ミニゲーム」: 塔を その場に ならべて、1タップで はじめる（2026-11-17）
+export function brainPanel(p, deps) {
+  const d = dayRec(p);
+  const inline = { ...deps, inline: true };
+  return h('div', { class: 'card quest bz-panel' },
+    h('h3', {}, icon('puzzle'), ' ひらめき パズル'),
+    h('p', { class: 'hint' }, '1分で 何もん とける？ 塔を のぼろう'),
+    h('div', { class: 'bz-grid' }, GAMES.map((gm) => {
+      const r = gameRec(p, gm.id);
+      return h('button', { type: 'button', class: 'bz-game', onclick: () => openGame(p, gm, inline) },
+        h('span', { class: 'bz-thumb', html: gm.thumb }),
+        h('b', {}, gm.title),
+        h('small', {}, gm.sub),
+        h('span', { class: 'bz-stage', style: `--tc:${towerColor(towerOf(r.floor))}` }, floorLabel(r.floor)));
+    })),
+    h('p', { class: 'more-meter' }, d.pts >= BRAIN_DAY_CAP
+      ? 'きょうの ポイントは いっぱい（力だめしは つづけられるよ）'
+      : `ほし1こ ${BRAIN_PER_STAR}ポイント（1日 ${BRAIN_DAY_CAP}ポイントまで${d.pts ? `・あと ${BRAIN_DAY_CAP - d.pts}` : ''}）`));
 }

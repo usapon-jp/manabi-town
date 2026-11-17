@@ -10,16 +10,30 @@ import { logFeedback } from './feedback.js';
 import { icon } from './icons.js';
 import { createVoice, canListen, canSpeak } from './voice.js';
 import { GUIDE, SHOW, QUICK } from './townguide.js';
+import { openTayori, unreadTayori } from './tayori.js';
 
 const SEEN_KEY = 'manabi-townask-seen';
 export const townAskSeen = () => { try { return !!localStorage.getItem(SEEN_KEY); } catch { return true; } };
 
-// ホームの 左上に おく ボタン
+// ホームの 左（きょうやること の 下）に おく ピヨの ボタン = ピヨだより（js/tayori.js）。中に「まちの つかいかたを きく」
+// 「こまったら きいてね」は さいしょだけ: 1回 ひらくか、3日 見せたら もう 出さない（2026-11-17 フミオさん）
+const TIP_KEY = 'manabi-townask-tipdays';
+function tipStillShown() {
+  try {
+    const day = new Date().toDateString();
+    const days = JSON.parse(localStorage.getItem(TIP_KEY) || '[]');
+    const list = Array.isArray(days) ? days : [];
+    if (!list.includes(day)) { if (list.length >= 3) return false; list.push(day); localStorage.setItem(TIP_KEY, JSON.stringify(list)); }
+    return true;
+  } catch { return false; }
+}
 export function townAskButton(p) {
-  const seen = townAskSeen();
-  return h('button', { class: 'town-ask-btn', type: 'button', 'aria-label': 'まちの つかいかたを ピヨに しつもん', onclick: () => openTownAsk(p) },
+  const seen = townAskSeen() || !tipStillShown();
+  const n = unreadTayori(p);
+  return h('button', { class: 'town-ask-btn', type: 'button', 'aria-label': n ? `ピヨだより（あたらしい ${n}こ）` : 'ピヨだより',
+    onclick: () => { try { localStorage.setItem(SEEN_KEY, '1'); } catch { /* 無視 */ } document.querySelector('.town-ask-tip')?.remove(); openTayori(p, { ask: () => openTownAsk(p) }); } },
     h('img', { src: 'assets/icons/icon-192.png', alt: '', width: 40, height: 40 }),
-    h('i', { class: 'town-ask-q', 'aria-hidden': 'true' }, '?'),
+    h('i', { class: 'tayori-n', 'aria-hidden': 'true', hidden: !n }, n > 9 ? '9+' : String(n)),
     seen ? null : h('span', { class: 'town-ask-tip' }, 'こまったら きいてね'));
 }
 
