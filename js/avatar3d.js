@@ -78,6 +78,10 @@ function glbBody(body, part, look, onBones) {
     model.traverse((o) => { if (o.isBone) byName[normName(o.name)] = o; });
     const bones = {};
     for (const [key, name] of Object.entries(part.bones || {})) if (byName[normName(name)]) bones[key] = byName[normName(name)];
+    if (part.boneSpace === 'model') {
+      model.updateMatrixWorld(true);
+      for (const key of Object.keys(bones)) bones[key] = modelSpaceJoint(bones[key], model, part.rest?.[key]);
+    }
     onBones(bones);
     apply(current);
   }, undefined, () => {
@@ -85,6 +89,25 @@ function glbBody(body, part, look, onBones) {
     fell = placeholderBody(body, part, current, onBones);
   });
   return { setLook: apply };
+}
+
+// 骨の 回転を モデルの 向き（前 +z・左 +x・上 +y）で あつかう 関節。world.js は rotation（Euler）を
+// 書きかえるだけなので、書きかわったら 骨の quaternion に なおす。rest は ふだんの すがたの 回転
+function modelSpaceJoint(bone, model, rest = {}) {
+  const q0 = bone.quaternion.clone();
+  const w = bone.getWorldQuaternion(new THREE.Quaternion())
+    .premultiply(model.getWorldQuaternion(new THREE.Quaternion()).invert());
+  const wInv = w.clone().invert();
+  const rotation = new THREE.Euler(rest.x || 0, rest.y || 0, rest.z || 0);
+  const d = new THREE.Quaternion();
+  const t = new THREE.Quaternion();
+  const apply = () => {
+    d.setFromEuler(rotation);
+    bone.quaternion.copy(q0).multiply(t.copy(wInv).multiply(d).multiply(w));
+  };
+  rotation._onChange(apply);
+  apply();
+  return { rotation, bone };
 }
 
 // ---- 仮の すがた（コードで作る） --------------------------------------------------------

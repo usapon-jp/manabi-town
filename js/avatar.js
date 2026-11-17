@@ -33,14 +33,30 @@ const MIXAMO = {
   rightLeg: 'mixamorig:RightUpLeg',
 };
 
+// きゃらくるで作った 4頭身の 女の子（VRM の骨の名前）。walk の 関節は モデルの 前・横・上の 向きで まわす
+const VRM = {
+  hips: 'J_Bip_C_Hips',
+  spine: 'J_Bip_C_Spine',
+  head: 'J_Bip_C_Head',
+  leftArm: 'J_Bip_L_UpperArm',
+  rightArm: 'J_Bip_R_UpperArm',
+  leftLeg: 'J_Bip_L_UpperLeg',
+  rightLeg: 'J_Bip_R_UpperLeg',
+};
+
 export const PARTS = [
   {
     id: 'body:girl', kind: 'body', label: '女の子',
-    model: null,          // 3Dモデルが できたら 'assets/models/girl.glb'
+    // きゃらくる「カーディガン版」（VRM から 軽くした GLB。髪・服は モデルに 入っている）
+    model: 'assets/models/girl.glb',
     placeholder: 'girl',  // model が ないとき・読めないときの 仮の すがた（avatar3d.js の BODIES）
     height: 1.15,         // 箱庭の中での 背の高さ（ピヨちゃんは 1.0）
     speed: 1.6,
-    bones: MIXAMO,
+    bones: VRM,
+    // 骨の 向きが ばらばらな モデル（VRM）は、関節を モデルの 前(+z)・左(+x)・上(+y) の 向きで まわす。
+    // rest は ふだんの すがた（T ポーズの うでを 下ろす）。仮の すがたと 同じ 向き・同じ 歩き方の 数字で 動く
+    boneSpace: 'model',
+    rest: { leftArm: { z: -1.3 }, rightArm: { z: 1.3 } },
     // 歩き方: 足を前後・うでを前後（armSwing）・うでを 横へ（armFlap）・上下（bob）
     walk: { legSwing: 0.7, armSwing: 0.55, armFlap: 0.08, bob: 0.05 },
   },
