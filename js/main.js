@@ -39,7 +39,7 @@ import { openPlanChat, startCheck, summary as planSummary, PLAN_BONUS, dailyBase
 import { startNotify, notifyCard } from './notify.js';
 import { isAdult, todayRoutines, checkRoutine, renderRoutineTab, consultCta, openConsult, ROUTINE_POINTS } from './adult.js';
 import { subjectNames, subjectColor, openSubjectEditor } from './subjects.js';
-import { setStudyHooks, studyButton } from './study.js';
+import { setStudyHooks, studyButton, openStudy, testSoon } from './study.js';
 import { cardsButton } from './cards.js';
 import { openStoryList } from './story.js';
 import { brainCard, brainPanel } from './brain.js';
@@ -936,12 +936,18 @@ function renderQuest(p) {
   fill(panel,
     h('h2', {}, '勉強'),
     seg,
-    next
-      ? h('button', { class: 'go quest-go', onclick: () => (next.kind === 'daily' ? startDaily(p) : openStep(p, next, toggle)) },
-        h('span', { class: 'go-label' }, 'つぎは これ！', h('span', { class: 'chip' }, next.tag)),
-        h('span', { class: 'go-task' }, next.label),
-        h('span', { class: 'go-arrow', 'aria-hidden': 'true' }, icon('chevron-right')))
-      : h('div', { class: 'go done quest-go' }, h('span', { class: 'go-task' }, icon('party-popper'), ' きょうの分は ぜんぶ できた！')),
+    // おまかせ（つぎの 1つが すぐ はじまる）／じぶんで えらぶ（教科を えらぶ）の 2つ（2026-11-17 フミオさん）
+    h('div', { class: 'pick-two' },
+      next
+        ? h('button', { class: 'go quest-go', onclick: () => (next.kind === 'daily' ? startDaily(p) : openStep(p, next, toggle)) },
+          h('span', { class: 'go-label' }, icon('sparkles'), ' おまかせ'),
+          h('span', { class: 'go-task' }, next.label),
+          h('span', { class: 'go-arrow', 'aria-hidden': 'true' }, icon('chevron-right')))
+        : h('div', { class: 'go done quest-go' }, h('span', { class: 'go-task' }, icon('party-popper'), ' きょうの分は ぜんぶ できた！')),
+      isAdult(p) ? null : h('button', { class: 'self-pick', onclick: () => openStudy(p, moreDeps) },
+        h('span', { class: 'go-label' }, icon('pointer'), ' じぶんで えらぶ'),
+        h('span', { class: 'go-task' }, '教科を えらぶ'),
+        testSoon(p)[0] ? h('small', {}, `${testSoon(p)[0].name}テスト ${daysLabel(testSoon(p)[0].days)}`) : null)),
     h('div', { class: 'card quest' },
       h('h3', {}, icon('repeat'), ' まいにちの クエスト', allDaily ? h('small', { class: 'today-left' }, ' ぜんぶ クリア！') : null),
       partRows(p),
@@ -951,7 +957,6 @@ function renderQuest(p) {
       // もう 5もん（ポイント）: きょうの クエストが おわるまでは たたむ（つぎに やる ことを 1つに）
       isAdult(p) ? null : h('details', { class: 'more-drills', open: allDaily || null }, h('summary', {}, 'もっと やる（漢字・英単語・計算 5もん）'), drillRows(p, bonusDeps)),
       isAdult(p) ? null : h('button', { class: 'link', onclick: () => openPlanChat(p, bonusDeps) }, '中身を かえる（ピヨ先生と 作戦会議）')),
-    studyButton(p, moreDeps),
     missCard(p),
     todayCard(p),
     pointsCard(p, bonusDeps),

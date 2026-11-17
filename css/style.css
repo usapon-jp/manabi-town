@@ -2392,7 +2392,17 @@ body.cam-mode .ctrl-pad { z-index: 6; bottom: env(safe-area-inset-bottom); }
 .quest-seg button .ic { width: 22px; height: 22px; }
 .quest-seg button.on { background: #fffdf5; box-shadow: var(--soft); color: var(--accent-dark); }
 @media (min-width: 420px) { .quest-seg button { flex-direction: row; gap: 6px; font-size: 15px; } }
-.panel .go.quest-go { margin: 0 auto 14px; }
+.panel .pick-two { display: grid; grid-template-columns: 3fr 2fr; gap: 10px; margin: 0 auto 14px; }
+.pick-two .go.quest-go { margin: 0; }
+.self-pick { display: grid; align-content: center; gap: 2px; text-align: left; font: inherit; color: var(--navy); cursor: pointer; padding: 12px 14px;
+  background: #fffbe8; border: 2px solid #f0c95a; border-bottom-width: 5px; border-radius: 18px; }
+.self-pick:active { transform: translateY(2px); border-bottom-width: 3px; }
+.self-pick .go-label { color: #8a6516; }
+.self-pick .go-task { font-size: 17px; }
+.self-pick small { font-size: 12px; color: var(--ink-soft); }
+.self-pick .ic, .pick-two .go-label .ic { width: 16px; height: 16px; vertical-align: -2px; }
+@media (max-width: 480px) { .panel .pick-two { grid-template-columns: 1fr 1fr; } .pick-two .go-label, .self-pick .go-label { white-space: nowrap; } }
+@media (max-width: 340px) { .panel .pick-two { grid-template-columns: 1fr; } }
 /* 広い 画面でも カードと おなじ はばで まんなかに（.panel > * の auto を 上書きしない） */
 .panel > .quest-seg, .panel > .study-go { margin-left: auto; margin-right: auto; }
 .more-drills { margin-top: 12px; padding-top: 10px; border-top: 1.5px dashed var(--line); }
