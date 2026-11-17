@@ -62,6 +62,18 @@ export async function removePhoto(p, id) {
   p.photos = metas(p).filter((m) => m.id !== id);
   save();
 }
+// スマホの 写真に ほぞん（シェアが つかえれば それ。なければ ダウンロード）。町の カメラ・アルバムで つかう
+export async function keepOnDevice(m, dataUrl) {
+  const name = `machi-${String(m.takenAt || '').slice(0, 10) || 'photo'}.jpg`;
+  try {
+    const blob = await (await fetch(dataUrl)).blob();
+    const file = new File([blob], name, { type: 'image/jpeg' });
+    if (navigator.canShare?.({ files: [file] })) { await navigator.share({ files: [file] }); return; }
+    const a = h('a', { href: URL.createObjectURL(blob), download: name });
+    document.body.append(a); a.click(); a.remove();
+    toast('ほぞんしたよ');
+  } catch (e) { if (e?.name !== 'AbortError') toast('ほぞん できなかった'); }
+}
 export function movePhoto(p, id, folder) { const m = metas(p).find((x) => x.id === id); if (m) { m.folder = folder; save(); } }
 
 function folders(p) {

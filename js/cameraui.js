@@ -4,13 +4,16 @@ import { h, toast } from './ui.js';
 import { icon } from './icons.js';
 import { currentProfile, onChange } from './store.js';
 import { currentIslandId } from './islands.js';
-import { addPhoto, removePhoto, getData } from './photos.js';
+import { addPhoto, removePhoto, getData, keepOnDevice } from './photos.js';
 import { registerFeature } from './eggs.js';
 import { skyNow } from './daytime.js';
 import { piyoSay } from './eggui.js';
 import {
-  FEATURE, FOLDER, MAX_SHOTS, SUBJECT, ZOOMS, POSES, SUNSET, cameraLevel, can, nextHint, shots, isFull, shotLabel,
+  FEATURE, FOLDER, MAX_SHOTS, SUBJECT, ZOOMS, POSES, SUNSET, cameraLevel, can, nextHint, shots, shotLabel,
 } from './camera.js';
+// アルバム（社会）が あれば、とった写真は アルバムに たまる（とっておける 数も アルバムの ページぶん）
+import { albumLevel, shotCap, isFull, isMax } from './album.js';
+import { openAlbum } from './albumui.js';
 
 registerFeature(FEATURE, { label: 'カメラ', line: 'カメラが つかえるよ（右の「しゃしん」）' });
 
@@ -57,6 +60,7 @@ export function refresh() {
 }
 
 // ---- 撮影の 画面 ----
+export function openCamera() { if (!busy()) open(); }
 function open() {
   const p = currentProfile();
   if (!p || !world?.camera || ui) return;
@@ -68,7 +72,8 @@ function open() {
   if (fab) fab.hidden = true;
 
   const shutter = h('button', { class: 'cam-shutter', type: 'button', 'aria-label': 'ぱしゃり', onclick: () => shoot() }, h('i'));
-  const count = h('button', { class: 'cam-roll', type: 'button', 'aria-label': 'とった写真', onclick: () => openRoll(p, { onClose: paint }) });
+  const showShots = (who) => (albumLevel(who) ? openAlbum(who, { onClose: paint, inCamera: true }) : openRoll(who, { onClose: paint }));
+  const count = h('button', { class: 'cam-roll', type: 'button', 'aria-label': 'とった写真', onclick: () => showShots(currentProfile() || p) });
   const tools = h('div', { class: 'cam-tools' });
   const hint = h('p', { class: 'cam-hint' });
   const tint = h('div', { class: 'cam-tint', hidden: true });
@@ -81,8 +86,9 @@ function open() {
   function paint() {
     const mine = currentProfile() || p;
     const n = shots(mine).length;
-    count.replaceChildren(icon('image'), h('b', {}, `${n}/${MAX_SHOTS}`));
-    count.classList.toggle('full', n >= MAX_SHOTS);
+    const cap = shotCap(mine);
+    count.replaceChildren(icon(albumLevel(mine) ? 'book-open' : 'image'), h('b', {}, `${n}/${cap}`));
+    count.classList.toggle('full', n >= cap);
     const list = [];
     if (can(mine, 'zoom')) list.push(tool('zoom', 'plus', `ズーム ×${ZOOMS[st.zoom]}`, st.zoom > 0, () => {
       st.zoom = (st.zoom + 1) % ZOOMS.length; world.camera.setZoom(ZOOMS[st.zoom]); paint();
@@ -108,15 +114,19 @@ function open() {
 
   async function shoot() {
     const now = currentProfile() || p;
-    if (isFull(now)) { toast(`${MAX_SHOTS}まいで いっぱい。いらない写真を けしてね`); openRoll(now, { onClose: paint }); return; }
+    if (isFull(now)) {
+      const cap = shotCap(now);
+      toast(albumLevel(now) && !isMax(now) ? `${cap}まいで いっぱい。社会で ページが ふえるよ` : `${cap}まいで いっぱい。いらない写真を けしてね`);
+      showShots(now); return;
+    }
     flash.classList.remove('go'); void flash.offsetWidth; flash.classList.add('go');
     try {
       const cv = world.camera.snap();
       if (st.filter) tintCanvas(cv);
       const dataUrl = cv.toDataURL('image/jpeg', 0.82);
       await addPhoto(now, { dataUrl, folder: FOLDER, subject: SUBJECT, label: shotLabel(new Date(), skyNow.phase), extra: { kind: 'town', isle: currentIslandId(now), sky: skyNow.phase } });
-      const n = shots(now).length;
-      toast(n >= MAX_SHOTS ? `とれた！ ${n}/${MAX_SHOTS}（いっぱい）` : `とれた！ ${n}/${MAX_SHOTS}`);
+      const n = shots(now).length; const cap = shotCap(now);
+      toast(n >= cap ? `とれた！ ${n}/${cap}（いっぱい）` : albumLevel(now) ? `アルバムに はったよ ${n}/${cap}` : `とれた！ ${n}/${cap}`);
     } catch (_) { toast('うまく とれなかった。もういちど'); }
     paint();
   }
@@ -162,7 +172,7 @@ export function openRoll(p, { onClose } = {}) {
         data ? h('img', { src: data, alt: m.name || '町の写真' }) : h('p', { class: 'empty' }, 'この端末には まだ とどいていないよ'),
         h('p', { class: 'sheet-sub' }, m.name || ''),
         h('div', { class: 'cam-big-actions' },
-          data ? h('button', { class: 'btn primary', type: 'button', onclick: () => keep(m, data) }, 'ほぞんする') : null,
+          data ? h('button', { class: 'btn primary', type: 'button', onclick: () => keepOnDevice(m, data) }, 'ほぞんする') : null,
           h('button', { class: 'btn', type: 'button', onclick: async () => {
             if (!confirm('この写真を けす？')) return;
             await removePhoto(p, m.id); big.remove(); draw();
@@ -178,17 +188,3 @@ export function openRoll(p, { onClose } = {}) {
   document.body.append(sheet);
   draw();
 }
-
-// スマホの 写真に ほぞん（シェアが つかえれば それ。なければ ダウンロード）
-async function keep(m, dataUrl) {
-  const name = `machi-${String(m.takenAt || '').slice(0, 10) || 'photo'}.jpg`;
-  try {
-    const blob = await (await fetch(dataUrl)).blob();
-    const file = new File([blob], name, { type: 'image/jpeg' });
-    if (navigator.canShare?.({ files: [file] })) { await navigator.share({ files: [file] }); return; }
-    const a = h('a', { href: URL.createObjectURL(blob), download: name });
-    document.body.append(a); a.click(); a.remove();
-    toast('ほぞんしたよ');
-  } catch (e) { if (e?.name !== 'AbortError') toast('ほぞん できなかった'); }
-}
-

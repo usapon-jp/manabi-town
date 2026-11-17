@@ -19,7 +19,8 @@ import { openAvatarNaming } from './avatarname.js';
 import { hasAvatarName, avatarName } from './avatar.js';
 import { initEggs, offerEggs, piyoSay } from './eggui.js';
 import { initBank } from './bankui.js';
-import { initCamera } from './cameraui.js';
+import { initCamera, openCamera } from './cameraui.js';
+import { initAlbum } from './albumui.js';
 import { hasEggs, addWarmth, questSubjectFor, TUNE as EGG_TUNE } from './eggs.js';
 import { currentIslandId, START as START_ISLE } from './islands.js';
 import { bindControls } from './controls.js';
@@ -108,6 +109,8 @@ requestAnimationFrame(() => setTimeout(() => {
         initEggs(world, { isHome: () => tab === 'home' && !covered(), study: (p, subject) => studySubject(p, subject) });
         // カメラ: 理科の たまごが 孵化したら ひらく（町の 右がわの ボタン）
         initCamera(world, { isHome: () => tab === 'home' && !covered() });
+        // アルバム: 社会の たまごが 孵化したら ひらく（カメラの ボタンの 下）。カメラの 写真が ページに たまる
+        initAlbum({ isHome: () => tab === 'home' && !covered(), openCamera });
         initBank({ isHome: () => tab === 'home' && !covered(), say: (t) => piyoSay(t), render: () => render() });
         // 時計塔（Lv10）を タップすると 町の 時計を まわせる（空が 朝・昼・夕方・夜に かわる）
         world.onTapClock = () => { if (!document.querySelector('.tour, .avatar-name, .clock-dial, .wlevel, .egg-intro, .egg-born, .egg-plant')) import('./clockdial.js').then((m) => m.openClockDial(world)).catch(() => {}); };
