@@ -1528,25 +1528,23 @@ input.pin { font-size: 26px; letter-spacing: 0.5em; text-align: center; }
 
 /* テスト前の 見直しワーク（3日前から 目立たせる） */
 .card.quest.due-soon { border: 2px solid #e2a35d; background: #fff6e9; }
-/* まちの ピヨに しつもん: ホームの「きょうやること」の となり（たたんだ ときだけ） */
+/* まちの ピヨに しつもん: ホームの 左はし、「きょうやること」の 下（たたんだ ときだけ）。まんなかは 町が 見えるように あけておく */
 .town-ask-btn { display: none; }
 .bubble.mini .town-ask-btn {
-  position: relative; display: inline-grid; place-items: center; vertical-align: top; margin-left: 10px;
-  width: 52px; height: 52px; padding: 0; border-radius: 50%; cursor: pointer;
+  position: relative; display: grid; place-items: center; margin: 10px 0 0;
+  width: 46px; height: 46px; padding: 0; border-radius: 50%; cursor: pointer;
   background: rgba(255, 250, 240, 0.94); border: 2px solid #fff; box-shadow: var(--soft);
   -webkit-tap-highlight-color: transparent; transition: transform 0.12s;
 }
 .bubble.mini .town-ask-btn:active { transform: scale(0.92); }
-.town-ask-btn img { width: 40px; height: 40px; border-radius: 50%; animation: piyo-hop 3.2s ease-in-out infinite; }
+.town-ask-btn img { width: 36px; height: 36px; border-radius: 50%; animation: piyo-hop 3.2s ease-in-out infinite; }
 .town-ask-q { position: absolute; right: -4px; top: -4px; width: 22px; height: 22px; border-radius: 50%; display: grid; place-items: center;
   background: var(--accent); color: #fff; border: 2px solid #fff; font-style: normal; font-size: 13px; font-weight: 800; line-height: 1; }
-.town-ask-tip { position: absolute; left: -6px; top: calc(100% + 8px); white-space: nowrap; pointer-events: none;
+.town-ask-tip { position: absolute; left: calc(100% + 10px); top: 50%; margin-top: -15px; white-space: nowrap; pointer-events: none;
   padding: 5px 10px; border-radius: 12px; background: #fffdf5; color: var(--navy); border: 1.5px solid var(--line); box-shadow: var(--soft);
   font-size: 13px; font-weight: 700; animation: tip-bob 2.4s ease-in-out infinite; }
-.town-ask-tip::before { content: ''; position: absolute; left: 26px; top: -6px; margin-left: -5px; border: 5px solid transparent; border-top: 0; border-bottom-color: var(--line); }
+.town-ask-tip::before { content: ''; position: absolute; left: -6px; top: 50%; margin-top: -5px; border: 5px solid transparent; border-left: 0; border-right-color: var(--line); }
 @keyframes tip-bob { 50% { transform: translateY(3px); } }
-/* せまい画面（iPhone SE など）は「つくる」と かさならないよう、きょうやることの 下に */
-@media (max-width: 379px) { .bubble.mini .town-ask-btn { display: grid; margin: 10px 0 0; } }
 .chat.town .town-quick { margin-bottom: 8px; flex-wrap: wrap; overflow: visible; }
 .chat.town .town-quick.used { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; }
 .town-here { white-space: nowrap; }
@@ -2217,7 +2215,7 @@ body:has(.egg-plant) #bubble, body:has(.egg-plant) .wedit { visibility: hidden; 
 }
 .cam-fab .ic { width: 24px; height: 24px; }
 .cam-fab:active { transform: scale(0.94); }
-.cam-fab[hidden], body.cam-mode .cam-fab, body.running .cam-fab, body:has(.timer-run) .cam-fab, body.touring .cam-fab { display: none; }
+.cam-fab[hidden], body:has(.wedit .fab.on) .cam-fab, body.cam-mode .cam-fab, body.running .cam-fab, body:has(.timer-run) .cam-fab, body.touring .cam-fab { display: none; }
 body.cam-mode .hud, body.cam-mode .bubble, body.cam-mode .tabs, body.cam-mode .menu-btn, body.cam-mode .ask-fab, body.cam-mode .egg-say, body.cam-mode .diary-fab, body.cam-mode .wedit, body.cam-mode .wuse, body.cam-mode .wedit-msg, body.cam-mode .wlevel { display: none !important; }
 .cam-ui { position: fixed; inset: 0; z-index: 5; pointer-events: none; }
 .cam-ui > * { pointer-events: auto; }
@@ -2249,6 +2247,93 @@ body.cam-mode .ctrl-pad { z-index: 6; bottom: env(safe-area-inset-bottom); }
 .cam-big-card img { width: 100%; max-height: 56dvh; object-fit: contain; border-radius: 12px; background: #f4ead6; }
 .cam-big-actions { display: flex; gap: 8px; justify-content: center; margin: 8px 0; }
 .cam-big { z-index: 60; }
+
+/* ---- 町の アルバム（js/albumui.js）: 紙の ページに 写真を 4まい ---- */
+.al-sheet { align-items: center; }
+.al-book { max-width: 520px; max-height: calc(100dvh - 24px); overflow-y: auto; gap: 10px; padding: 16px 16px 12px; background: #fbf3e1; }
+.al-top { display: flex; align-items: center; justify-content: space-between; gap: 8px; width: 100%; }
+.al-top .sheet-title { font-size: 19px; }
+.al-count { margin: 0; padding: 3px 10px; border-radius: 12px; background: #fffdf5; border: 1.5px solid var(--line); font-size: 13px; font-weight: 800; white-space: nowrap; }
+.al-count.full { background: #ffe9a8; border-color: #e6c36a; }
+.al-page {
+  width: 100%; display: grid; grid-template-columns: repeat(2, 1fr); gap: 14px 12px; padding: 16px 14px 14px; border-radius: 6px 16px 16px 6px;
+  background: repeating-linear-gradient(#fffdf6 0 27px, #f3e8cf 27px 28px); border: 1.5px solid #e4d3b0;
+  box-shadow: inset 10px 0 12px -10px rgba(94, 69, 39, 0.35), 0 2px 0 #e9dcc0, 0 4px 0 #f5ecd8; touch-action: pan-y;
+}
+.al-page.flip-r { animation: al-flip-r 0.32s ease-out; }
+.al-page.flip-l { animation: al-flip-l 0.32s ease-out; }
+@keyframes al-flip-r { 0% { opacity: 0.2; transform: translateX(24px) rotateY(-8deg); } 100% { opacity: 1; transform: none; } }
+@keyframes al-flip-l { 0% { opacity: 0.2; transform: translateX(-24px) rotateY(8deg); } 100% { opacity: 1; transform: none; } }
+.al-slot {
+  position: relative; display: grid; gap: 4px; padding: 7px 7px 6px; border: 0; border-radius: 4px; background: #fff;
+  box-shadow: 0 2px 6px rgba(94, 69, 39, 0.18); font: inherit; color: var(--navy); cursor: pointer; transform: rotate(-1.6deg); min-width: 0;
+}
+.al-slot:nth-child(2) { transform: rotate(1.4deg); }
+.al-slot:nth-child(3) { transform: rotate(1deg); }
+.al-slot:nth-child(4) { transform: rotate(-1.2deg); }
+.al-slot:active { transform: scale(0.97); }
+.al-img { display: block; width: 100%; aspect-ratio: 4 / 5; object-fit: cover; border-radius: 2px; background: #efe6d2; }
+.al-slot .ph-wait { height: auto; border-radius: 2px; }
+.al-tape { position: absolute; left: 50%; top: -7px; width: 44px; height: 15px; transform: translateX(-50%) rotate(-3deg); background: rgba(246, 214, 140, 0.75); box-shadow: 0 1px 2px rgba(94, 69, 39, 0.12); }
+.al-slot:nth-child(even) .al-tape { background: rgba(170, 205, 222, 0.75); transform: translateX(-50%) rotate(4deg); }
+.al-cap { display: grid; gap: 0; line-height: 1.3; min-width: 0; }
+.al-cap b { font-size: 12px; font-weight: 800; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.al-cap small { font-size: 10px; opacity: 0.65; font-weight: 700; }
+.al-cap .al-note { color: #b0573a; }
+.al-stamp {
+  position: absolute; right: -6px; top: -6px; width: 34px; height: 34px; border-radius: 50%; display: grid; place-items: center;
+  background: #fffdf5; color: var(--c); border: 2.5px solid var(--c); box-shadow: 0 2px 5px rgba(94, 69, 39, 0.22); transform: rotate(12deg);
+}
+.al-stamp .ic { width: 19px; height: 19px; }
+.al-stamp[hidden] { display: none; }
+.al-stamp.big { right: 10px; top: 10px; width: 52px; height: 52px; }
+.al-stamp.big .ic { width: 28px; height: 28px; }
+.al-slot.empty { background: transparent; box-shadow: none; border: 2px dashed #dccaa4; aspect-ratio: 4 / 5.9; cursor: default; display: grid; place-items: center; }
+.al-slot.empty.next { cursor: pointer; border-color: #9fb57f; background: rgba(159, 181, 127, 0.1); }
+.al-shoot { display: grid; justify-items: center; gap: 4px; color: var(--accent-dark); font-size: 13px; }
+.al-shoot .ic { width: 28px; height: 28px; }
+.al-slot.empty.next .al-shoot { animation: al-bob 1.8s ease-in-out infinite; }
+@keyframes al-bob { 50% { transform: translateY(-3px); } }
+.al-nav { display: flex; align-items: center; justify-content: center; gap: 18px; }
+.al-turn { width: 48px; height: 48px; border-radius: 50%; border: 2px solid var(--line); background: #fffdf5; color: var(--navy); display: grid; place-items: center; box-shadow: var(--soft); cursor: pointer; }
+.al-turn:disabled { opacity: 0.35; box-shadow: none; }
+.al-turn .ic { width: 24px; height: 24px; }
+.al-num { min-width: 64px; font-size: 15px; font-weight: 800; }
+.al-lock { display: flex; align-items: center; justify-content: center; gap: 6px; margin: 0; font-size: 13px; font-weight: 700; color: var(--accent-dark); }
+.al-lock[hidden] { display: none; }
+.al-lock .ic { width: 16px; height: 16px; flex: none; }
+.al-big-card { max-height: calc(100dvh - 32px - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px)); overflow-y: auto; }
+.al-big-pic { position: relative; width: 100%; }
+.al-big-pic img { display: block; width: 100%; max-height: 42dvh; object-fit: contain; border-radius: 12px; background: #f4ead6; }
+.al-big-cap { margin: 0; display: grid; line-height: 1.4; }
+.al-big-cap b { font-size: 16px; }
+.al-big-cap small { font-size: 12px; opacity: 0.7; font-weight: 700; }
+.al-stamps { display: flex; flex-wrap: wrap; justify-content: center; gap: 6px; }
+.al-st { width: 42px; height: 42px; border-radius: 50%; border: 2px solid var(--line); background: #fffdf5; color: var(--c); display: grid; place-items: center; cursor: pointer; }
+.al-st .ic { width: 22px; height: 22px; }
+.al-st.on { border-color: var(--c); background: color-mix(in srgb, var(--c) 18%, #fffdf5); transform: scale(1.08); }
+.al-note-row { display: flex; align-items: center; gap: 8px; width: 100%; padding: 0 4px; }
+.al-note-row .ic { width: 18px; height: 18px; flex: none; }
+.al-note-in { flex: 1; min-width: 0; font: inherit; font-size: 16px; padding: 10px 12px; border-radius: 14px; border: 1.5px solid var(--line); background: #fff; color: var(--navy); }
+/* よこむき（スマホ・iPad）: 4まいを 1れつに。画面の 高さに おさめる */
+@media (orientation: landscape) and (max-height: 1000px) {
+  .al-sheet { padding-top: 10px; padding-bottom: 10px; }
+  .al-book { max-width: 760px; gap: 6px; padding: 10px 14px 8px; }
+  .al-page { grid-template-columns: repeat(4, 1fr); padding: 12px; }
+  .al-img { aspect-ratio: 1 / 1; }
+  .al-slot.empty { aspect-ratio: 1 / 1.3; }
+  .al-stamps { flex-wrap: nowrap; gap: 6px; }
+  .al-st { width: 40px; height: 40px; }
+  .al-big-card { max-width: 720px; grid-template-columns: 1.3fr 1fr; align-items: center; }
+  .al-big-pic { grid-row: span 5; }
+  .al-big-pic img { max-height: 78dvh; }
+}
+/* よこむきの スマホ: しゃしん（アルバム）は 小さく「つくる」の 下へ（右はしの 草かり・ジャンプの ボタンに かさねない） */
+@media (orientation: landscape) and (max-height: 540px) {
+  .cam-fab { top: calc(env(safe-area-inset-top, 0px) + 134px); right: calc(98px + env(safe-area-inset-right, 0px)); padding: 3px 6px; min-width: 58px; border-radius: 14px; font-size: 10px; }
+  .cam-fab .ic { width: 18px; height: 18px; }
+}
+@media (prefers-reduced-motion: reduce) { .al-page.flip-r, .al-page.flip-l, .al-slot.empty.next .al-shoot { animation: none; } }
 
 /* ---- まちがえた問題の チェック表（js/cards.js）: 画面ではプレビュー、印刷ではA4 片面 ---- */
 .ms-layer { position: fixed; inset: 0; z-index: 9999; background: var(--bg, #fffaf0); overflow: auto; padding: 12px; }
