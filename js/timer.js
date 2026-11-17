@@ -88,6 +88,7 @@ export function sessions(p) { if (!p.sessions) p.sessions = []; return p.session
 // - えらべる 日は きょう と きのう だけ。1回 90分まで、あとから たすのは 1日 90分まで（タイマー1回ぶん）
 // - 1分 = 1ポイント（やりきりの +10 は なし）。記録・グラフ・「30分」「今週120分」の お題・たまごには タイマーと 同じに 数える
 // - 記録に manual: true を つけて「あとから」と 出す（おうちの人が 見て わかるように）
+// - 🔥の 勉強した日は えらんだ 日に つける（きのうの 分なら きのう。2026-11-17 自動レビューの 指摘）
 export const MANUAL_DAY_MAX = 90;
 const dayIso = (now, back = 0) => { const d = new Date(now); return toISO(new Date(d.getFullYear(), d.getMonth(), d.getDate() - back)); };
 export const manualOn = (p, iso) => sessions(p).filter((s) => s.manual && s.date === iso).reduce((n, s) => n + s.minutes, 0);
@@ -106,6 +107,8 @@ export function addManual(p, { date, minutes, kind, subject }, now = Date.now())
   const end = date === dayIso(now) ? now : new Date(y, mo - 1, d, 20).getTime();
   const s = { id: uid(), date, start: end - m * 60000, minutes: m, kind: kind || 'self', subject, points: m, manual: true };
   sessions(p).push(s);
+  // 勉強した日（🔥 れんぞく日数）は えらんだ 日に つける（きのうの 分で きょうを つけない）
+  p.activeDays = { ...(p.activeDays || {}), [date]: true };
   return s;
 }
 export function minutesOn(p, iso) { return sessions(p).filter((s) => s.date === iso).reduce((n, s) => n + s.minutes, 0); }
@@ -272,7 +275,7 @@ export function openAddTime(p, deps, onDone) {
           if (!s) return;
           if (st.kind !== pf.kind || st.subject !== pf.subject) Object.assign(pf, { kind: st.kind, subject: st.subject });
           const when = s.date === dayIso(Date.now()) ? '' : 'きのう ';
-          deps.gain(p, s.points, `あとから たした ${when}${s.minutes}分（${s.subject}）`);
+          deps.gain(p, s.points, `あとから たした ${when}${s.minutes}分（${s.subject}）`, { study: false });
           save();
           close();
           onDone?.();
