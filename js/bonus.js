@@ -115,7 +115,13 @@ export function pointsCard(p, deps) {
     due ? row({ ic: 'notebook-pen', label: `やりなおし ${Math.min(due, REVIEW_MAX)}もん`, sub: `まちがえた問題を もういちど・1もん${REVIEW_PER_CORRECT}`,
       reward: Math.min(due, REVIEW_MAX) * REVIEW_PER_CORRECT + REVIEW_CLEAR, onTap: () => startReview(p, deps) }) : null,
     ...openWeak(p).slice(0, 3).map((w) => row({ ic: 'target', label: `にがて: ${w.topic}`, sub: `${w.subject}・ピヨ先生の 3もん`,
-      reward: 3 * WEAK_PER_CORRECT + WEAK_CLEAR, onTap: () => startWeak(p, w, deps) })),
+      reward: 3 * WEAK_PER_CORRECT + WEAK_CLEAR, onTap: (e) => {
+        // 問題づくり（AI）の あいだは もう一度 おしても 何もしない（ボタンに「作り中…」）
+        const li = e.currentTarget;
+        if (li.dataset.busy) return;
+        li.dataset.busy = '1';
+        Promise.resolve(startWeak(p, w, deps, li.querySelector('.q-go'))).finally(() => { delete li.dataset.busy; });
+      } })),
     isAdult(p) ? null : row({ ic: 'trophy', label: '実力テストの点を 入れる', sub: 'テストが かえってきたら', reward: '30〜100',
       onTap: () => openTestEntry(p, deps) }),
   ].filter(Boolean);

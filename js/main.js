@@ -300,7 +300,7 @@ function render() {
     renderHome(p);
     if (mineFocus) { mineFocus = false; bubble.querySelector('.mine-input')?.focus(); }
   } else if (tab === 'todo') renderTodo(p);   // タブ名は「進み具合」: 進みを見る → 目標・テスト・宿題を 決める
-  else if (tab === 'quest') (isAdult(p) ? renderRoutineTab(panel, p, { gain, addPoints, deleteButton, render: () => render(), todayCard: () => [todayCard(p), brainCard(p, bonusDeps)] }) : renderQuest(p));   // タブ名は「やること」: きょうの内容を 見る・足す
+  else if (tab === 'quest') (isAdult(p) ? renderRoutineTab(panel, p, { gain, addPoints, deleteButton, render: () => render(), todayCard: () => [todayCard(p), pointsCard(p, bonusDeps), brainCard(p, bonusDeps)] }) : renderQuest(p));   // タブ名は「やること」: きょうの内容を 見る・足す
   else if (tab === 'timer') renderTimerTab(panel, p, timerDeps);
   else renderSettings(p);
   if (!home && mineFocus) { mineFocus = false; panel.querySelector('.mine-input')?.focus(); }
