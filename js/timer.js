@@ -6,6 +6,8 @@
 // - 20分ごとに休けいの声かけ（時間は 20・40・60分）。1回は最大90分
 // - ひよこマーク: しつもん・れんしゅう もんだい・20分クイズチャレンジ（js/challenge.js）
 // - 記録はあとから種類・教科・時間を直せる（ポイントも合わせて直る）
+// - タイマーを うっかり 消したときは「あとから たす」で きょう・きのうの 分を 入れられる（1日 90分まで。2026-11-17）
+// - 「やめる」は 確かめの 画面を 出す。いちばん 目立つのは「◯分 記録して おわる」（けすのは 小さく）
 import { h, toast } from './ui.js';
 import { today, toISO, save, currentProfile } from './store.js';
 import { subjectNames, subjectColor, editSubjectsLink } from './subjects.js';
@@ -81,6 +83,31 @@ export function restoreTimers(profiles) {
 export function matchRuns(profiles) { (profiles || []).forEach(keepRun); }
 
 export function sessions(p) { if (!p.sessions) p.sessions = []; return p.sessions; }
+
+// ---- あとから たす（タイマーを うっかり 消したとき） --------------------------------
+// - えらべる 日は きょう と きのう だけ。1回 90分まで、あとから たすのは 1日 90分まで（タイマー1回ぶん）
+// - 1分 = 1ポイント（やりきりの +10 は なし）。記録・グラフ・「30分」「今週120分」の お題・たまごには タイマーと 同じに 数える
+// - 記録に manual: true を つけて「あとから」と 出す（おうちの人が 見て わかるように）
+export const MANUAL_DAY_MAX = 90;
+const dayIso = (now, back = 0) => { const d = new Date(now); return toISO(new Date(d.getFullYear(), d.getMonth(), d.getDate() - back)); };
+export const manualOn = (p, iso) => sessions(p).filter((s) => s.manual && s.date === iso).reduce((n, s) => n + s.minutes, 0);
+// その日に あと 何分 たせるか（1回の 上限 90分も ふくめて）
+export function manualRoom(p, iso, now = Date.now()) {
+  if (iso !== dayIso(now) && iso !== dayIso(now, 1)) return 0;
+  return Math.max(0, Math.min(MAX_MIN, MANUAL_DAY_MAX - manualOn(p, iso)));
+}
+// 記録を 1つ ふやして かえす（ポイントは よぶ がわで）。たせないときは null
+export function addManual(p, { date, minutes, kind, subject }, now = Date.now()) {
+  const room = manualRoom(p, date, now);
+  const m = Math.min(room, Math.round(Number(minutes) || 0));
+  if (m < 1 || !subject) return null;
+  // おわりの 時刻: きょうは いま、きのうは 夜の 8時（たまごの 数え方で つかう）
+  const [y, mo, d] = date.split('-').map(Number);
+  const end = date === dayIso(now) ? now : new Date(y, mo - 1, d, 20).getTime();
+  const s = { id: uid(), date, start: end - m * 60000, minutes: m, kind: kind || 'self', subject, points: m, manual: true };
+  sessions(p).push(s);
+  return s;
+}
 export function minutesOn(p, iso) { return sessions(p).filter((s) => s.date === iso).reduce((n, s) => n + s.minutes, 0); }
 
 // ---- タイマーのタブ ------------------------------------------------------------
@@ -157,18 +184,25 @@ function weekChart(p, wk) {
 }
 
 function todayList(p, deps, rerender) {
-  const list = sessions(p).filter((s) => s.date === today());
-  if (!list.length) return h('p', { class: 'empty' }, 'きょうの記録は まだないよ');
+  const t = today();
+  const yday = dayIso(Date.now(), 1);
+  // きょうの 記録と、きのう あとから たした 記録（まちがえたら なおせるように）
+  const list = sessions(p).filter((s) => s.date === t || (s.manual && s.date === yday));
   return h('div', { class: 'card records' },
-    h('p', { class: 'label' }, 'きょうの記録'),
-    h('ul', {}, list.slice().reverse().map((s) => recordRow(p, s, deps, rerender))));
+    h('div', { class: 'label-row' },
+      h('p', { class: 'label' }, 'きょうの記録'),
+      h('button', { class: 'link add-time', onclick: () => openAddTime(p, deps, deps.render) }, icon('plus'), ' あとから たす')),
+    list.length
+      ? h('ul', {}, list.slice().sort((a, b) => (b.start || 0) - (a.start || 0)).map((s) => recordRow(p, s, deps, rerender)))
+      : h('p', { class: 'empty' }, 'きょうの記録は まだないよ'));
 }
 
 function recordRow(p, s, deps, rerender) {
   const k = kindOf(s.kind);
   const row = h('li', { class: 'rec' },
     h('i', { class: 'dot', style: `background:${subjectColor(p, s.subject)}` }),
-    h('span', { class: 'what' }, icon(k.ic), ` ${k.label}・${s.subject}`),
+    h('span', { class: 'what' }, icon(k.ic), ` ${k.label}・${s.subject}`,
+      s.manual ? h('small', { class: 'rec-tag' }, s.date === today() ? 'あとから' : 'きのう・あとから') : null),
     h('b', {}, `${s.minutes}分`),
     h('button', { class: 'link', onclick: () => row.replaceWith(editRow(p, s, deps, rerender)) }, 'なおす'));
   return row;
@@ -179,12 +213,14 @@ function editRow(p, s, deps, rerender) {
   kind.value = s.kind;
   const subject = h('select', {}, [...new Set([...subjectNames(p), s.subject])].map((x) => h('option', { value: x }, x)));
   subject.value = s.subject;
-  const minutes = h('input', { type: 'number', min: 1, max: MAX_MIN, value: s.minutes, inputmode: 'numeric' });
+  // あとから たした 記録は、なおしても 1日 90分の わくを こえない
+  const max = s.manual ? Math.max(1, Math.min(MAX_MIN, s.minutes + MANUAL_DAY_MAX - manualOn(p, s.date))) : MAX_MIN;
+  const minutes = h('input', { type: 'number', min: 1, max, value: s.minutes, inputmode: 'numeric' });
   return h('li', { class: 'rec edit' },
     h('div', { class: 'row' }, kind, subject, h('label', { class: 'min-in' }, minutes, '分')),
     h('div', { class: 'row' },
       h('button', { class: 'btn small primary', onclick: () => {
-        const m = Math.max(1, Math.min(MAX_MIN, Math.round(Number(minutes.value) || s.minutes)));
+        const m = Math.max(1, Math.min(max, Math.round(Number(minutes.value) || s.minutes)));
         const delta = m - s.minutes;
         Object.assign(s, { kind: kind.value, subject: subject.value, minutes: m, points: s.points + delta });
         if (delta) deps.addPoints(p, delta, 'タイマーの記録をなおした');
@@ -198,6 +234,55 @@ function editRow(p, s, deps, rerender) {
         save();
         rerender();
       })));
+}
+
+// ---- あとから たす シート ----------------------------------------------------------
+
+const QUICK_MIN = [10, 20, 30, 60];
+export function openAddTime(p, deps, onDone) {
+  document.querySelector('.sheet.add-time-sheet')?.remove();
+  const pf = prefs(p);
+  const now = Date.now();
+  const days = [['きょう', dayIso(now)], ['きのう', dayIso(now, 1)]];
+  const st = { date: days[0][1], kind: pf.kind, subject: pf.subject, minutes: 20 };
+  const close = () => sheet.remove();
+  const card = h('div', { class: 'sheet-card add-time-card' });
+  const sheet = h('div', { class: 'sheet add-time-sheet', onclick: (e) => { if (e.target === sheet) close(); } }, card);
+  const chip = (on, label, onclick, color) => h('button', { type: 'button', class: `pick ${on ? 'on' : ''}`, onclick, style: color ? `--c:${color}` : null }, label);
+  const set = (k, v) => { st[k] = v; paint(); };
+
+  function paint() {
+    const room = manualRoom(p, st.date);
+    st.minutes = Math.max(room ? 1 : 0, Math.min(room, st.minutes));
+    const step = (d) => set('minutes', Math.max(1, Math.min(room, (d > 0 ? Math.floor(st.minutes / 5) * 5 : Math.ceil(st.minutes / 5) * 5) + d)));
+    card.replaceChildren(...[
+      h('p', { class: 'sheet-title' }, icon('clock-3'), ' 勉強した 時間を たす'),
+      h('p', { class: 'sheet-sub' }, 'タイマーが きえちゃった ときに'),
+      h('div', { class: 'seg' }, days.map(([label, iso]) => h('button', { type: 'button', class: st.date === iso ? 'on' : '', onclick: () => set('date', iso) }, label))),
+      h('div', { class: 'picks kinds' }, kindsFor(p).map((k) => chip(st.kind === k.id, [icon(k.ic), ` ${k.label}`], () => set('kind', k.id)))),
+      h('div', { class: 'picks subjects' }, subjectNames(p).map((x) => chip(st.subject === x, x, () => set('subject', x), subjectColor(p, x)))),
+      room ? [
+        h('div', { class: 'min-step' },
+          h('button', { type: 'button', class: 'round', 'aria-label': '5分 へらす', disabled: st.minutes <= 1 || null, onclick: () => step(-5) }, icon('minus')),
+          h('p', { class: 'big-num' }, `${st.minutes}`, h('small', {}, '分')),
+          h('button', { type: 'button', class: 'round', 'aria-label': '5分 ふやす', disabled: st.minutes >= room || null, onclick: () => step(5) }, icon('plus'))),
+        h('div', { class: 'picks times' }, QUICK_MIN.filter((m) => m <= room).map((m) => chip(st.minutes === m, `${m}分`, () => set('minutes', m)))),
+        h('button', { type: 'button', class: 'btn primary', onclick: () => {
+          const s = addManual(p, st);
+          if (!s) return;
+          if (st.kind !== pf.kind || st.subject !== pf.subject) Object.assign(pf, { kind: st.kind, subject: st.subject });
+          const when = s.date === dayIso(Date.now()) ? '' : 'きのう ';
+          deps.gain(p, s.points, `あとから たした ${when}${s.minutes}分（${s.subject}）`);
+          save();
+          close();
+          onDone?.();
+        } }, icon('plus'), ` たす `, icon('sprout'), `+${st.minutes}`),
+        h('small', { class: 'add-time-note' }, `あとから たせるのは 1日 ${MANUAL_DAY_MAX}分まで`),
+      ] : h('p', { class: 'empty' }, `${days.find(([, iso]) => iso === st.date)[0]}の ぶんは もう たせないよ（1日 ${MANUAL_DAY_MAX}分まで）`),
+      h('button', { type: 'button', class: 'link', onclick: close }, 'やめる')].flat().filter(Boolean));
+  }
+  paint();
+  document.body.append(sheet);
 }
 
 // ---- BGM をえらぶ --------------------------------------------------------------
@@ -430,7 +515,7 @@ function openRunning(p, deps) {
       studyButton(p, deps, { fromTimer: true, small: true }),
       h('div', { class: 'pts' }, h('span', {}, icon('sprout'), ' かくとくポイント'), ptsText, h('div', { class: 'pts-bar' }, ptsBar)),
       h('div', { class: 'timer-btns' }, pauseBtn, doneBtn),
-      h('button', { class: 'link reset' }, 'やめる（記録しない）')));
+      h('button', { class: 'link reset' }, 'とちゅうで やめる')));
   document.body.append(layer);
 
   // 右上の♪：曲やプレイリストをえらびなおせる（えらぶと そのまま ながれる）
@@ -442,12 +527,24 @@ function openRunning(p, deps) {
     save(); keepRun(p); tick();
   });
   doneBtn.addEventListener('click', () => finish(false));
-  let armed = false;
-  const reset = layer.querySelector('.reset');
-  reset.addEventListener('click', () => {
-    if (!armed) { armed = true; reset.textContent = 'ほんとうに やめる？（もう1回おす）'; setTimeout(() => { armed = false; reset.textContent = 'やめる（記録しない）'; }, 3000); return; }
-    ended = true; stopAll(); p.timer = null; save(); keepRun(p); deps.render();
-  });
+  // やめる: すぐ けさずに 確かめる。いちばん 大きいのは「記録して おわる」（うっかり 消さないように。2026-11-17）
+  layer.querySelector('.reset').addEventListener('click', askStop);
+  function askStop() {
+    document.querySelector('.timer-stop')?.remove();
+    const cap = t.mode === 'focus' && t.planned ? Math.min(MAX_MIN, t.planned) : MAX_MIN;
+    const min = Math.min(cap, Math.floor(elapsedSec() / 60));
+    const off = () => card.remove();
+    const card = h('div', { class: 'sheet timer-stop', onclick: (e) => { if (e.target === card) off(); } }, h('div', { class: 'sheet-card' },
+      h('p', { class: 'sheet-title' }, 'タイマーを とめる？'),
+      h('p', { class: 'sheet-sub' }, min >= 1 ? `いま ${min}分 がんばったよ` : 'まだ 1分に なっていないよ'),
+      min >= 1 ? h('button', { class: 'btn primary', onclick: () => { off(); finish(false); } }, icon('check'), ` ${min}分 記録して おわる`) : null,
+      h('button', { class: 'btn', onclick: off }, icon('play'), ' つづける'),
+      h('button', { class: 'link danger', onclick: () => {
+        off(); ended = true; stopAll(); p.timer = null; save(); keepRun(p); deps.render();
+        toast(min >= 1 ? '記録しないで やめたよ（「あとから たす」で 入れられるよ）' : 'やめたよ', 3200);
+      } }, '記録しないで けす')));
+    document.body.append(card);
+  }
 
   let timerId = 0;
   let breakShown = false;
@@ -495,7 +592,7 @@ function openRunning(p, deps) {
 
   // うらに回る・とじるときにも 写しを書く
   const keepNow = () => { if (!ended) keepRun(p); };
-  function stopAll() { clearInterval(timerId); document.removeEventListener('visibilitychange', tick); window.removeEventListener('pagehide', keepNow); bgm.stop(); document.querySelectorAll('.bgm-live').forEach((el) => el.remove()); layer.remove(); }
+  function stopAll() { document.querySelector('.timer-stop')?.remove(); clearInterval(timerId); document.removeEventListener('visibilitychange', tick); window.removeEventListener('pagehide', keepNow); bgm.stop(); document.querySelectorAll('.bgm-live').forEach((el) => el.remove()); layer.remove(); }
 
   function finish(completed) {
     if (ended) return;
