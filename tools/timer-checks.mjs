@@ -53,4 +53,12 @@ const kid = () => ({ id: 'k1', grade: 'e4', sessions: [] });
   assert.equal(addManual(p, { date: T, minutes: 10 }, NOW), null);
   assert.equal(addManual(p, { date: T, minutes: 12.6, subject: '英語' }, NOW).minutes, 13);
 }
+// 5. 🔥の 勉強した日は えらんだ 日に つく（きのうの 分で きょうは つかない）
+{
+  const p = kid();
+  addManual(p, { date: Y, minutes: 20, subject: '国語' }, NOW);
+  assert.deepEqual(p.activeDays, { [Y]: true });
+  addManual(p, { date: T, minutes: 20, subject: '国語' }, NOW);
+  assert.deepEqual(p.activeDays, { [Y]: true, [T]: true });
+}
 console.log('timer-checks: ok');
