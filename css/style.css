@@ -2374,3 +2374,31 @@ body.cam-mode .ctrl-pad { z-index: 6; bottom: env(safe-area-inset-bottom); }
 
 .runner-top .print-now { margin-left: auto; margin-right: 6px; }
 .runner-top .print-now svg { width: 20px; height: 20px; }
+
+/* 中2社会・地理のフラッシュカード（スマホ縦／横対応） */
+.geo-layer { position: fixed; inset: 0; z-index: 11000; overflow: auto; background: #f9f7f0; color: #403c34; padding: max(16px, env(safe-area-inset-top)) 16px max(16px, env(safe-area-inset-bottom)); }
+.geo-shell { max-width: 580px; margin: 0 auto; display: grid; gap: 14px; }
+.geo-top { display: flex; align-items: center; justify-content: space-between; color: #786c5c; }
+.geo-top small { font-size: 14px; font-weight: 700; }
+.geo-close { border: 0; border-radius: 50%; width: 38px; height: 38px; font-size: 24px; background: #ede4d5; color: #55493a; }
+.geo-shell h2 { font-size: clamp(21px, 5vw, 27px); margin: 8px 0 0; }
+.geo-note { margin: 0; line-height: 1.7; }
+.geo-totals { display: flex; flex-wrap: wrap; gap: 12px; background: #fff; padding: 15px; border-radius: 15px; border: 1px solid #e1d7c4; font-size: 14px; }
+.geo-totals b { font-size: 20px; }
+.geo-row { display: grid; grid-template-columns: 1fr auto; text-align: left; gap: 3px 6px; border: 1px solid #e1d7c4; border-radius: 16px; background: #fff; padding: 16px 18px; color: inherit; font: inherit; }
+.geo-row b { font-size: 17px; }
+.geo-row small { grid-column: 1; font-size: 13px; color: #847664; }
+.geo-row span { grid-row: 1/3; grid-column: 2; place-self: center; font-size: 26px; color: #b38b6b; }
+.geo-progress { display: flex; justify-content: space-between; align-items: center; gap: 12px; font-size: 14px; }
+.geo-progress span { font-weight: 700; }
+.geo-back { border: 0; background: transparent; color: #75563e; text-decoration: underline; padding: 10px; font: inherit; }
+.geo-flip { display: block; width: 100%; padding: 0; border: 0; background: transparent; color: inherit; font: inherit; cursor: pointer; }
+.geo-card { min-height: min(48vh, 310px); border: 2px solid #d6bc9e; border-radius: 22px; background: #fffdf9; box-shadow: 0 4px 12px #7d59431a; padding: 25px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 20px; text-align: center; }
+.geo-card small { color: #9a7957; font-size: 14px; }
+.geo-card strong { font-size: clamp(21px, 5vw, 30px); line-height: 1.6; overflow-wrap: anywhere; }
+.geo-actions { display: flex; gap: 12px; justify-content: center; }
+.geo-action { width: 100%; min-height: 52px; }
+.geo-mark { flex: 1; min-height: 58px; border-radius: 15px; font-size: 18px; font-weight: 750; border: 2px solid #bcac96; background: #fff; color: #534d43; }
+.geo-mark.known { border-color: #799e71; background: #e9f5e5; color: #315b2d; }
+.geo-mark.missed { border-color: #c28f82; background: #fff0ea; color: #883f30; }
+@media (prefers-reduced-motion: reduce) { .geo-card { scroll-behavior: auto; } }
