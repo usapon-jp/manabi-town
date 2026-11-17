@@ -12,6 +12,7 @@ import { rangeProgress, isKanjiRange, poolKey } from './coach.js';
 import { startRangeRun } from './more.js';
 import { practice } from './challenge.js';
 import { startArtSymbolQuiz } from './art-quiz.js';
+import { openGeoFlashcards } from './geo-flashcards.js';
 
 const SOON = 14;   // テストの 何日前から「テスト勉強」に するか（自動の 範囲問題と 同じ）
 const EXTRA = ['音楽', '美術', '保健体育', '技術家庭'];
@@ -110,6 +111,15 @@ export function openStudy(p, deps, ctx = {}) {
       h('h3', { class: 'st-title' }, icon('book-open'), ` ${label}`),
       subjRows.length ? h('p', { class: 'st-sec' }, 'テストの 教科（近い じゅん）') : null,
       subjRows.length ? h('div', { class: 'st-list' }, subjRows.map(subjRow)) : null,
+      p.grade === 'j2'
+        ? h('div', { class: 'st-list' },
+          h('button', { type: 'button', class: 'st-row subj', style: '--c:#c98766',
+            onclick: go(() => openGeoFlashcards(p)) },
+            h('span', { class: 'st-dot' }),
+            h('span', { class: 'st-main' },
+              h('b', {}, '中2社会｜地理 下2〜4'),
+              h('small', {}, '九州・中国四国・近畿｜フラッシュカード100問')),
+            h('span', { class: 'st-go' }, 'やる'))) : null,
       p.grade === 'j2' && !subjRows.some((r) => /美術/.test(r.name))
         ? h('div', { class: 'st-list' },
           h('button', { type: 'button', class: 'st-row subj', style: '--c:#9c86c4',
