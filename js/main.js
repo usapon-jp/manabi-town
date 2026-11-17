@@ -26,13 +26,13 @@ import { currentIslandId, START as START_ISLE } from './islands.js';
 import { bindControls } from './controls.js';
 import { levelOf, streak, week } from './progress.js';
 import { renderTimerTab, startTimer, resumeIfRunning, restoreTimers, matchRuns, kindForItem, minutesOn } from './timer.js';
-import { openBonus, bonusCount, openRecommend, startDrill, progressParts, lookProgress } from './bonus.js';
+import { drillRows, pointsCard, openRecommend, startDrill, progressParts, lookProgress } from './bonus.js';
 import { DRILLS } from './quests.js';
 import { icon } from './icons.js';
 import { openGacha, stones, capsuleIcon, checkFree } from './gacha.js';
 import { askAI, aiLeft, aiUsedToday, DAY_LIMIT } from './ai.js';
-import { recordResults, dueReview, startReview, reviewStats, REVIEW_PER_CORRECT, dueForTopics, settleReview } from './review.js';
-import { openTestEntry, openWeak, startWeak, testHistory } from './tests.js';
+import { recordResults, dueForTopics, settleReview } from './review.js';
+import { openTestEntry, testHistory } from './tests.js';
 import { startSync } from './sync.js';
 import { syncCard, openLogin, openPicker, askPin, pinField, pinFor } from './account.js';
 import { openPlanChat, startCheck, summary as planSummary, PLAN_BONUS, dailyBase, extraQuestions, dailyLabel, activeExtras, stockMisses, missWork, daysToTest, ensurePool, hasPool, isKanjiRange, isTestRange, poolKey, kanjiWriteOnly, dropKanjiReads, perDayFor } from './coach.js';
@@ -42,7 +42,9 @@ import { subjectNames, subjectColor, openSubjectEditor } from './subjects.js';
 import { setStudyHooks, studyButton } from './study.js';
 import { cardsButton } from './cards.js';
 import { openStoryList } from './story.js';
-import { brainCard, openBrain } from './brain.js';
+import { brainCard, brainPanel } from './brain.js';
+import { readBook, nextStage } from './thinking-progress.js';
+import { STAGES as THINK_STAGES } from './thinking-bank.js';
 import { openDiary, diaryFab } from './diary.js';
 import { sortPinned, togglePin } from './pins.js';
 import { mineToday, toggleMine, removeMine, renameMine, mineAdder, MINE_POINTS } from './mytodo.js';
@@ -82,6 +84,9 @@ const fill = (el, ...kids) => el.replaceChildren(...kids.flat().filter((k) => k 
 let tab = 'home';
 let todoOpen = false;   // 「TODO を 書く」を ひらいている間は たたまない
 let todayAll = false;   // 「やること」のリストを ぜんぶ 見せる
+// 「勉強」タブの 3つ: まいにち（きょうやること・漢字・英単語・計算）／ミニゲーム（ひらめきパズル）／考える教室。
+// アプリを ひらいた ときは いつも「まいにち」（すぐ 勉強を はじめられるように。2026-11-17 フミオさん）
+let questView = 'daily';
 let goalAdd = false;   // 「目標」タブで 入れるフォームを ひらいて見せる（ホームの ＋ ボタンから）
 
 // 起動画面は、勉強の画面ができたらすぐ消す。3Dの草原は そのあと裏で読み込む（起動を早くするため）
@@ -259,7 +264,6 @@ function render() {
   if (p.items.map(migrateHomework).some(Boolean)) save();
   const lv = levelOf(p);
   const st = streak(p);
-  const bonusN = bonusCount(p);
   checkFree(p);   // きょうの ガチャ石・レベルアップの石
   fill(hud,
     h('div', { class: 'who', role: 'button', tabindex: 0, 'aria-label': '進み具合を 見る', onclick: () => show('todo'), onkeydown: (e) => { if (e.key === 'Enter') show('todo'); } },
@@ -269,11 +273,9 @@ function render() {
     h('div', { class: 'stats' },
       h('span', { class: `fire ${st.doneToday ? 'on' : ''}`, title: 'れんぞく日数' }, icon('flame'), `${st.n}`),
       h('span', { class: 'points' }, icon('sprout'), `${p.points}`),
-      h('button', { class: 'bonus-btn', 'aria-label': 'ボーナス', onclick: () => openBonus(p, bonusDeps) },
-        icon('gift'), bonusN ? h('i', { class: 'badge' }, bonusN) : null),
       h('button', { class: 'bonus-btn gacha-btn', 'aria-label': 'ガチャ', onclick: () => openGacha(p, bonusDeps) },
-        capsuleIcon(), stones(p) ? h('i', { class: 'badge stone' }, stones(p)) : null),
-      h('button', { class: 'bonus-btn puzzle-btn', 'aria-label': 'ひらめき パズル', onclick: () => openBrain(p, bonusDeps) }, icon('puzzle'))),
+        capsuleIcon(), stones(p) ? h('i', { class: 'badge stone' }, stones(p)) : null)),
+      // 上の バーは ガチャ だけ（ポイントの お題・ひらめき パズルは「勉強」タブの 中。2026-11-17 フミオさん）
   );
   hud.hidden = false;
   askFab.hidden = tab === 'home';
@@ -285,6 +287,8 @@ function render() {
     gb.querySelector('.tab-badge')?.remove();
     if (!p.items.some((i) => !i.done)) gb.append(h('i', { class: 'tab-badge dot' }, '!')); }
   menuBtn.hidden = false;
+  // 子どもは「勉強」、おとなは ルーティーンなので「やること」
+  document.querySelector('.tabs [data-tab="quest"] .tab-name').textContent = isAdult(p) ? 'やること' : '勉強';
   document.body.dataset.tab = tab;
   if (tab !== 'home') { document.body.classList.remove('menu-open'); menuBtn.replaceChildren(icon('menu')); }
   const home = tab === 'home';
@@ -916,27 +920,44 @@ function renderQuest(p) {
     ),
   ));
 
-  // 「やること」タブ: きょうの リスト（書いて たせる）→ きょうのクエスト → やりなおし → 小テスト → しつもん
-  // 見出しは ホームの「きょうやること」ボタンと おなじ 名前（同じ ものに 2つの 名前を つけない）
+  // 「勉強」タブ: 上に 3つの 種類（まいにち／ミニゲーム／考える教室）。2026-11-17 フミオさん「勉強するときに すぐ 始められるように」
+  const kinds = [['daily', 'book-open', 'まいにち'], ['game', 'puzzle', 'ミニゲーム'], ['think', 'lightbulb', '考える教室']];
+  const seg = h('div', { class: 'quest-seg', role: 'tablist', 'aria-label': '勉強の しゅるい' },
+    kinds.map(([v, ic, label]) => h('button', { type: 'button', role: 'tab', class: questView === v ? 'on' : '', 'aria-selected': String(questView === v),
+      onclick: () => { questView = v; render(); panel.scrollTop = 0; } }, icon(ic), h('span', {}, label))));
+  if (questView === 'game') { fill(panel, h('h2', {}, '勉強'), seg, brainPanel(p, bonusDeps)); return; }
+  if (questView === 'think') { fill(panel, h('h2', {}, '勉強'), seg, thinkCard(p)); return; }
+
+  // まいにち: つぎは これ！（1タップで はじまる）→ きょうのクエスト（漢字・英単語・計算）→ もっと 5もん →
+  // テスト勉強（教科を えらぶ）→ きょうの リスト → ポイントの お題 → そのほか（たたむ）
+  const next = homeTasks(p).find((t) => !t.done);
+  const toggle = (t) => toggleTask(p, t);
+  const allDaily = !!result;
   fill(panel,
-    h('h2', {}, 'きょうやること'),
-    studyButton(p, moreDeps),
-    cardsButton(p),
-    todayCard(p),
+    h('h2', {}, '勉強'),
+    seg,
+    next
+      ? h('button', { class: 'go quest-go', onclick: () => (next.kind === 'daily' ? startDaily(p) : openStep(p, next, toggle)) },
+        h('span', { class: 'go-label' }, 'つぎは これ！', h('span', { class: 'chip' }, next.tag)),
+        h('span', { class: 'go-task' }, next.label),
+        h('span', { class: 'go-arrow', 'aria-hidden': 'true' }, icon('chevron-right')))
+      : h('div', { class: 'go done quest-go' }, h('span', { class: 'go-task' }, icon('party-popper'), ' きょうの分は ぜんぶ できた！')),
     h('div', { class: 'card quest' },
-      h('h3', {}, 'きょうのクエスト', result ? h('small', { class: 'today-left' }, ' ぜんぶ クリア！') : null),
-      h('p', { class: 'hint' }, '上から じゅんに やろう'),
+      h('h3', {}, icon('repeat'), ' まいにちの クエスト', allDaily ? h('small', { class: 'today-left' }, ' ぜんぶ クリア！') : null),
       partRows(p),
-      retryList(p).length && result
+      retryList(p).length && allDaily
         ? h('button', { class: 'btn primary', onclick: () => runRetry(p) }, icon('repeat'), ` まちがえた ${retryList(p).length}もんを もう一度`)
         : null,
+      // もう 5もん（ポイント）: きょうの クエストが おわるまでは たたむ（つぎに やる ことを 1つに）
+      isAdult(p) ? null : h('details', { class: 'more-drills', open: allDaily || null }, h('summary', {}, 'もっと やる（漢字・英単語・計算 5もん）'), drillRows(p, bonusDeps)),
       isAdult(p) ? null : h('button', { class: 'link', onclick: () => openPlanChat(p, bonusDeps) }, '中身を かえる（ピヨ先生と 作戦会議）')),
+    studyButton(p, moreDeps),
     missCard(p),
+    todayCard(p),
+    pointsCard(p, bonusDeps),
+    h('details', { class: 'fold-sec' }, h('summary', {}, icon('notebook-pen'), ' 小テスト・動画・しつもん・印刷'),
     isAdult(p) ? null : h('button', { class: 'btn', onclick: () => openStoryList({ p, gain, render }) }, icon('film'), ' ながれ動画（社会・理科）'),
-    brainCard(p, bonusDeps),
-    h('details', { class: 'fold-sec' }, h('summary', {}, icon('notebook-pen'), ' やりなおし・小テスト・しつもん'),
-    reviewCard(p),
-    weakCard(p),
+    cardsButton(p),
     h('h3', {}, '小テスト'),
     quizzes.length ? h('ul', { class: 'items' }, quizzes) : h('p', { class: 'empty' }, 'テスト範囲のプリントをClaudeに送ると、小テストを作ってもらえるよ。もらったコードは「せってい」の「とりこみ」に貼ってね。'),
     h('div', { class: 'card quest' },
@@ -947,6 +968,30 @@ function renderQuest(p) {
         h('button', { class: 'btn', onclick: () => openAsk(p, { mode: 'zu' }) }, icon('shapes'), ' 図で'),
         h('button', { class: 'btn', onclick: () => openAsk(p, { mode: 'yomu' }) }, icon('volume-2'), ' 読み上げ'),
         h('button', { class: 'btn', onclick: () => openAsk(p, { mode: 'talk' }) }, icon('languages'), ' 英会話')))));
+}
+
+// 「勉強」タブの「考える教室」: ピヨちゃんの考える教室（絵本の すごろく）の 入口
+function thinkCard(p) {
+  const book = readBook(p);
+  const at = nextStage(book);
+  const daily = book.stamps.filter((s) => s.day === today()).length;
+  return h('div', { class: 'card quest think-card' },
+    h('img', { class: 'think-piyo', src: 'assets/brain/piyo-paper.svg', alt: '', width: 70, height: 96 }),
+    h('h3', {}, 'ピヨちゃんの 考える教室'),
+    h('p', {}, '1問ずつ じっくり 考える 絵本の すごろく。ヒントも あるよ'),
+    h('div', { class: 'think-prog' }, h('span', { class: 'rbar' }, h('i', { style: `width:${Math.round((at / THINK_STAGES) * 100)}%` })),
+      h('small', {}, at >= THINK_STAGES ? 'さいごまで 読んだ！' : `${at} / ${THINK_STAGES}マス${daily ? `・きょう ${daily}もん` : ''}`)),
+    h('button', { class: 'btn primary', type: 'button', onclick: async (e) => {
+      const button = e.currentTarget;
+      if (button.disabled) return;
+      button.disabled = true;
+      try {
+        (await import('./thinking.js')).openThinkingClassroom(p);
+        // 教室を とじたら 進みの バーを 直す
+        const mo = new MutationObserver(() => { if (!document.querySelector('.thinking-overlay')) { mo.disconnect(); render(); } });
+        mo.observe(document.body, { childList: true });
+      } catch { toast('教室を ひらけなかったよ。もう一度 ためしてね'); } finally { button.disabled = false; }
+    } }, icon('book-open'), book.introduced ? ' つづきから 考える' : ' 教室を ひらく'));
 }
 
 // きょうの ふりかえり用の まとめ（できた数・勉強の分）
@@ -1006,30 +1051,6 @@ function scheduleCard(p) {
           h('small', {}, daysLabel(d)));
       }))
       : h('p', { class: 'empty' }, 'まだ 予定が ないよ。上の「いれる」から テストや宿題を 入れよう'));
-}
-
-// やりなおしクエスト（まちがえた問題を 次の日・3日後・1週間後に）
-function reviewCard(p) {
-  const st = reviewStats(p);
-  return h('div', { class: 'card quest review' },
-    h('h3', {}, icon('notebook-pen'), ' やりなおしクエスト'),
-    st.due
-      ? h('p', {}, `まちがえた問題が ${Math.min(st.due, 5)}もん まってるよ。1もん${REVIEW_PER_CORRECT}ポイント`)
-      : h('p', { class: 'empty' }, st.waiting ? `つぎの やりなおしは また こんど（${st.waiting}もん まち）` : 'まちがえた問題は ここに たまるよ'),
-    st.mastered ? h('p', { class: 'cleared' }, `これまでに ${st.mastered}もん おぼえた！`) : null,
-    st.due ? h('button', { class: 'btn primary', onclick: () => startReview(p, { gain, render }) }, 'やりなおす') : null);
-}
-
-// にがてクエスト（実力テストで まちがえたところ）
-function weakCard(p) {
-  const weak = openWeak(p);
-  if (!weak.length) return null;
-  return h('div', { class: 'card quest tests' },
-    h('h3', {}, icon('target'), ' にがてクエスト'),
-    h('ul', { class: 'quest-list' }, weak.map((w) => h('li', { class: 'quest-row' },
-      h('span', { class: 'q-ic' }, icon('target')),
-      h('span', { class: 'q-main' }, h('b', {}, w.topic), h('small', {}, `${w.subject}・ぜんもん正解 ${w.clears || 0} / 2`)),
-      h('button', { class: 'q-go', onclick: (e) => startWeak(p, w, { gain, render }, e.currentTarget) }, 'やってみる')))));
 }
 
 // 実力テストの点数（入れるとボーナス。にがては「勉強する」に出る）

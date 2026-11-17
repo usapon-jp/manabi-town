@@ -1538,8 +1538,18 @@ input.pin { font-size: 26px; letter-spacing: 0.5em; text-align: center; }
 }
 .bubble.mini .town-ask-btn:active { transform: scale(0.92); }
 .town-ask-btn img { width: 36px; height: 36px; border-radius: 50%; animation: piyo-hop 3.2s ease-in-out infinite; }
-.town-ask-q { position: absolute; right: -4px; top: -4px; width: 22px; height: 22px; border-radius: 50%; display: grid; place-items: center;
-  background: var(--accent); color: #fff; border: 2px solid #fff; font-style: normal; font-size: 13px; font-weight: 800; line-height: 1; }
+.tayori-n { position: absolute; right: -6px; top: -6px; min-width: 22px; height: 22px; padding: 0 5px; box-sizing: border-box; border-radius: 11px; display: grid; place-items: center;
+  background: #e5604d; color: #fff; border: 2px solid #fff; font-style: normal; font-size: 13px; font-weight: 800; line-height: 1; }
+.tayori-n[hidden] { display: none; }
+/* ピヨだより（たまご・たね・カメラ・銀行の しらせを あとから 読む） */
+.tayori-sheet .sheet-title { display: flex; align-items: center; gap: 8px; }
+.tayori-sheet .sheet-title img { border-radius: 50%; }
+.tayori-list { list-style: none; margin: 12px 0; padding: 0; display: grid; gap: 8px; max-height: 52vh; overflow-y: auto; }
+.tayori-list li { text-align: left; display: flex; align-items: baseline; justify-content: space-between; gap: 10px; padding: 10px 14px; border-radius: 14px; background: #fffaf0; border: 1.5px solid var(--line); }
+.tayori-list li.new { background: #fff2dc; border-color: #f0c27a; }
+.tayori-list li.new p::before { content: ''; display: inline-block; width: 8px; height: 8px; margin-right: 7px; border-radius: 50%; background: #e5604d; vertical-align: 2px; }
+.tayori-list p { margin: 0; font-weight: 700; color: var(--navy); line-height: 1.5; }
+.tayori-list small { flex: none; color: var(--ink-soft); font-size: 12px; }
 .town-ask-tip { position: absolute; left: calc(100% + 10px); top: 50%; margin-top: -15px; white-space: nowrap; pointer-events: none;
   padding: 5px 10px; border-radius: 12px; background: #fffdf5; color: var(--navy); border: 1.5px solid var(--line); box-shadow: var(--soft);
   font-size: 13px; font-weight: 700; animation: tip-bob 2.4s ease-in-out infinite; }
@@ -2374,3 +2384,31 @@ body.cam-mode .ctrl-pad { z-index: 6; bottom: env(safe-area-inset-bottom); }
 
 .runner-top .print-now { margin-left: auto; margin-right: 6px; }
 .runner-top .print-now svg { width: 20px; height: 20px; }
+
+/* ---- 「勉強」タブ（2026-11-17 整理）: 上に 3つの しゅるい → まいにちは「つぎは これ！」から ---- */
+.tabs button .tab-name { display: inline; font-size: inherit; }
+.quest-seg { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px; padding: 4px; margin: 0 0 14px; border-radius: 20px; background: #f3e8cf; border: 1.5px solid var(--line); }
+.quest-seg button { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; min-height: 54px; padding: 4px 2px; border: 0; border-radius: 16px; background: transparent; color: var(--ink-soft); font: inherit; font-size: 14px; font-weight: 800; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+.quest-seg button .ic { width: 22px; height: 22px; }
+.quest-seg button.on { background: #fffdf5; box-shadow: var(--soft); color: var(--accent-dark); }
+@media (min-width: 420px) { .quest-seg button { flex-direction: row; gap: 6px; font-size: 15px; } }
+.panel .go.quest-go { margin: 0 auto 14px; }
+/* 広い 画面でも カードと おなじ はばで まんなかに（.panel > * の auto を 上書きしない） */
+.panel > .quest-seg, .panel > .study-go { margin-left: auto; margin-right: auto; }
+.more-drills { margin-top: 12px; padding-top: 10px; border-top: 1.5px dashed var(--line); }
+.more-drills > summary { list-style: none; cursor: pointer; font-size: 15px; font-weight: 700; color: var(--accent-dark); padding: 4px 0; }
+.more-drills > summary::-webkit-details-marker { display: none; }
+.more-drills > summary::after { content: ' ＋'; }
+.more-drills[open] > summary { margin-bottom: 8px; }
+.more-drills[open] > summary::after { content: ' －'; }
+.points-card > .card { margin: 0; }
+.points-card .quest-list + .quest-list { margin-top: 8px; }
+.points-card .q-group.event { margin-top: 12px; }
+.bz-panel .bz-grid { margin: 10px 0 6px; }
+.think-card { text-align: center; display: grid; justify-items: center; gap: 6px; padding-top: 18px; }
+.think-card .think-piyo { width: 70px; height: auto; }
+.think-card h3 { margin: 0; }
+.think-card p { margin: 0; }
+.think-prog { width: 100%; max-width: 320px; display: flex; align-items: center; gap: 10px; margin: 6px 0; }
+.think-prog small { flex: none; color: var(--ink-soft); }
+.think-card .btn.primary { width: 100%; max-width: 320px; }
