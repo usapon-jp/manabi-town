@@ -10,6 +10,7 @@ const PATHS = {
   'shuffle': '<path d="m18 14 4 4-4 4"/><path d="m18 2 4 4-4 4"/><path d="M2 18h1.973a4 4 0 0 0 3.3-1.7l5.454-8.6a4 4 0 0 1 3.3-1.7H22"/><path d="M2 6h1.972a4 4 0 0 1 3.6 2.2"/><path d="M22 18h-6.041a4 4 0 0 1-3.3-1.8l-.359-.45"/>',
   'list-music': '<path d="M16 5H3"/><path d="M11 12H3"/><path d="M11 19H3"/><path d="M21 16V5"/><circle cx="18" cy="16" r="3"/>',
   'plus': '<path d="M5 12h14"/><path d="M12 5v14"/>',
+  'minus': '<path d="M5 12h14"/>',
   'folder': '<path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"/>',
   'puzzle': '<path transform="translate(-1.2 -1.5)" d="M4 9Q4 6 7 6H9.4A3 3 0 1 0 14.6 6H15Q18 6 18 9V12.4A3 3 0 1 1 18 17.6V18Q18 21 15 21H7Q4 21 4 18Z" fill="currentColor" fill-opacity="0.2"/>',
   'shapes': '<path d="M8.3 10a.7.7 0 0 1-.626-1.079L11.4 3a.7.7 0 0 1 1.198-.043L16.3 8.9a.7.7 0 0 1-.572 1.1Z"/><rect x="3" y="14" width="7" height="7" rx="1"/><circle cx="17.5" cy="17.5" r="3.5"/>',
