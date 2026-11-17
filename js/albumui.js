@@ -15,7 +15,7 @@ import {
 
 registerFeature(FEATURE, {
   label: 'アルバム',
-  line: '旅の アルバムも くれたよ（右の「アルバム」）',
+  line: '旅の アルバムも くれたよ（「しゃしん」の 右上）',
   built: 'アルバムに ひとことが 書けるよ',
 });
 
@@ -32,7 +32,8 @@ export function initAlbum(d) {
 }
 const busy = () => !!document.querySelector('.tour, .sheet, .avatar-name, .egg-intro, .egg-born, .egg-plant, .cam-ui');
 
-// ---- 町の 右がわの アルバムボタン（もらった子だけ。カメラの ボタンの 下） ----
+// ---- 町の 右がわの アルバムボタン（カメラが まだ ない 子だけ） ----
+// カメラが あれば ボタンは「しゃしん」1つに まとめる。アルバムは カメラの 画面の 右上（とった 数の ボタン）から ひらく
 const SEEN_KEY = 'manabi-album-lv';
 function readSeen() { try { const v = JSON.parse(localStorage.getItem(SEEN_KEY) || '{}'); return v && typeof v === 'object' ? v : {}; } catch (_) { return {}; } }
 function writeSeen(v) { try { localStorage.setItem(SEEN_KEY, JSON.stringify(v)); } catch (_) { /* おぼえられなくても アルバムは 動く */ } }
@@ -40,23 +41,20 @@ function writeSeen(v) { try { localStorage.setItem(SEEN_KEY, JSON.stringify(v));
 export function refresh() {
   const p = currentProfile();
   const lv = p ? albumLevel(p) : 0;
-  const show = !!p && lv > 0 && deps.isHome();
+  const show = !!p && lv > 0 && !cameraLevel(p) && deps.isHome();
   if (show && !fab) {
     fab = h('button', { class: 'cam-fab album-fab', type: 'button', 'aria-label': 'アルバム', onclick: () => { const me = currentProfile(); if (me && !busy()) openAlbum(me); } },
       icon('book-open'), h('span', {}, 'アルバム'));
     document.body.append(fab);
   }
-  if (fab) {
-    fab.hidden = !show || busy();
-    // カメラの ボタンが あれば その下、なければ カメラの 場所に
-    fab.classList.toggle('below', !!p && cameraLevel(p) > 0);
-  }
+  if (fab) fab.hidden = !show || busy();
   // 育って できることが ふえたら ピヨ先生が 教える（この端末で はじめて 見た ときは 言わない）
-  if (p && lv > 0) {
+  if (p) {
     const all = readSeen();
     const was = all[p.id];
     if (typeof was === 'number' && lv > was && !busy() && deps.isHome()) {
-      piyoSay(lv === 2 ? 'アルバムに スタンプが ふえたよ！' : 'アルバムに ひとことが 書けるよ！', 4);
+      const words = ['', cameraLevel(p) ? 'アルバムは しゃしんの 右上だよ' : '右の アルバムを ひらいてね', 'アルバムに スタンプが ふえたよ！', 'アルバムに ひとことが 書けるよ！'];
+      piyoSay(words[lv], 4);
     }
     if (was !== lv && !busy()) { all[p.id] = lv; writeSeen(all); }
   }

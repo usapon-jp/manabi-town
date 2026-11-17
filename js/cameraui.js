@@ -73,7 +73,7 @@ function open() {
 
   const shutter = h('button', { class: 'cam-shutter', type: 'button', 'aria-label': 'ぱしゃり', onclick: () => shoot() }, h('i'));
   const showShots = (who) => (albumLevel(who) ? openAlbum(who, { onClose: paint, inCamera: true }) : openRoll(who, { onClose: paint }));
-  const count = h('button', { class: 'cam-roll', type: 'button', 'aria-label': 'とった写真', onclick: () => showShots(currentProfile() || p) });
+  const count = h('button', { class: 'cam-roll', type: 'button', 'aria-label': albumLevel(p) ? 'アルバム' : 'とった写真', onclick: () => showShots(currentProfile() || p) });
   const tools = h('div', { class: 'cam-tools' });
   const hint = h('p', { class: 'cam-hint' });
   const tint = h('div', { class: 'cam-tint', hidden: true });
@@ -87,7 +87,8 @@ function open() {
     const mine = currentProfile() || p;
     const n = shots(mine).length;
     const cap = shotCap(mine);
-    count.replaceChildren(icon(albumLevel(mine) ? 'book-open' : 'image'), h('b', {}, `${n}/${cap}`));
+    // アルバムが あれば「アルバム」と 書いて 入口に する（町の ボタンは「しゃしん」1つ）
+    count.replaceChildren(icon(albumLevel(mine) ? 'book-open' : 'image'), albumLevel(mine) ? h('span', {}, 'アルバム') : null, h('b', {}, `${n}/${cap}`));
     count.classList.toggle('full', n >= cap);
     const list = [];
     if (can(mine, 'zoom')) list.push(tool('zoom', 'plus', `ズーム ×${ZOOMS[st.zoom]}`, st.zoom > 0, () => {
