@@ -87,6 +87,7 @@ const FILES = [
   'js/tools.js',
   'js/wind.js',
   'js/town.js',
+  'js/school.js',
   'js/townart.js',
   'js/townkit.js',
   'js/tutorial.js',
