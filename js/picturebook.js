@@ -19,6 +19,8 @@ export function picturebook(model, opts = {}) {
   const meshes = [];
   model.traverse((m) => { if (m.isMesh) meshes.push(m); });
   for (const m of meshes) {
+    // 法線の ない モデル（ピヨ先生の GLB）は、光が 計算できず 端末によっては 真っ黒に なる。ここで 作る
+    if (!m.geometry.attributes.normal) m.geometry.computeVertexNormals();
     const isFace = o.faceNames.some((n) => m.name.toLowerCase().includes(n));
     const conv = (mat) => toBookMaterial(mat, { ...o, shadow: isFace ? o.faceShadow : o.shadow });
     m.material = Array.isArray(m.material) ? m.material.map(conv) : conv(m.material);
@@ -112,7 +114,7 @@ export function softShadow(radius, opacity = 0.32) {
   }
   const m = new THREE.Mesh(
     new THREE.PlaneGeometry(radius * 2, radius * 2),
-    new THREE.MeshBasicMaterial({ color: 0x4a5a2a, alphaMap: shadowTex, transparent: true, opacity, depthWrite: false }),
+    new THREE.MeshBasicMaterial({ color: 0x26331a, alphaMap: shadowTex, transparent: true, opacity, depthWrite: false }),
   );
   m.rotation.x = -Math.PI / 2;
   return m;
