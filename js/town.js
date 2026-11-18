@@ -400,7 +400,7 @@ const PLAN = [
   { lv: 9, x: 0, z: -31, r: 0, avoid: 0, make: rainbow },
   { lv: 10, x: -15, z: -14, r: 1.6, avoid: 3, rot: 0.6, make: tower },
   ...EXTRA_HOUSES.map(([x, z, rot, wall, roof], i) => ({
-    lv: 11 + i, x, z, r: 1.75, avoid: 2.9, rot, make: () => (i % 2 ? mushroomHouse({ cap: roof, size: 1.1, withBed: false }) : cottage({ roof, size: 1.1, withBed: false })),
+    lv: 11 + i, x, z, r: 1.75, avoid: 2.9, rot, make: () => (i % 2 ? mushroomHouse({ cap: roof, size: 1.1, withBed: false }) : cottage({ roof, wall, size: 1.1, withBed: false })),
   })),
 ];
 
