@@ -231,7 +231,6 @@ function school() {
   g.add(rim);
   const bell = cone(0.24, 0.38, 0xffd45c, 0, 4.58, 1.12, 16);
   g.add(bell, ball(0.07, 0xffd45c, 0, 4.82, 1.12), ball(0.06, 0xd9a83a, 0, 4.36, 1.12));
-  g.add(box(0.5, 0.55, 0.06, 0xffe6a6, 0, 5.1, 1.06)).children.at(-1).material = glass;
   // げんかん
   const door = new THREE.Group();
   archDoor(door, 0, 0, 0, 0.95, 1.5);
