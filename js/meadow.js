@@ -8,6 +8,7 @@ import { makeWind, addWind } from './wind.js';
 import { makePlants } from './plants.js';
 import { createCutMask } from './cutmask.js';
 import { createSky } from './sky.js';
+import { softShadow } from './picturebook.js';
 
 export const SUN_DIR = new THREE.Vector3(0.5, 0.42, -0.75).normalize();
 export const HORIZON = new THREE.Color(0xf6e9cf);
@@ -110,7 +111,8 @@ function makeGround(cut, wind) {
   geo.rotateX(-Math.PI / 2);
   const pos = geo.attributes.position;
   const col = new Float32Array(pos.count * 3);
-  const a = new THREE.Color(0x77ad4d); const b = new THREE.Color(0xa6c85c); const c = new THREE.Color(0x5f9a49);
+  // 絵本の 草原: すこし 黄みよりで やわらかい 緑（2026-11-18）
+  const a = new THREE.Color(0x88b257); const b = new THREE.Color(0xb3cb6a); const c = new THREE.Color(0x6fa04f);
   const tmp = new THREE.Color();
   for (let i = 0; i < pos.count; i++) {
     const x = pos.getX(i); const z = pos.getZ(i);
@@ -147,7 +149,7 @@ function makeGround(cut, wind) {
       float inner = smoothstep(0.42, 0.62, pm);
       float rim = smoothstep(0.28, 0.42, pm) * (1.0 - inner);
       float sp = 0.5 + 0.5 * sin(vXZ.x * 9.0) * sin(vXZ.y * 11.0);
-      vec3 soil = vec3(0.79, 0.60, 0.31) * (0.93 + 0.07 * sp);
+      vec3 soil = vec3(0.84, 0.64, 0.42) * (0.94 + 0.06 * sp);   // ももいろがかった やさしい 土の 色
       diffuseColor.rgb = mix(diffuseColor.rgb, diffuseColor.rgb * 0.8, rim);
       diffuseColor.rgb = mix(diffuseColor.rgb, soil, inner);
       float bm = texture2D(uCut, (vXZ + uCutR) / (2.0 * uCutR)).g;
@@ -181,7 +183,7 @@ function makeGrass(wind) {
     const k = pos.getY(i) / H;
     pos.setX(i, pos.getX(i) * (1 - k * 0.92));
     pos.setZ(i, k * k * 0.14);                       // 先がおじぎしている
-    const v = 0.45 + k * 0.7;                        // 根もとは濃く、先は明るく
+    const v = 0.58 + k * 0.55;                       // 根もとは すこし こく、先は明るく（コントラストは やさしく）
     cols.set([v * 0.9, v, v * 0.8], i * 3);
   }
   geo.setAttribute('color', new THREE.BufferAttribute(cols, 3));
@@ -203,7 +205,7 @@ function makeGrass(wind) {
     p.set(x, heightAt(x, z) - 0.02, z);
     m.compose(p, q, s);
     mesh.setMatrixAt(i, m);
-    c.setHSL(0.235 + patch * 0.06 + Math.random() * 0.03, 0.55 + Math.random() * 0.2, 0.42 + Math.random() * 0.1);
+    c.setHSL(0.228 + patch * 0.055 + Math.random() * 0.03, 0.5 + Math.random() * 0.15, 0.45 + Math.random() * 0.1);   // ひかえめな 彩度の やわらかい 緑
     mesh.setColorAt(i, c);
   }
   return mesh;
@@ -329,6 +331,10 @@ function makeTrees() {
       leaf.position.set(dx * sc, h + dy * sc, dz * sc);
       t.add(leaf);
     });
+    // 足もとの やわらかい かげ
+    const sh = softShadow(1.25 * sc, 0.26);
+    sh.position.y = 0.03;
+    t.add(sh);
     t.position.set(x, heightAt(x, z), z);
     t.rotation.y = Math.random() * 6;
     trees.push(t);
@@ -361,6 +367,32 @@ function makeMotes() {
     p.needsUpdate = true;
   };
   return points;
+}
+
+// 空気に うかぶ 大きな 光の たま（絵本の やわらかい ぼけ）。昼だけ
+function makeBokeh(dot) {
+  const group = new THREE.Group();
+  const list = [];
+  for (let i = 0; i < 14; i++) {
+    const sp = new THREE.Sprite(new THREE.SpriteMaterial({
+      map: dot, color: i % 3 ? 0xfff4dc : 0xffe2c8, transparent: true, opacity: 0, depthWrite: false, fog: false, blending: THREE.AdditiveBlending,
+    }));
+    const a = Math.random() * Math.PI * 2; const r = rand(7, 24);
+    const base = new THREE.Vector3(Math.cos(a) * r, rand(2.5, 9), Math.sin(a) * r);
+    sp.position.copy(base);
+    sp.scale.setScalar(rand(1.4, 3.6));
+    group.add(sp);
+    list.push({ sp, base, ph: Math.random() * 6.28, k: rand(0.12, 0.26) });
+  }
+  group.userData.update = (t, day) => {
+    group.visible = day > 0.02;
+    if (!group.visible) return;
+    for (const o of list) {
+      o.sp.position.set(o.base.x + Math.sin(t * 0.08 + o.ph) * 1.2, o.base.y + Math.sin(t * 0.13 + o.ph * 2) * 0.6, o.base.z);
+      o.sp.material.opacity = o.k * day * (0.75 + 0.25 * Math.sin(t * 0.4 + o.ph));
+    }
+  };
+  return group;
 }
 
 function makeButterflies() {
@@ -414,9 +446,11 @@ export function createMeadow(scene) {
   const plants = makePlants(wind);
   const motes = makeMotes();
   const butterflies = makeButterflies();
-  scene.add(ground, clouds, grass, flowers, plants, motes, butterflies);
+  const dot = softDot();
+  const bokeh = makeBokeh(dot);
+  scene.add(ground, clouds, grass, flowers, plants, motes, butterflies, bokeh);
   // 空（時間で 色が かわる）。光と 雲・光のつぶ・ちょうちょも 時間に あわせる
-  const sky = createSky(scene, { hemi, sun, clouds, motes, butterflies, dot: softDot() });
+  const sky = createSky(scene, { hemi, sun, clouds, motes, butterflies, dot });
   makeTrees().forEach((t) => scene.add(t));
 
   // 画質: 'low' のときは、草・花・光のつぶを少なくする（かずは前もって多めに作っておいて、見せる数だけ変える）
@@ -431,6 +465,7 @@ export function createMeadow(scene) {
     }
     const fullPts = motes.geometry.attributes.position.count;
     motes.geometry.setDrawRange(0, q === 'low' ? Math.floor(fullPts / 2) : fullPts);
+    bokeh.children.forEach((b, i) => { b.visible = q !== 'low' || i % 2 === 0; });
   }
 
   return {
@@ -446,6 +481,7 @@ export function createMeadow(scene) {
       const now = sky.update(minute, t, camPos);
       clouds.userData.update(t);
       motes.userData.update(t);
+      bokeh.userData.update(t, 1 - now.night);
       if (butterflies.visible) butterflies.userData.update(t);
       return now;
     },

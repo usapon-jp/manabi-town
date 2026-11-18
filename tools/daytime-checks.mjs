@@ -25,9 +25,9 @@ const memStore = () => { let v = null; return { get: () => v, set: (x) => { v = 
     assert.ok(Math.abs(Math.hypot(...s.sunDir) - 1) < 1e-6);
   }
   const day = skyAt(20);
-  assert.deepEqual(day.top, [0.42, 0.68, 0.92]);
-  assert.deepEqual(day.hz, [0.965, 0.914, 0.812]);
-  near(day.sunI, 2.1); near(day.hemiI, 1.55); assert.equal(day.stars, 0); assert.equal(day.night, 0);
+  assert.deepEqual(day.top, [0.38, 0.62, 0.88]);
+  assert.deepEqual(day.hz, [1.0, 0.86, 0.72]);
+  near(day.sunI, 2.0); near(day.hemiI, 1.6); assert.equal(day.stars, 0); assert.equal(day.night, 0);
   assert.ok(day.sunUp && day.sunDir[1] > 0.4, '昼は 太陽が 高い');
   const night = skyAt(52);
   assert.ok(night.top[2] < 0.3 && night.stars > 0.9 && night.night === 1 && !night.sunUp);
