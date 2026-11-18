@@ -13,12 +13,14 @@ const LINE = 0x6b4a3c;   // ふち線の 色（こげ茶）
 // opts: { shadow: かげの 明るさ(0〜1), faceShadow: 顔の かげ, blur: ぼかし, warm: あたたかさ, line: ふち線の 太さ（モデルの 長さ。0 で なし）, faceNames: 顔の メッシュ名 }
 export function picturebook(model, opts = {}) {
   const o = {
-    shadow: 0.62, faceShadow: 0.85, blur: 0.8, warm: 0.5, glow: 0, flat: 1.0, tint: 0.02, line: 0, faceNames: ['face'],
+    shadow: 0.82, faceShadow: 0.92, blur: 0.8, warm: 0.15, glow: 0.05, flat: 1.0, tint: 0, line: 0, faceNames: ['face'],
     ...opts,
   };
   const meshes = [];
   model.traverse((m) => { if (m.isMesh) meshes.push(m); });
   for (const m of meshes) {
+    // 法線の ない モデル（ピヨ先生の GLB）は、光が 計算できず 端末によっては 真っ黒に なる。ここで 作る
+    if (!m.geometry.attributes.normal) m.geometry.computeVertexNormals();
     const isFace = o.faceNames.some((n) => m.name.toLowerCase().includes(n));
     const conv = (mat) => toBookMaterial(mat, { ...o, shadow: isFace ? o.faceShadow : o.shadow });
     m.material = Array.isArray(m.material) ? m.material.map(conv) : conv(m.material);
@@ -59,7 +61,7 @@ function toBookMaterial(src, o) {
 #endif
   // すこし あたたかく、すこし ひかえめに（草原の 色に よせる）
   float pbL = dot( diffuseColor.rgb, vec3( 0.299, 0.587, 0.114 ) );
-  diffuseColor.rgb = mix( vec3( pbL ), diffuseColor.rgb, 0.94 ) * mix( vec3( 1.0 ), vec3( 1.05, 1.0, 0.9 ), ${o.warm.toFixed(2)} );
+  diffuseColor.rgb = mix( vec3( pbL ), diffuseColor.rgb, 1.0 ) * mix( vec3( 1.0 ), vec3( 1.05, 1.0, 0.9 ), ${o.warm.toFixed(2)} );
   // コントラストを ひくく（明るい ところも 暗い ところも まんなかへ）、草原の クリーム色に すこし よせる
   diffuseColor.rgb = mix( vec3( 0.55, 0.52, 0.45 ), diffuseColor.rgb, ${o.flat.toFixed(2)} );
   diffuseColor.rgb = mix( diffuseColor.rgb, vec3( 0.96, 0.9, 0.76 ), ${o.tint.toFixed(2)} );
@@ -112,7 +114,7 @@ export function softShadow(radius, opacity = 0.32) {
   }
   const m = new THREE.Mesh(
     new THREE.PlaneGeometry(radius * 2, radius * 2),
-    new THREE.MeshBasicMaterial({ color: 0x4a5a2a, alphaMap: shadowTex, transparent: true, opacity, depthWrite: false }),
+    new THREE.MeshBasicMaterial({ color: 0x26331a, alphaMap: shadowTex, transparent: true, opacity, depthWrite: false }),
   );
   m.rotation.x = -Math.PI / 2;
   return m;
