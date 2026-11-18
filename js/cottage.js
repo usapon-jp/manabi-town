@@ -192,12 +192,17 @@ function scaledRoof(width, depth, rise, tileColor, baseColor, over = 0.3) {
     slab.add(rboxGeo(len, 0.16, slabD, 0.05), new THREE.Color(baseColor).getHex(), {});
     for (let r = 0; r < rows; r++) {
       const u = side * (len / 2 - r * pitch - 0.1);
-      for (let c = 0; c <= cols; c++) {
+      // かわらが 屋根板の ふちから はみ出さない ように、はしの かわらは けずって 小さく する
+      const uLim = len / 2 - 0.03; const vLim = slabD / 2 - 0.06;
+      const u0 = Math.max(u - pitch * 0.62, -uLim); const u1 = Math.min(u + pitch * 0.62, uLim);
+      if (u1 - u0 < 0.08) continue;
+      for (let c = -1; c <= cols + 1; c++) {
         const v = -slabD / 2 + (c + (r % 2 ? 0.5 : 0)) * colP;
-        if (Math.abs(v) > slabD / 2 + 0.05) continue;
+        const v0 = Math.max(v - colP * 0.56, -vLim); const v1 = Math.min(v + colP * 0.56, vLim);
+        if (v1 - v0 < 0.1) continue;
         const k = 0.9 + rnd() * 0.18;
         const col = base.clone().multiplyScalar(k).getHex();
-        slab.add(SPH, col, { x: u, y: 0.09 + (rows - r) * 0.004, z: v, sx: pitch * 0.62, sy: 0.085, sz: colP * 0.56 });
+        slab.add(SPH, col, { x: (u0 + u1) / 2, y: 0.09 + (rows - r) * 0.004, z: (v0 + v1) / 2, sx: (u1 - u0) / 2, sy: 0.085, sz: (v1 - v0) / 2 });
       }
     }
     // ひさしの木のふち（前後）
