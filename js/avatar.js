@@ -66,7 +66,9 @@ export const PARTS = [
     // 草原の 絵本の 絵柄に そろえる（js/picturebook.js）
     style: {},
     // 歩き方: 足を前後・うでを前後（armSwing）・うでを 横へ（armFlap）・上下（bob）
-    walk: { legSwing: 0.45, armSwing: 0.4, armFlap: 0.06, bob: 0.035 },
+    walk: { legSwing: 0.45, armSwing: 0.4, armFlap: 0.06, bob: 0.035,
+      // ダッシュ（world.js）: 足と うでを 大きく、前かがみ（lean）、上下に はずむ
+      run: { legSwing: 0.8, armSwing: 0.95, armFlap: 0.12, bob: 0.08, lean: 0.24 } },
   },
   { id: 'hair:futatsu', kind: 'hair', label: 'ふたつむすび', mesh: null, placeholder: 'futatsu', color: 'hair' },
   { id: 'hair:bob', kind: 'hair', label: 'ボブ', mesh: null, placeholder: 'bob', color: 'hair' },

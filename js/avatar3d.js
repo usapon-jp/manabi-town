@@ -107,7 +107,7 @@ function modelDriver(bone, model) {
 // world.js が さわる 関節。rotation（Euler）を 書きかえると、モデルの 向きで まわす。
 // きゅうに 切りかわらないよう、すこし おくれて なめらかに ついていく（歩きはじめ・止まるときの カクッを なくす）。
 // rest は ふだんの すがたの 回転。listeners は まわったときに 呼ぶ（ひざ・スカートが ついてくる）
-const SMOOTH = 16;   // 大きいほど すばやく ついていく
+const SMOOTH = 22;   // 大きいほど すばやく ついていく
 function modelSpaceJoint(bone, model, rest = {}) {
   const set = modelDriver(bone, model);
   const rotation = new THREE.Euler(rest.x || 0, rest.y || 0, rest.z || 0);
@@ -130,7 +130,7 @@ function modelSpaceJoint(bone, model, rest = {}) {
 
 // 歩き方に ついてくる 関節（world.js は 知らなくてよい）
 // - ひざ: 足が うしろへ いくほど まげる（足を 前へ はこぶ ときの けりあげ）
-// - ひじ: いつも すこし まげて、うでが 前へ いくほど もっと まげる
+// - ひじ: いつも すこし まげて、うでを 大きく ふるほど（走るとき）もっと まげる
 // - スカート: 下の 足と いっしょに 前後へ ゆれて、足を ひらくと すそが ひろがる（足が つきぬけない ように）
 function addFollowers(bones, byName, model, f) {
   const find = (n) => byName[normName(n)];
@@ -147,7 +147,7 @@ function addFollowers(bones, byName, model, f) {
     const elbow = find(elbowName || '');
     if (!elbow || !bones[armKey]) continue;
     const set = modelDriver(elbow, model);
-    const cb = (q) => { const a = angleX(q); set(rx(-0.28 - 0.55 * Math.max(0, -a))); };
+    const cb = (q) => { const a = angleX(q); set(rx(-0.28 - 0.6 * Math.max(0, -a) - 0.35 * Math.max(0, a))); };
     bones[armKey].listeners.push(cb);
     cb(bones[armKey].now);
   }
