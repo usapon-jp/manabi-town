@@ -290,7 +290,8 @@ function makeFlowers(wind) {
     } else {
       [x, z] = inDisc(MEADOW_R); pal = Math.random() < 0.6 ? palette[0] : palette[Math.floor(Math.random() * palette.length)];
     }
-    if (Math.hypot(x, z) > MEADOW_R || isTownSpot(x, z, -0.2)) { x = rand(-3, 3); z = rand(-3, 3); pal = palette[0]; }
+    // 町の 場所・小道に かかったら、ほかの あいた 場所へ（まんなかに あつめない）
+    for (let k = 0; k < 8 && (Math.hypot(x, z) > MEADOW_R || isTownSpot(x, z, -0.2)); k++) { [x, z] = inDisc(MEADOW_R - 1); pal = palette[0]; }
     e.set(rand(-0.25, 0.25), Math.random() * Math.PI * 2, rand(-0.25, 0.25));
     q.setFromEuler(e);
     const k = rand(0.8, 1.5);

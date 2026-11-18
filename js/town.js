@@ -5,7 +5,7 @@ import { heightAt } from './terrain.js';
 import { skyNow, DAY_MIN } from './daytime.js';
 
 import { cottage, mushroomHouse, bed } from './cottage.js';
-import { mat, glass, box, cyl, cone, ball, softDot, blob, smoke } from './townkit.js';
+import { mat, glass, box, cyl, cone, ball, softDot, blob, smoke, Bag } from './townkit.js';
 import { NEST } from './eggs.js';
 import { school } from './school.js';
 
@@ -415,10 +415,94 @@ PLAN.forEach((p, i) => {
   p.movable = !['池', '柵', '虹'].includes(p.label);   // 池・柵・虹は、うごかさない
 });
 
+// ---- 町の 小道（石だたみ） ------------------------------------------------
+// まんなか（女の子の いる あたり）から 建物の 入口へ。建物が 出たら 小道も 出る（うごかした・しまった ときは かくす）
+// for: PLAN の 番号。pts: 通る 点（x, z）
+const TRAILS = [
+  { for: 7, pts: [[0.9, 0.2], [1.3, -4.8], [0.6, -8.4], [0.2, -10.6]] },          // 学校
+  { for: 3, pts: [[1.4, -2.6], [4.6, -4.1], [7.2, -4.7], [8.9, -5.0]] },          // コテージ
+  { for: 5, pts: [[-2.6, -0.5], [-5.4, -3.6], [-8.4, -5.8], [-11.0, -6.6]] },     // きのこの家
+  { for: 8, pts: [[1.4, 1.2], [3.2, 3.6], [4.8, 5.6]] },                           // 噴水
+  { for: 2, pts: [[-1.8, 0.9], [-4.6, 2.0], [-6.8, 2.8]] },                        // 池
+];
+const TRAIL_W = 1.25;
+const segDist = (x, z, a, b) => {
+  const dx = b[0] - a[0]; const dz = b[1] - a[1];
+  const t = Math.max(0, Math.min(1, ((x - a[0]) * dx + (z - a[1]) * dz) / (dx * dx + dz * dz)));
+  return Math.hypot(x - a[0] - dx * t, z - a[1] - dz * t);
+};
+const nearTrail = (x, z, pad) => TRAILS.some((tr) => tr.pts.some((p, i) => i > 0 && segDist(x, z, tr.pts[i - 1], p) < TRAIL_W * 0.5 + pad));
+
+function trailMesh(tr) {
+  const g = new THREE.Group();
+  const curve = new THREE.CatmullRomCurve3(tr.pts.map(([x, z]) => new THREE.Vector3(x, 0, z)));
+  const len = curve.getLength();
+  const n = Math.max(8, Math.ceil(len / 0.35));
+  // 土の おび（ふちは すうっと 草に とける）
+  const pos = []; const col = []; const idx = [];
+  const soil = new THREE.Color(0xe2bf93); const edge = new THREE.Color(0xc9b77e);
+  for (let i = 0; i <= n; i++) {
+    const t = i / n;
+    const p = curve.getPointAt(t); const tg = curve.getTangentAt(t);
+    const nx = -tg.z; const nz = tg.x;
+    const wob = 1 + 0.12 * Math.sin(t * 23.0 + tr.for);
+    for (const [k, a] of [[-1, 0], [-0.55, 1], [0.55, 1], [1, 0]]) {
+      const x = p.x + nx * k * TRAIL_W * 0.62 * wob; const z = p.z + nz * k * TRAIL_W * 0.62 * wob;
+      pos.push(x, heightAt(x, z) + 0.035, z);
+      const c = edge.clone().lerp(soil, a);
+      col.push(c.r, c.g, c.b, a * 0.92);
+    }
+    if (i < n) for (let k = 0; k < 3; k++) { const a = i * 4 + k; idx.push(a, a + 4, a + 1, a + 1, a + 4, a + 5); }
+  }
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+  geo.setAttribute('color', new THREE.Float32BufferAttribute(col, 4));
+  geo.setAttribute('normal', new THREE.Float32BufferAttribute(new Array(pos.length).fill(0).map((_, i) => (i % 3 === 1 ? 1 : 0)), 3));
+  geo.setIndex(idx);
+  const ribbon = new THREE.Mesh(geo, new THREE.MeshLambertMaterial({ vertexColors: true, transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2 }));
+  ribbon.renderOrder = 1;
+  g.add(ribbon);
+  // 石だたみ（まるい 平たい 石を ならべる）
+  const stones = [];
+  let seed = 11 + tr.for * 7;
+  const rnd = () => { seed = (seed * 9301 + 49297) % 233280; return seed / 233280; };
+  const stoneGeo = new THREE.SphereGeometry(1, 10, 6, 0, Math.PI * 2, 0, Math.PI / 2);
+  const cols = [0xf1e3c6, 0xe8d6b2, 0xf6ead2, 0xdcc9a4];
+  const m = Math.round(n * 1.4);
+  for (let i = 0; i < m; i++) {
+    const t = (i + 0.5) / m;
+    const p = curve.getPointAt(t); const tg = curve.getTangentAt(t);
+    for (const side of [-0.28, 0.28]) {
+      if (rnd() < 0.18) continue;
+      const off = side + (rnd() - 0.5) * 0.12;
+      const x = p.x - tg.z * off * TRAIL_W + tg.x * (rnd() - 0.5) * 0.12;
+      const z = p.z + tg.x * off * TRAIL_W + tg.z * (rnd() - 0.5) * 0.12;
+      const st = new THREE.Mesh(stoneGeo, mat(cols[Math.floor(rnd() * cols.length)]));
+      const sz = 0.2 + rnd() * 0.07;
+      st.scale.set(sz * (1 + rnd() * 0.3), 0.05, sz);
+      st.rotation.y = rnd() * 6.28;
+      st.position.set(x, heightAt(x, z) + 0.02, z);
+      stones.push(st);
+    }
+  }
+  // 石は 1つに まとめて かく（スマホで 軽く）
+  const merged = mergeStones(stones);
+  if (merged) g.add(merged);
+  return g;
+}
+
+function mergeStones(list) {
+  if (!list.length) return null;
+  const b = new Bag();
+  for (const st of list) b.add(st.geometry, st.material.color.getHex(), { x: st.position.x, y: st.position.y, z: st.position.z, sx: st.scale.x, sy: st.scale.y, sz: st.scale.z, ry: st.rotation.y });
+  return b.mesh();
+}
+
 // 草や木をよけるための判定（建物が出る前から場所をあけておく）
 // 教科の たまごの 巣（eggs.js の NEST）も、草が つきぬけないよう あけておく
 export function isTownSpot(x, z, pad = 0) {
   if (Math.hypot(x - NEST.x, z - NEST.z) < NEST.r + 0.35 + pad) return true;
+  if (nearTrail(x, z, pad)) return true;
   return PLAN.some((p) => p.avoid > 0 && Math.hypot(x - p.x, z - p.z) < p.avoid + pad);
 }
 
@@ -432,7 +516,12 @@ export function createTown(scene) {
     return { ...p, x0: p.x, z0: p.z, rot0: p.rot || 0, group, shown: false, stored: false, pop: 1 };
   });
   let off = false;   // 町の建物が ない島に いるあいだ（見えない・ぶつからない・うごかせない）
-  const vis = (it) => { it.group.visible = !off && it.shown && !it.stored; };
+  // 小道: その 建物が もとの 場所に 出ている ときだけ 見せる
+  const trails = TRAILS.map((tr) => { const m = trailMesh(tr); m.visible = false; scene.add(m); return { tr, m }; });
+  const vis = (it) => {
+    it.group.visible = !off && it.shown && !it.stored;
+    for (const t of trails) if (`town:${t.tr.for}` === it.id) t.m.visible = it.group.visible && Math.hypot(it.x - it.x0, it.z - it.z0) < 0.5;
+  };
   const walls = items.filter((it) => it.r > 0);
   let extraWalls = [];
   let blockers = [];   // 教科の 建物・たまごの 巣（eggs3d.js が 入れかえる）。[{ x, z, r }]
