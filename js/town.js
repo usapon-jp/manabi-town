@@ -5,7 +5,8 @@ import { heightAt } from './terrain.js';
 import { skyNow, DAY_MIN } from './daytime.js';
 
 import { cottage, mushroomHouse, bed } from './cottage.js';
-import { mat, glass, box, cyl, cone, ball, softDot, blob, smoke, Bag } from './townkit.js';
+import { mat, glass, box, cyl, cone, ball, softDot, blob, smoke, Bag, rboxGeo as rboxGeoT, GEO } from './townkit.js';
+const { CYL: CYLT, BOX: BOXT } = GEO;
 import { NEST } from './eggs.js';
 import { school } from './school.js';
 
@@ -424,6 +425,8 @@ const TRAILS = [
   { for: 5, pts: [[-2.6, -0.5], [-5.4, -3.6], [-8.4, -5.8], [-11.0, -6.6]] },     // きのこの家
   { for: 8, pts: [[1.4, 1.2], [3.2, 3.6], [4.8, 5.6]] },                           // 噴水
   { for: 2, pts: [[-1.8, 0.9], [-4.6, 2.0], [-6.8, 2.8]] },                        // 池
+  // 池から 島の はしへ ながれる 小川と、木の 橋（池と いっしょに 出る）
+  { for: 2, kind: 'stream', w: 1.5, pts: [[-11.6, 4.6], [-14.2, 6.6], [-17.4, 7.0], [-20.4, 9.2], [-23.6, 10.4]] },
 ];
 const TRAIL_W = 1.25;
 const segDist = (x, z, a, b) => {
@@ -431,9 +434,98 @@ const segDist = (x, z, a, b) => {
   const t = Math.max(0, Math.min(1, ((x - a[0]) * dx + (z - a[1]) * dz) / (dx * dx + dz * dz)));
   return Math.hypot(x - a[0] - dx * t, z - a[1] - dz * t);
 };
-const nearTrail = (x, z, pad) => TRAILS.some((tr) => tr.pts.some((p, i) => i > 0 && segDist(x, z, tr.pts[i - 1], p) < TRAIL_W * 0.5 + pad));
+const nearTrail = (x, z, pad) => TRAILS.some((tr) => tr.pts.some((p, i) => i > 0 && segDist(x, z, tr.pts[i - 1], p) < (tr.w || TRAIL_W) * 0.5 + pad));
+
+// 小川: 水の おび（ゆらゆら 光る）・岸の 石・まんなかの 木の 橋
+function streamMesh(tr) {
+  const g = new THREE.Group();
+  const W = tr.w;
+  const curve = new THREE.CatmullRomCurve3(tr.pts.map(([x, z]) => new THREE.Vector3(x, 0, z)));
+  const n = Math.max(12, Math.ceil(curve.getLength() / 0.3));
+  const pos = []; const col = []; const uv = []; const idx = [];
+  const deep = new THREE.Color(0x5fb8d8); const shallow = new THREE.Color(0xa8e0ea); const bank = new THREE.Color(0xb9c98a);
+  for (let i = 0; i <= n; i++) {
+    const t = i / n;
+    const p = curve.getPointAt(t); const tg = curve.getTangentAt(t);
+    const nx = -tg.z; const nz = tg.x;
+    const wob = 1 + 0.15 * Math.sin(t * 17.0);
+    for (const [k, a, c] of [[-1, 0, bank], [-0.7, 1, shallow], [0, 1, deep], [0.7, 1, shallow], [1, 0, bank]]) {
+      const x = p.x + nx * k * W * 0.6 * wob; const z = p.z + nz * k * W * 0.6 * wob;
+      pos.push(x, heightAt(x, z) + 0.04, z);
+      col.push(c.r, c.g, c.b, a * 0.95);
+      uv.push(k, t * n * 0.3);
+    }
+    if (i < n) for (let k = 0; k < 4; k++) { const a = i * 5 + k; idx.push(a, a + 5, a + 1, a + 1, a + 5, a + 6); }
+  }
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+  geo.setAttribute('color', new THREE.Float32BufferAttribute(col, 4));
+  geo.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2));
+  geo.setAttribute('normal', new THREE.Float32BufferAttribute(new Array(pos.length).fill(0).map((_, i) => (i % 3 === 1 ? 1 : 0)), 3));
+  geo.setIndex(idx);
+  const time = { value: 0 };
+  const wm = new THREE.MeshLambertMaterial({ vertexColors: true, transparent: true, depthWrite: false, emissive: 0x2a6a88, emissiveIntensity: 0.35, polygonOffset: true, polygonOffsetFactor: -3 });
+  wm.onBeforeCompile = (sh) => {
+    sh.uniforms.uT = time;
+    sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nvarying vec2 vSu;').replace('#include <uv_vertex>', '#include <uv_vertex>\nvSu = uv;');
+    sh.fragmentShader = sh.fragmentShader.replace('#include <common>', '#include <common>\nvarying vec2 vSu;\nuniform float uT;').replace('#include <color_fragment>', `#include <color_fragment>
+      float rip = sin( vSu.y * 9.0 - uT * 2.4 + sin( vSu.x * 3.0 ) * 1.5 ) * sin( vSu.y * 4.3 - uT * 1.3 + vSu.x * 2.0 );
+      diffuseColor.rgb += vec3( 0.9, 0.95, 1.0 ) * pow( max( 0.0, rip ), 6.0 ) * 0.5 * ( 1.0 - abs( vSu.x ) );`);
+  };
+  const water = new THREE.Mesh(geo, wm);
+  water.renderOrder = 1;
+  g.add(water);
+  // 岸の 石
+  const b = new Bag();
+  let seed = 31;
+  const rnd = () => { seed = (seed * 9301 + 49297) % 233280; return seed / 233280; };
+  const rock = new THREE.IcosahedronGeometry(1, 1);
+  for (let i = 0; i < n; i += 1) {
+    const t = (i + 0.5) / n;
+    const p = curve.getPointAt(t); const tg = curve.getTangentAt(t);
+    for (const side of [-1, 1]) {
+      if (rnd() < 0.35) continue;
+      const off = side * W * (0.6 + rnd() * 0.15);
+      const x = p.x - tg.z * off; const z = p.z + tg.x * off;
+      const r = 0.16 + rnd() * 0.16;
+      b.add(rock, [0xd8d0bf, 0xc9c1ae, 0xe4dccb][Math.floor(rnd() * 3)], { x, y: heightAt(x, z) + r * 0.25, z, sx: r * 1.3, sy: r * 0.7, sz: r, ry: rnd() * 6 });
+    }
+  }
+  // 木の 橋（まんなかへんに、川を またぐ アーチ）
+  const bt = 0.45; const bp = curve.getPointAt(bt); const btg = curve.getTangentAt(bt);
+  const bridge = new Bag();
+  const L = W * 2.1; const Wd = 1.0;
+  const rise = 0.42;
+  const planks = 11;
+  for (let i = 0; i < planks; i++) {
+    const u = (i / (planks - 1) - 0.5);
+    const y = rise * Math.cos(u * Math.PI) - 0.05;
+    const ang = -Math.sin(u * Math.PI) * rise * Math.PI / L;
+    bridge.add(rboxGeoT(Wd, 0.07, L / planks * 0.92, 0.02), i % 2 ? 0xc78a4f : 0xb87b45, { x: 0, y: y + 0.12, z: u * L, rx: ang });
+  }
+  for (const sx of [-1, 1]) {
+    for (let i = 0; i <= 4; i++) {
+      const u = i / 4 - 0.5;
+      const y = rise * Math.cos(u * Math.PI);
+      bridge.add(CYLT, 0x9a6a3c, { x: sx * Wd * 0.5, y: y + 0.32, z: u * L * 0.92, sx: 0.06, sy: 0.5, sz: 0.06 });
+    }
+    for (let i = 0; i < 8; i++) {
+      const u0 = i / 8 - 0.5; const u1 = (i + 1) / 8 - 0.5;
+      const y0 = rise * Math.cos(u0 * Math.PI); const y1 = rise * Math.cos(u1 * Math.PI);
+      const len = Math.hypot((u1 - u0) * L * 0.92, y1 - y0);
+      bridge.add(BOXT, 0xb07a48, { x: sx * Wd * 0.5, y: (y0 + y1) / 2 + 0.56, z: ((u0 + u1) / 2) * L * 0.92, sx: 0.07, sy: 0.07, sz: len + 0.02, rx: -Math.atan2(y1 - y0, (u1 - u0) * L * 0.92) });
+    }
+  }
+  const bm = bridge.mesh();
+  bm.position.set(bp.x, heightAt(bp.x, bp.z), bp.z);
+  bm.rotation.y = Math.atan2(-btg.z, btg.x);   // 橋の 長さ（z）を 川と 直角に
+  g.add(b.mesh(), bm);
+  g.userData.update = (t) => { time.value = t; };
+  return g;
+}
 
 function trailMesh(tr) {
+  if (tr.kind === 'stream') return streamMesh(tr);
   const g = new THREE.Group();
   const curve = new THREE.CatmullRomCurve3(tr.pts.map(([x, z]) => new THREE.Vector3(x, 0, z)));
   const len = curve.getLength();
@@ -590,6 +682,7 @@ export function createTown(scene) {
       return true;
     },
     update(dt, t, camPos) {
+      for (const tr of trails) if (tr.m.visible) tr.m.userData.update?.(t);
       for (const it of items) {
         if (!it.shown) continue;
         if (it.pop < 1) {

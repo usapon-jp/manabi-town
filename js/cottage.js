@@ -73,7 +73,8 @@ function lantern(b, glow, x, y, z) {
   b.add(BOX, 0x5a4636, { x: x, y: y + 0.3, z: z - 0.06, sx: 0.025, sy: 0.04, sz: 0.1 });
   b.add(rboxGeo(0.2, 0.05, 0.2, 0.02), 0x5a4636, { x, y: y + 0.12, z });
   b.add(rboxGeo(0.2, 0.05, 0.2, 0.02), 0x5a4636, { x, y: y - 0.12, z });
-  glow.add(rboxGeo(0.15, 0.22, 0.15, 0.03), 0xffe39a, { x, y, z });
+  glow.add(rboxGeo(0.15, 0.22, 0.15, 0.03), 0xffcf78, { x, y, z });
+  glow.halo(x, y, z + 0.05, 0.75);
   for (const sx of [-1, 1]) for (const sz of [-1, 1]) b.add(CYL, 0x5a4636, { x: x + sx * 0.08, y, z: z + sz * 0.08, sx: 0.01, sy: 0.24, sz: 0.01 });
   b.add(SPH, 0x5a4636, { x, y: y + 0.2, z, sx: 0.06, sy: 0.04, sz: 0.06 });
 }
@@ -89,8 +90,8 @@ function archDoor(b, glow, x, z, w = 0.8, h = 1.15) {
   b.add(BOX, 0x8c5a32, { x, y: h * 0.45, z: dz + 0.055, sx: 0.025, sy: h * 0.9, sz: 0.012 });   // ま中のすじ
   for (const sx of [-1, 1]) {
     b.add(rboxGeo(0.28, 0.4, 0.03, 0.02), 0xd9a066, { x: x + sx * 0.2, y: 0.3, z: dz + 0.06 }); // 下のパネル
-    glow.add(HALF, 0xffe39a, { x: x + sx * 0.19, y: h - r - 0.02, z: dz + 0.058, sx: r * 0.42, sy: r * 0.42, sz: 0.01 });
-    glow.add(rboxGeo(0.32, 0.22, 0.02, 0.01), 0xffe39a, { x: x + sx * 0.19, y: h - r - 0.13, z: dz + 0.058 });
+    glow.add(HALF, 0xffcf78, { x: x + sx * 0.19, y: h - r - 0.02, z: dz + 0.058, sx: r * 0.42, sy: r * 0.42, sz: 0.01 });
+    glow.add(rboxGeo(0.32, 0.22, 0.02, 0.01), 0xffcf78, { x: x + sx * 0.19, y: h - r - 0.13, z: dz + 0.058 });
     b.add(SPH, 0xe9b84a, { x: x + sx * 0.08, y: h * 0.45, z: dz + 0.08, s: 0.045 });             // とって
   }
   b.add(BOX, 0xc78a4f, { x, y: h - r - 0.02, z: dz + 0.065, sx: 0.03, sy: 0.4, sz: 0.012 });
@@ -234,8 +235,8 @@ export function cottage({ roof = 0xa9d95f, size = 1, withBed = true, seed = 3 } 
   const wx = 0.82; const wy = base + WH * 0.62;
   b.add(rboxGeo(0.66, 0.62, 0.08, 0.04), 0xd9a066, { x: wx, y: wy - 0.05, z });
   b.add(HALF, 0xd9a066, { x: wx, y: wy + 0.26, z, sx: 0.33, sy: 0.33, sz: 0.04 });
-  glow.add(rboxGeo(0.5, 0.5, 0.03, 0.02), 0xffe39a, { x: wx, y: wy - 0.05, z: z + 0.04 });
-  glow.add(HALF, 0xffe39a, { x: wx, y: wy + 0.2, z: z + 0.04, sx: 0.25, sy: 0.25, sz: 0.015 });
+  glow.add(rboxGeo(0.5, 0.5, 0.03, 0.02), 0xffcf78, { x: wx, y: wy - 0.05, z: z + 0.04 });
+  glow.add(HALF, 0xffcf78, { x: wx, y: wy + 0.2, z: z + 0.04, sx: 0.25, sy: 0.25, sz: 0.015 });
   b.add(BOX, 0xd9a066, { x: wx, y: wy + 0.05, z: z + 0.06, sx: 0.03, sy: 0.85, sz: 0.012 });
   b.add(BOX, 0xd9a066, { x: wx, y: wy + 0.05, z: z + 0.06, sx: 0.5, sy: 0.03, sz: 0.012 });
   for (const s of [-1, 1]) b.add(rboxGeo(0.2, 0.86, 0.06, 0.03), 0xb77d4d, { x: wx + s * 0.5, y: wy + 0.05, z: z + 0.01 });
@@ -332,7 +333,7 @@ export function mushroomHouse({ cap = 0xf26a4b, size = 1, withBed = true, seed =
   const wq = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), wa);
   const ring = new THREE.TorusGeometry(0.3, 0.06, 8, 24);
   b.add(ring, 0xd9a066, { x: wxp, y: 1.0, z: wzp, q: wq });
-  glow.add(new THREE.CircleGeometry(0.3, 20), 0xffe39a, { x: wxp, y: 1.0, z: wzp, q: wq });
+  glow.add(new THREE.CircleGeometry(0.3, 20), 0xffcf78, { x: wxp, y: 1.0, z: wzp, q: wq });
   b.add(BOX, 0xd9a066, { x: wxp, y: 1.0, z: wzp + 0.02, sx: 0.04, sy: 0.6, sz: 0.02, q: wq });
   b.add(BOX, 0xd9a066, { x: wxp, y: 1.0, z: wzp + 0.02, sx: 0.6, sy: 0.04, sz: 0.02, q: wq });
   lantern(b, glow, -0.74, 1.2, z + 0.06);

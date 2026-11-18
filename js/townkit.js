@@ -43,7 +43,7 @@ export const mat = (color, opts = {}) => {
   if (!mats.has(key)) mats.set(key, paint(new THREE.MeshLambertMaterial({ color, emissive: color, emissiveIntensity: 0.24, ...opts })));
   return mats.get(key);
 };
-export const glass = (() => new THREE.MeshBasicMaterial({ color: 0xffe6a6 }))();
+export const glass = (() => new THREE.MeshBasicMaterial({ color: 0xffd58a, toneMapped: false }))();
 
 export const box = (w, h, d, color, x = 0, y = 0, z = 0) => {
   const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat(color));
@@ -170,10 +170,28 @@ export class Bag {
   mesh(glow = false) {
     if (!bagMat) {
       bagMat = paint(new THREE.MeshLambertMaterial({ vertexColors: true, emissive: 0x2e2a24 }));
-      glowMat = new THREE.MeshBasicMaterial({ vertexColors: true });
+      // まどの 明かり: トーンマッピングで 白っぽく ならない ように、あたたかい だいだい色の まま 光らせる
+      glowMat = new THREE.MeshBasicMaterial({ vertexColors: true, toneMapped: false });
     }
     if (!this.list.length) return new THREE.Group();
-    return new THREE.Mesh(mergeGeometries(this.list), glow ? glowMat : bagMat);
+    const mesh = new THREE.Mesh(mergeGeometries(this.list), glow ? glowMat : bagMat);
+    // 光の わ（ランタンなど。halo(x,y,z,s) で 足した 場所）
+    if (glow && this.halos?.length) {
+      const g = new THREE.Group();
+      g.add(mesh);
+      for (const [x, y, z, sc] of this.halos) {
+        const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: softDot(), color: 0xffbf66, transparent: true, opacity: 0.5, depthWrite: false, blending: THREE.AdditiveBlending, toneMapped: false }));
+        sp.position.set(x, y, z); sp.scale.setScalar(sc);
+        g.add(sp);
+      }
+      return g;
+    }
+    return mesh;
+  }
+  // ぼんやり 光る わを 足す（mesh(true) の ときに スプライトに なる）
+  halo(x, y, z, s = 0.8) {
+    (this.halos ||= []).push([x, y, z, s]);
+    return this;
   }
 }
 
