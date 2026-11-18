@@ -4,6 +4,7 @@ import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { CHARACTERS } from './characters.js';
 import { partOf, lookOf, lookKey, avatarName, hasAvatarName } from './avatar.js';
 import { mountAvatar } from './avatar3d.js';
+import { picturebook, softShadow } from './picturebook.js';
 import { readMove, takeJump } from './controls.js';
 import { createTown, CLOCK_TOWER } from './town.js';
 import { createClock, CLOCK_KEY } from './daytime.js';
@@ -435,11 +436,8 @@ function createActor(scene, config, town, mount) {
   const root = new THREE.Group();
   scene.add(root);
 
-  const shadow = new THREE.Mesh(
-    new THREE.CircleGeometry(config.height * 0.38, 24),
-    new THREE.MeshBasicMaterial({ color: 0x3d6b2a, transparent: true, opacity: 0.25, depthWrite: false }),
-  );
-  shadow.rotation.x = -Math.PI / 2;
+  // 足もとの かげ（ふちが ぼけた まるい かげ。picturebook.js）
+  const shadow = softShadow(config.height * 0.3, 0.3);
   shadow.position.y = 0.02;
   scene.add(shadow);
 
@@ -453,7 +451,7 @@ function createActor(scene, config, town, mount) {
     for (const [key, b] of Object.entries(found)) { if (b) { bones[key] = b; base[key] = b.rotation.clone(); } }
   });
 
-  const state = { pose: null, target: null, phase: 0, idle: 0, nextWander: 3, jumpT: -1, y: 0, vy: 0, airJumps: 0, manual: 0, stuck: 0 };
+  const state = { pose: null, target: null, phase: 0, idle: 0, nextWander: 3, jumpT: -1, y: 0, vy: 0, airJumps: 0, manual: 0, stuck: 0, run: 0 };
   const GRAVITY = 22;
   const JUMP_V = 7.2;
 
@@ -543,17 +541,28 @@ function createActor(scene, config, town, mount) {
       }
       const inAir = state.y > 0.0001;
 
+      // ダッシュ: 台帳の walk.run が ある キャラは、ダッシュ中 走りの すがたへ すうっと うつる（0〜1）
+      const R = w.run;
+      state.run += ((R && walking && ctl.dash ? 1 : 0) - state.run) * Math.min(1, dt * 6);
+      const r = R ? state.run : 0;
+      const mixv = (a, b) => a + ((b ?? a) - a) * r;
       if (walking) {
         state.idle = 0;
         state.phase += dt * 9 * Math.min(1.8, Math.max(0.7, speedK));
         const s = Math.sin(state.phase);
-        rot('leftLeg', 'x', s * w.legSwing);
-        rot('rightLeg', 'x', -s * w.legSwing);
-        rot('leftArm', 'z', Math.abs(s) * w.armFlap);
-        rot('rightArm', 'z', -Math.abs(s) * w.armFlap);
-        if (w.armSwing) { rot('leftArm', 'x', -s * w.armSwing); rot('rightArm', 'x', s * w.armSwing); }
-        rot('head', 'z', s * 0.06);
-        body.position.y = Math.abs(Math.sin(state.phase)) * w.bob;
+        const legSwing = mixv(w.legSwing, R?.legSwing);
+        const armSwing = mixv(w.armSwing || 0, R?.armSwing);
+        const armFlap = mixv(w.armFlap, R?.armFlap);
+        rot('leftLeg', 'x', s * legSwing);
+        rot('rightLeg', 'x', -s * legSwing);
+        rot('leftArm', 'z', Math.abs(s) * armFlap);
+        rot('rightArm', 'z', -Math.abs(s) * armFlap);
+        if (armSwing) { rot('leftArm', 'x', -s * armSwing); rot('rightArm', 'x', s * armSwing); }
+        rot('head', 'z', s * 0.06 * (1 - r));
+        // 走るときは 前へ かたむき、顔は すこし 起こす
+        rot('spine', 'x', (R?.lean || 0) * r);
+        rot('head', 'x', -(R?.lean || 0) * 0.5 * r);
+        body.position.y = Math.abs(Math.sin(state.phase)) * mixv(w.bob, R?.bob);
       } else {
         state.idle += dt;
         const t = state.idle;
@@ -564,6 +573,7 @@ function createActor(scene, config, town, mount) {
         rot('leftArm', 'x', 0);
         rot('rightArm', 'x', 0);
         rot('head', 'z', Math.sin(t * 0.8) * 0.12);
+        rot('head', 'x', 0);
         rot('spine', 'x', Math.sin(t * 2.2) * 0.03);
         body.position.y = 0;
         poseNow(t);
@@ -608,6 +618,7 @@ function mountGlb(body, config, height, onBones) {
     (gltf) => {
       const model = gltf.scene;
       model.traverse((o) => { if (o.isMesh) o.frustumCulled = false; });
+      if (config.style) picturebook(model, config.style);
       const box = new THREE.Box3().setFromObject(model);
       const size = box.getSize(new THREE.Vector3());
       const s = height / (size.y || 1);

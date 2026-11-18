@@ -6,6 +6,7 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { partOf, PARTS, COLORS } from './avatar.js';
+import { picturebook } from './picturebook.js';
 
 const normName = (s) => String(s).toLowerCase().replace(/[^a-z0-9]/g, '');
 
@@ -68,6 +69,7 @@ function glbBody(body, part, look, onBones) {
       // 色を のせる 部品は、ほかの体と まざらないよう 材質を 自分用に
       o.material = Array.isArray(o.material) ? o.material.map((m) => m.clone()) : o.material.clone();
     });
+    if (part.style) picturebook(model, part.style);
     const box = new THREE.Box3().setFromObject(model);
     const size = box.getSize(new THREE.Vector3());
     const s = part.height / (size.y || 1);
@@ -81,6 +83,7 @@ function glbBody(body, part, look, onBones) {
     if (part.boneSpace === 'model') {
       model.updateMatrixWorld(true);
       for (const key of Object.keys(bones)) bones[key] = modelSpaceJoint(bones[key], model, part.rest?.[key]);
+      if (part.follow) addFollowers(bones, byName, model, part.follow);
     }
     onBones(bones);
     apply(current);
@@ -91,23 +94,90 @@ function glbBody(body, part, look, onBones) {
   return { setLook: apply };
 }
 
-// 骨の 回転を モデルの 向き（前 +z・左 +x・上 +y）で あつかう 関節。world.js は rotation（Euler）を
-// 書きかえるだけなので、書きかわったら 骨の quaternion に なおす。rest は ふだんの すがたの 回転
-function modelSpaceJoint(bone, model, rest = {}) {
+// 骨の 向きを モデルの 向き（前 +z・左 +x・上 +y）で かえる 道具。set(q) の q は モデルの 向きでの 回転
+function modelDriver(bone, model) {
   const q0 = bone.quaternion.clone();
   const w = bone.getWorldQuaternion(new THREE.Quaternion())
     .premultiply(model.getWorldQuaternion(new THREE.Quaternion()).invert());
   const wInv = w.clone().invert();
-  const rotation = new THREE.Euler(rest.x || 0, rest.y || 0, rest.z || 0);
-  const d = new THREE.Quaternion();
   const t = new THREE.Quaternion();
+  return (q) => { bone.quaternion.copy(q0).multiply(t.copy(wInv).multiply(q).multiply(w)); };
+}
+
+// world.js が さわる 関節。rotation（Euler）を 書きかえると、モデルの 向きで まわす。
+// きゅうに 切りかわらないよう、すこし おくれて なめらかに ついていく（歩きはじめ・止まるときの カクッを なくす）。
+// rest は ふだんの すがたの 回転。listeners は まわったときに 呼ぶ（ひざ・スカートが ついてくる）
+const SMOOTH = 22;   // 大きいほど すばやく ついていく
+function modelSpaceJoint(bone, model, rest = {}) {
+  const set = modelDriver(bone, model);
+  const rotation = new THREE.Euler(rest.x || 0, rest.y || 0, rest.z || 0);
+  const target = new THREE.Quaternion().setFromEuler(rotation);
+  const now = target.clone();
+  const listeners = [];
+  let last = performance.now();
   const apply = () => {
-    d.setFromEuler(rotation);
-    bone.quaternion.copy(q0).multiply(t.copy(wInv).multiply(d).multiply(w));
+    target.setFromEuler(rotation);
+    const t = performance.now();
+    const dt = Math.min(0.1, (t - last) / 1000); last = t;
+    now.slerp(target, 1 - Math.exp(-dt * SMOOTH));
+    set(now);
+    listeners.forEach((f) => f(now));
   };
   rotation._onChange(apply);
-  apply();
-  return { rotation, bone };
+  set(now);
+  return { rotation, bone, now, listeners };
+}
+
+// 歩き方に ついてくる 関節（world.js は 知らなくてよい）
+// - ひざ: 足が うしろへ いくほど まげる（足を 前へ はこぶ ときの けりあげ）
+// - ひじ: いつも すこし まげて、うでを 大きく ふるほど（走るとき）もっと まげる
+// - スカート: 下の 足と いっしょに 前後へ ゆれて、足を ひらくと すそが ひろがる（足が つきぬけない ように）
+function addFollowers(bones, byName, model, f) {
+  const find = (n) => byName[normName(n)];
+  const ex = new THREE.Euler();
+  const angleX = (q) => ex.setFromQuaternion(q).x;
+  const rx = (a) => new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1, 0, 0), a);
+  for (const [legKey, kneeName] of [['leftLeg', f.leftKnee], ['rightLeg', f.rightKnee]]) {
+    const knee = find(kneeName || '');
+    if (!knee || !bones[legKey]) continue;
+    const set = modelDriver(knee, model);
+    bones[legKey].listeners.push((q) => { const a = angleX(q); set(rx(0.08 + 1.1 * Math.max(0, a))); });
+  }
+  for (const [armKey, elbowName] of [['leftArm', f.leftElbow], ['rightArm', f.rightElbow]]) {
+    const elbow = find(elbowName || '');
+    if (!elbow || !bones[armKey]) continue;
+    const set = modelDriver(elbow, model);
+    const cb = (q) => { const a = angleX(q); set(rx(-0.28 - 0.6 * Math.max(0, -a) - 0.35 * Math.max(0, a))); };
+    bones[armKey].listeners.push(cb);
+    cb(bones[armKey].now);
+  }
+  // スカート: 骨の 根もとが こしの どちらがわに あるかで、左右の 足の きき目を きめる
+  const hips = bones.hips?.bone;
+  const skirt = (f.skirt || []).map(find).filter(Boolean);
+  if (!hips || !skirt.length || !bones.leftLeg || !bones.rightLeg) return;
+  model.updateMatrixWorld(true);
+  const toModel = new THREE.Matrix4().copy(model.matrixWorld).invert();
+  const hp = hips.getWorldPosition(new THREE.Vector3()).applyMatrix4(toModel);
+  const down = new THREE.Vector3(0, -1, 0);
+  const parts = skirt.map((b) => {
+    const p = b.getWorldPosition(new THREE.Vector3()).applyMatrix4(toModel).sub(hp);
+    p.y = 0; p.normalize();
+    return { set: modelDriver(b, model), dir: p, wl: 0.5 + 0.5 * p.x };
+  });
+  const flare = new THREE.Quaternion(); const q = new THREE.Quaternion(); const v = new THREE.Vector3();
+  const update = () => {
+    const al = angleX(bones.leftLeg.now); const ar = angleX(bones.rightLeg.now);
+    const open = Math.min(0.5, Math.abs(al - ar) * 0.35);
+    for (const s of parts) {
+      const swing = (al * s.wl + ar * (1 - s.wl)) * 0.75;
+      // すそを 外へ ひらく（前と うしろが よく ひらく）
+      const k = open * (0.4 + 0.6 * Math.abs(s.dir.z));
+      flare.setFromUnitVectors(down, v.copy(s.dir).multiplyScalar(Math.tan(k)).add(down).normalize());
+      s.set(q.copy(rx(swing)).multiply(flare));
+    }
+  };
+  bones.leftLeg.listeners.push(update);
+  bones.rightLeg.listeners.push(update);
 }
 
 // ---- 仮の すがた（コードで作る） --------------------------------------------------------
