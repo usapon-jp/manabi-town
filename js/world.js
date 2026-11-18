@@ -34,8 +34,9 @@ export function createWorld(container) {
   applyWorldLook(renderer);
 
   const scene = new THREE.Scene();
-  const camera = new THREE.PerspectiveCamera(46, 1, 0.1, 220);
-  const view = { angle: 0, dist: 11, height: 4.6, lookY: 1.5, target: new THREE.Vector3() };
+  // カメラ: 女の子の 目の 高さに ちかい ひくめの 位置から（絵本の 1ページの ように、キャラが 大きく、うしろに 町と 木が 見える）
+  const camera = new THREE.PerspectiveCamera(40, 1, 0.1, 220);
+  const view = { angle: 0, dist: 6.6, height: 2.0, lookY: 1.15, target: new THREE.Vector3() };
 
   // 絵本のような草原（空・雲海・草・花・木・ちょうちょ）
   const meadow = createMeadow(scene);
@@ -157,7 +158,7 @@ export function createWorld(container) {
   let tapDown = null;        // パーツ・うごかす の タップ（指を はなすまで まつ）         // 2本指に なったら、指が ぜんぶ はなれるまで なぞらない
   const fingerGap = () => { const [a, b] = [...touches.values()]; return Math.hypot(a.x - b.x, a.y - b.y) || 1; };
   function zoomTo(dist) {
-    const d = Math.min(26, Math.max(6, dist));
+    const d = Math.min(26, Math.max(4.5, dist));
     view.height = view.height * (d / view.dist);
     view.dist = d;
   }
