@@ -1,6 +1,7 @@
 // まるくてやわらかい「ねんどのおもちゃ」風の家と花だん。
 // ちいさなコテージ（うろこ屋根）と、きのこのおうち、丸太・石でかこった花だん。town.js から使う。
 import * as THREE from 'three';
+import { mergeVertices } from 'three/addons/utils/BufferGeometryUtils.js';
 import { Bag, GEO, rboxGeo, alignUp, leafBlade, tulip, hyacinth, daisy, smallYellow, seeded, blob, smoke, softDot } from './townkit.js';
 
 const { SPH, CYL, BOX, HALF } = GEO;
@@ -244,59 +245,136 @@ export function cottage({ roof = 0xa9d95f, wall = CREAM, size = 1, withBed = tru
 }
 
 // ---- きのこのおうち ---------------------------------------------------------
-// 大きな まるい かさが 主役。柄は ふっくら、正面に まるい とびらと まる窓、わきに ランタン
+// ぽてっと まるい 絵本の 家（2026-11-19 フミオさん「生き物みたいに 愛嬌のある 家に」）。
+// 形が 主役: 厚くて ふっくらした 傘（ふちは 場所ごとに すこし たわむ）＋ 短めで ふくらんだ 本体。
+// 顔: まんなかの まるい とびら（口）と、左右の まる窓（目）。見せ場は 入口まわり（ランプ・つた・花の 鉢・石の 道）。
+
+// 傘の ふちの たわみ（角度ごとに すこし ちがう。外がわほど 強く）
+function capWarp(x, y, z, CR) {
+  const r = Math.hypot(x, z); const th = Math.atan2(z, x);
+  const k = Math.min(1, Math.max(0, (r - CR * 0.45) / (CR * 0.6)));
+  const kk = k * k * (3 - 2 * k);
+  const dy = kk * (-0.22 * (0.5 + 0.5 * Math.sin(2 * th + 0.7)) - 0.08 * Math.sin(3 * th + 1.9));
+  const sr = 1 + kk * (0.04 * Math.sin(2 * th + 0.3) + 0.022 * Math.sin(5 * th + 1.1));
+  return [x * sr, y + dy, z * sr];
+}
+
+// 2Dの 点を なめらかに つないで、まわして 形に（lathe）。warp で 頂点を ゆがめ、法線を 作りなおす
+function smoothLathe(pts2, segs, n = 48, warp = null) {
+  const curve = new THREE.SplineCurve(pts2.map(([r, y]) => new THREE.Vector2(r, y)));
+  const prof = curve.getPoints(n).map((p) => new THREE.Vector2(Math.max(0.001, p.x), p.y));
+  let geo = new THREE.LatheGeometry(prof, segs);
+  geo.deleteAttribute('uv'); geo.deleteAttribute('normal');
+  geo = mergeVertices(geo, 1e-4);
+  if (warp) {
+    const pos = geo.attributes.position;
+    for (let i = 0; i < pos.count; i++) { const [x, y, z] = warp(pos.getX(i), pos.getY(i), pos.getZ(i)); pos.setXYZ(i, x, y, z); }
+  }
+  geo.computeVertexNormals();
+  return { geo, curve };
+}
+
 export function mushroomHouse({ cap = 0xf26a4b, size = 1, withBed = true, seed = 7 } = {}) {
   const g = new THREE.Group();
   const b = new Bag(); const glow = new Bag();
-  g.add(blob(2.9, 2.9, 0.3));
-  const R = 1.0; const H = 1.95;
-  // きのこの 柄（まんなかが ふくらみ、下は 地面に すわる）
-  const stem = [];
-  for (let i = 0; i <= 14; i++) {
-    const u = i / 14;
-    stem.push(new THREE.Vector2(R * (0.97 + 0.09 * Math.sin(u * Math.PI) - 0.1 * u) + (u < 0.12 ? (0.12 - u) * 1.6 : 0), u * (H + 0.2)));
+  g.add(blob(3.0, 3.0, 0.32));
+  // 本体（短めで ふっくら。下は まるく 地面に すわる）
+  const bodyPts = [[0.001, 0], [0.92, 0.0], [1.14, 0.1], [1.25, 0.5], [1.22, 1.0], [1.1, 1.5], [0.98, 1.97]];
+  const body = smoothLathe(bodyPts, 40, 40);
+  b.add(body.geo, 0xfff3dc, {});
+  const bodyR = (y) => { // y での 本体の はんけい（だいたい）
+    const pts = body.curve.getPoints(80);
+    let best = pts[0];
+    for (const p of pts) if (Math.abs(p.y - y) < Math.abs(best.y - y)) best = p;
+    return best.x;
+  };
+  // 傘（厚く ふっくら。ふちは まるく まきこみ、すこし たわむ）
+  const capY = 1.95; const CR = 2.3; const CH = 1.75; const RR = 0.36;
+  const capPts = [];
+  for (let i = 0; i <= 10; i++) {
+    const a = (i / 10) * (Math.PI / 2);
+    const sa = Math.sin(a); const ca = Math.cos(a);
+    capPts.push([(CR - RR) * Math.pow(sa, 0.8) + RR * sa, CH * Math.pow(ca, 0.75) - RR * 0.0]);
   }
-  b.add(new THREE.LatheGeometry(stem, 32), CREAM, {});
-  // かさ（たかめの まるい ドーム。ふちは まるく 下へ まきこむ）
-  const capY = H + 0.05; const CR = 2.1; const CH = 1.55;
-  const capProf = [];
-  for (let i = 0; i <= 20; i++) {
-    const a = (i / 20) * (Math.PI / 2);
-    capProf.push(new THREE.Vector2(Math.sin(a) * CR, Math.cos(a) * CH * (0.8 + 0.2 * Math.cos(a))));
+  capPts.push([CR + 0.02, -RR * 0.45], [CR - RR * 0.55, -RR * 0.98], [CR - RR * 1.4, -RR * 0.9]);
+  const warp = (x, y, z) => { const [wx, wy, wz] = capWarp(x, y, z, CR); return [wx, wy + capY, wz]; };
+  b.add(smoothLathe(capPts.reverse(), 56, 60, warp).geo, cap, {});
+  // 傘の うら（クリーム色。本体へ なめらかに つながる）
+  const underPts = [[CR - RR * 1.3, -RR * 0.92], [CR * 0.7, -RR * 0.75], [1.35, -RR * 0.35], [1.02, 0.0]];
+  b.add(smoothLathe(underPts.reverse(), 56, 24, warp).geo, 0xffe6c2, {});
+  // 白い 水玉（大きめを すこし。傘の 面に そわせる）
+  const capAt = (a, th) => {
+    const sa = Math.sin(a); const ca = Math.cos(a);
+    const r = (CR - RR) * Math.pow(sa, 0.8) + RR * sa; const y = CH * Math.pow(ca, 0.75);
+    return new THREE.Vector3(...warp(Math.cos(th) * r, y, Math.sin(th) * r));
+  };
+  const spots = [[0.75, 0.9, 0.5], [0.95, 2.3, 0.44], [0.7, 3.5, 0.5], [0.9, 4.7, 0.46], [0.78, 5.8, 0.42], [0.08, 0.0, 0.46], [1.15, 1.55, 0.3], [1.12, 4.05, 0.32], [0.42, 2.9, 0.34]];
+  for (const [a, th, sz] of spots) {
+    const p = capAt(a, th);
+    const n = capAt(a + 0.02, th).sub(capAt(a - 0.02, th)).cross(capAt(a, th + 0.02).sub(capAt(a, th - 0.02))).normalize();
+    if (n.y < 0) n.negate();
+    p.addScaledVector(n, 0.02);
+    b.add(SPH, 0xfffaf0, { x: p.x, y: p.y, z: p.z, sx: sz, sy: 0.1, sz: sz * 0.86, q: alignUp(n.x, n.y, n.z) });
   }
-  for (let i = 1; i <= 6; i++) {
-    const a = (i / 6) * Math.PI * 0.85;
-    capProf.push(new THREE.Vector2(CR + Math.sin(a) * 0.2, -0.2 + Math.cos(a) * 0.2));
+  // 小さな えんとつ（うしろ。くの字に まがった パイプと けむり。住んでいる しるし）
+  const chp = capAt(0.62, -2.3);
+  b.add(CYL, 0xb86d4a, { x: chp.x, y: chp.y + 0.2, z: chp.z, sx: 0.13, sy: 0.55, sz: 0.13, rz: 0.15 });
+  b.add(CYL, 0xb86d4a, { x: chp.x - 0.06, y: chp.y + 0.55, z: chp.z, sx: 0.13, sy: 0.3, sz: 0.13, rz: -0.25 });
+  b.add(CYL, 0xd2875f, { x: chp.x - 0.1, y: chp.y + 0.71, z: chp.z, sx: 0.18, sy: 0.08, sz: 0.18, rz: -0.25 });
+  // 顔: まんなかに まるい とびら、左右に まる窓
+  const zf = 1.25;
+  cuteDoor(b, glow, 0, zf, 0.8, 1.2, 0xe9d3a8);
+  b.add(rboxGeo(1.05, 0.1, 0.5, 0.05), 0xdccaa6, { y: 0.05, z: zf + 0.3 });
+  b.add(rboxGeo(0.6, 0.02, 0.3, 0.01), 0xd88f8f, { y: 0.11, z: zf + 0.33 });   // 玄関マット
+  for (const sd of [-1, 1]) {
+    const wa = sd * 0.8; const wy = 1.25; const wr = bodyR(wy) + 0.01;
+    const q = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), wa);
+    roundWindow(b, glow, Math.sin(wa) * wr, wy, Math.cos(wa) * wr, 0.24, 0xc98a52, q);
   }
-  capProf.push(new THREE.Vector2(CR - 0.3, -0.26));
-  capProf.push(new THREE.Vector2(0.01, -0.26));
-  capProf.reverse();
-  b.add(new THREE.LatheGeometry(capProf, 40), cap, { y: capY });
-  b.add(new THREE.CircleGeometry(1, 32).rotateX(Math.PI / 2), 0xffe8c4, { y: capY - 0.25, sx: CR - 0.25, sy: 1, sz: CR - 0.25 });
-  // 白い 水玉（大きめを すこしだけ）
-  const spots = [[0.9, 0.62, 0.55], [2.2, 0.75, 0.5], [3.4, 0.6, 0.52], [4.6, 0.72, 0.5], [5.7, 0.66, 0.46], [0.3, 0.0, 0.5], [1.6, 1.12, 0.36], [4.0, 1.15, 0.36]];
-  for (const [th, ph, sz] of spots) {
-    const sp = Math.sin(ph); const cp = Math.cos(ph);
-    const px = CR * sp * Math.cos(th); const py = capY + CH * cp * (0.8 + 0.2 * cp); const pz = CR * sp * Math.sin(th);
-    const q = alignUp(px / (CR * CR), (py - capY) / (CH * CH), pz / (CR * CR));
-    b.add(SPH, 0xffffff, { x: px * 0.99, y: capY + (py - capY) * 0.99, z: pz * 0.99, sx: sz, sy: 0.1, sz: sz * 0.85, q });
+  // 入口の わきの ランプ
+  lantern(b, glow, -0.6, 1.42, bodyR(1.42) + 0.02);
+  // つた（とびらの 左から 傘の 下まで のぼる）＋ 小さな 花
+  const rnd = seeded(seed + 3);
+  for (let i = 0; i < 26; i++) {
+    const t = i / 25;
+    const y = 0.12 + t * 1.5;
+    const ang = -1.25 + 0.12 * t + 0.08 * Math.sin(t * 9);
+    const r = bodyR(y) + 0.02;
+    const x = Math.sin(ang) * r; const z = Math.cos(ang) * r;
+    const q = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), ang);
+    b.add(SPH, i % 3 ? 0x5fa34a : 0x78bb64, { x, y, z, sx: 0.1, sy: 0.07, sz: 0.035, q });
+    if (i % 2) b.add(SPH, 0x6fb35e, { x: x + Math.cos(ang) * (rnd() - 0.5) * 0.2, y: y + 0.05, z: z - Math.sin(ang) * (rnd() - 0.5) * 0.2, sx: 0.08, sy: 0.055, sz: 0.03, q });
+    if (i % 5 === 2) b.add(SPH, i % 10 === 2 ? 0xff9fbd : 0xfffaf0, { x: x * 1.03, y: y + 0.03, z: z * 1.03, s: 0.05 });
   }
-  // とびら・まる窓・ランタン（正面に まとめる）
-  const z = R * 0.97;
-  cuteDoor(b, glow, -0.12, z, 0.72, 1.25);
-  b.add(rboxGeo(1.0, 0.1, 0.5, 0.05), 0xdccaa6, { x: -0.12, y: 0.05, z: z + 0.28 });
-  const wa = 0.78;
-  const wq = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), wa);
-  roundWindow(b, glow, Math.sin(wa) * (R * 1.0), 1.15, Math.cos(wa) * (R * 1.0), 0.28, 0xd9a066, wq);
-  lantern(b, glow, -0.74, 1.35, z - 0.04);
-  roundBush(b, 1.1, 0, 0.75, 0.85, 0xffd84a);
-  stones(b, -0.1, z + 0.95, 3, 0.15, 0.6);
+  // 花の 鉢を 入口の 両がわに
+  for (const sd of [-1, 1]) {
+    const px = sd * 0.72; const pz = zf + 0.42;
+    b.add(new THREE.CylinderGeometry(0.19, 0.14, 0.3, 14), 0xd27a52, { x: px, y: 0.15, z: pz });
+    b.add(CYL, 0xc06a45, { x: px, y: 0.3, z: pz, sx: 0.21, sy: 0.05, sz: 0.21 });
+    b.add(SPH, 0x6fb35e, { x: px, y: 0.4, z: pz, sx: 0.2, sy: 0.15, sz: 0.2 });
+    for (let k = 0; k < 4; k++) {
+      const a = k * 1.7 + sd;
+      b.add(SPH, sd < 0 ? 0xff9fbd : 0xffd84a, { x: px + Math.cos(a) * 0.12, y: 0.5 + (k % 2) * 0.04, z: pz + Math.sin(a) * 0.12, s: 0.065 });
+    }
+  }
+  // 石の 道（とびらから 外へ）
+  stones(b, 0.05, zf + 0.95, 4, 0.12, 0.55);
+  // くらしの けはい: じょうろ
+  const wcx = 1.05; const wcz = zf + 0.55;
+  b.add(CYL, 0x9fb8a0, { x: wcx, y: 0.17, z: wcz, sx: 0.17, sy: 0.32, sz: 0.17 });
+  b.add(CYL, 0x8aa68c, { x: wcx, y: 0.34, z: wcz, sx: 0.18, sy: 0.04, sz: 0.18 });
+  b.add(CYL, 0x9fb8a0, { x: wcx + 0.24, y: 0.3, z: wcz, sx: 0.035, sy: 0.34, sz: 0.035, rz: -0.9 });
+  b.add(new THREE.TorusGeometry(0.13, 0.022, 6, 14), 0x8aa68c, { x: wcx - 0.08, y: 0.36, z: wcz });
   g.add(b.mesh(), glow.mesh(true));
   if (withBed) {
     const bd = bed('log', 0.8, seed);
-    bd.position.set(-1.75, 0, 0.9);
+    bd.position.set(-2.0, 0, 0.7);
     g.add(bd);
   }
+  const sm = smoke(chp.x - 0.1, chp.y + 0.8, chp.z);
+  g.add(sm);
+  const bedUpdate = g.children.find((c) => c.userData.update)?.userData.update;
+  g.userData.update = (t) => { sm.userData.tick(t); bedUpdate?.(t); };
   g.scale.setScalar(size);
   return g;
 }
