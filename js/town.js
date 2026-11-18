@@ -7,6 +7,7 @@ import { skyNow, DAY_MIN } from './daytime.js';
 import { cottage, mushroomHouse, bed } from './cottage.js';
 import { mat, glass, box, cyl, cone, ball, softDot, blob, smoke } from './townkit.js';
 import { NEST } from './eggs.js';
+import { school } from './school.js';
 
 // 切り妻（山がたの）屋根。底がy=0、ひさしを少し出す
 function gable(width, depth, rise, color, over = 0.22) {
@@ -198,64 +199,6 @@ function windmill() {
   g.add(blades);
   g.add(bush(-1.1, 1.0, 0.9), bush(1.15, 0.9, 0.8));
   g.userData.update = (t) => { blades.rotation.z = -t * 0.8; };
-  return g;
-}
-
-function school() {
-  const g = new THREE.Group();
-  const wall = 0xfff0d8; const roof = 0xe5705f;
-  g.add(blob(4.6, 3.2, 0.3));
-  g.add(box(5.6, 0.2, 3.0, 0xbdb6a6, 0, 0.1, 0));
-  g.add(box(5.2, 2.1, 2.6, wall, 0, 1.25, 0));
-  const wood = 0x93603e;
-  for (const sx of [-2.6, 2.6]) g.add(box(0.14, 2.1, 0.14, wood, sx, 1.25, 1.3));
-  // 本棟の屋根（前後むき山がた）
-  const rise = 1.1;
-  const r1 = gable(5.2, 2.6, rise, roof, 0.3);
-  r1.position.y = 2.3;
-  g.add(r1);
-  for (const sz of [-1, 1]) { const gw = gableWall(5.2, rise, wall, sz * 1.3); gw.position.y = 2.3; g.add(gw); }
-  // まんなかの時計塔
-  g.add(box(1.5, 3.0, 1.5, wall, 0, 3.95, 0.3));
-  g.add(box(1.7, 0.14, 1.7, wood, 0, 5.52, 0.3));
-  const spire = cone(1.2, 1.7, roof, 0, 6.45, 0.3, 4);
-  spire.rotation.y = Math.PI / 4;
-  g.add(spire);
-  g.add(ball(0.13, 0xffd45c, 0, 7.35, 0.3));
-  // 塔の まるまどに 金の かね（時計に すると Lv10 の 時計塔と まちがえて タップしてしまうので、時計は 時計塔だけ）
-  const face = new THREE.Mesh(new THREE.CircleGeometry(0.5, 28), mat(0x9fd3e8));
-  face.position.set(0, 4.6, 1.06);
-  g.add(face);
-  const rim = new THREE.Mesh(new THREE.TorusGeometry(0.5, 0.05, 8, 28), mat(wood));
-  rim.position.set(0, 4.6, 1.07);
-  g.add(rim);
-  const bell = cone(0.24, 0.38, 0xffd45c, 0, 4.58, 1.12, 16);
-  g.add(bell, ball(0.07, 0xffd45c, 0, 4.82, 1.12), ball(0.06, 0xd9a83a, 0, 4.36, 1.12));
-  g.add(box(0.5, 0.55, 0.06, 0xffe6a6, 0, 5.1, 1.06)).children.at(-1).material = glass;
-  // げんかん
-  const door = new THREE.Group();
-  archDoor(door, 0, 0, 0, 0.95, 1.5);
-  door.position.set(0, 0.2, 1.33);
-  g.add(door);
-  g.add(box(2.0, 0.1, 0.6, 0xcfc8b8, 0, 0.25, 1.6), box(1.6, 0.1, 0.45, 0xd8d1c1, 0, 0.3, 1.65));
-  for (const sx of [-1, 1]) {
-    windowAt(g, sx * 1.05, 1.35, 1.32, 0.42, 0.62, 0x7fb8a4, true);
-    windowAt(g, sx * 1.95, 1.35, 1.32, 0.42, 0.62, 0x7fb8a4, true);
-  }
-  // 旗とばんてい（三角旗）
-  g.add(cyl(0.03, 0.03, 1.8, 0x8a8a8a, 3.1, 0.9, 1.5, 6));
-  const flag = box(0.8, 0.45, 0.03, 0xff7a7a, 3.5, 1.55, 1.5);
-  g.add(flag);
-  const cols = [0xff8fb3, 0xfff08a, 0x8fd6f2, 0x9fe0a0, 0xc7a6ff, 0xffb27a];
-  for (let i = 0; i < 12; i++) {
-    const x = -2.5 + (i / 11) * 5;
-    const tri = new THREE.Mesh(new THREE.CircleGeometry(0.15, 3), mat(cols[i % cols.length], { side: THREE.DoubleSide }));
-    tri.rotation.z = Math.PI;
-    tri.position.set(x, 2.2 - Math.sin((i / 11) * Math.PI) * 0.25 + 0.0, 1.5);
-    g.add(tri);
-  }
-  g.add(bush(-2.9, 1.7, 1.1), bush(2.4, 1.85, 1.0), bush(-1.6, 1.9, 0.8));
-  g.userData.update = (t) => { flag.rotation.y = Math.sin(t * 3) * 0.25; };
   return g;
 }
 
