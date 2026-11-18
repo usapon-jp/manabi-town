@@ -366,8 +366,9 @@ export function school() {
   // まど（正面は 花ばこつき。横と うらにも）
   let seed = 1;
   for (const sx of [-1, 1]) {
-    schoolWindow(solid, glow, sx * 1.05, 1.38, 1.3, 0, 0.42, 0.62, { flowers: true, seed: seed++ });
-    schoolWindow(solid, glow, sx * 1.95, 1.38, 1.3, 0, 0.42, 0.62, { flowers: true, seed: seed++ });
+    // 正面は げんかんの 石の わく（はば 0.67 まで）と よろい戸が 重ならないよう、まどを すこし 細くして 外へ よせる
+    schoolWindow(solid, glow, sx * 1.13, 1.38, 1.3, 0, 0.38, 0.62, { flowers: true, seed: seed++ });
+    schoolWindow(solid, glow, sx * 2.07, 1.38, 1.3, 0, 0.38, 0.62, { flowers: true, seed: seed++ });
     for (const z of [-0.5, 0.5]) schoolWindow(solid, glow, sx * 2.6, 1.38, z * sx, sx * Math.PI / 2, 0.42, 0.62, { seed: seed++ });
     schoolWindow(solid, glow, sx * 0.9, 1.38, -1.3, Math.PI, 0.42, 0.62, { seed: seed++ });
     schoolWindow(solid, glow, sx * 1.9, 1.38, -1.3, Math.PI, 0.42, 0.62, { seed: seed++ });
