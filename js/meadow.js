@@ -334,6 +334,26 @@ function makeTrees() {
     trees.push(t);
     if (kind === 'cherry') cherries.push({ x, z, r: tree.userData.canopy.r, top: tree.userData.canopy.y + heightAt(x, z) });
   });
+  // 町の 近くにも 小さめの さくらを 3本（手前に 花の 色が 入って 絵本の 1まいの 絵に なる）
+  // （町の 建物・小道・池を さけた あき地。カメラの すぐ うしろには 置かない）
+  [[2.2, 12.3], [-12.3, -2.2], [-7.1, 8.4]].forEach(([x0, z0], i) => {
+    let x = x0; let z = z0; let ok = !isTownSpot(x, z, 2.0);
+    for (let tries = 0; tries < 10 && !ok; tries++) {
+      x = x0 + (Math.random() - 0.5) * 2; z = z0 + (Math.random() - 0.5) * 2;
+      ok = !isTownSpot(x, z, 2.0);
+    }
+    if (!ok) return;
+    const t = new THREE.Group();
+    const tree = makeTree('cherry', rand(0.72, 0.85), 40 + i);
+    t.add(tree);
+    const sh = softShadow(tree.userData.canopy.r * 1.25, 0.3);
+    sh.position.y = 0.03;
+    t.add(sh);
+    t.position.set(x, heightAt(x, z) - 0.05, z);
+    t.rotation.y = Math.random() * 6;
+    trees.push(t);
+    cherries.push({ x, z, r: tree.userData.canopy.r, top: tree.userData.canopy.y + heightAt(x, z) });
+  });
   return { trees, cherries };
 }
 

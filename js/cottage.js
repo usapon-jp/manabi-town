@@ -106,6 +106,27 @@ export function lampPost(b, glow, x, z, h = 2.1) {
   lantern(b, glow, x + 0.42, h - 0.32, z);
 }
 
+// 旗の ガーランド（a から c へ たるんだ ひもに、パステルの 三角の 旗）
+const FLAG = new THREE.ConeGeometry(0.1, 0.22, 3);
+const FLAG_COLORS = [0xf28da0, 0xffd76a, 0x8fd0e8, 0xfffaf0, 0xa8d878, 0xc9a8e8];
+export function bunting(b, a, c, sag = 0.3, n = 8, seed = 0) {
+  const P = (t) => [a[0] + (c[0] - a[0]) * t, a[1] + (c[1] - a[1]) * t - Math.sin(t * Math.PI) * sag, a[2] + (c[2] - a[2]) * t];
+  const ry = Math.atan2(-(c[2] - a[2]), c[0] - a[0]);
+  const segs = 10;
+  for (let i = 0; i < segs; i++) {
+    const p0 = P(i / segs); const p1 = P((i + 1) / segs);
+    const dx = p1[0] - p0[0]; const dy = p1[1] - p0[1]; const dz = p1[2] - p0[2];
+    const len = Math.hypot(dx, dy, dz);
+    const q = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), new THREE.Vector3(dx / len, dy / len, dz / len));
+    b.add(CYL, 0xf3e6cc, { x: (p0[0] + p1[0]) / 2, y: (p0[1] + p1[1]) / 2, z: (p0[2] + p1[2]) / 2, sx: 0.018, sy: len, sz: 0.018, q });
+  }
+  for (let i = 0; i < n; i++) {
+    const [x, y, z] = P((i + 0.5) / n);
+    // 下むきの 三角（うすく つぶして 旗に）
+    b.add(FLAG, FLAG_COLORS[(i + seed) % FLAG_COLORS.length], { x, y: y - 0.11, z, rz: Math.PI, ry, sz: 0.18 });
+  }
+}
+
 // しましまの ひさし（もも色と 白）
 function awning(b, x, y, z, w, d = 0.55) {
   const n = 7;
@@ -266,6 +287,12 @@ export function cottage({ roof = 0xa9d95f, size = 1, withBed = true, seed = 3 } 
   awning(b, wx, wy + 0.62, z + 0.04, 0.95);
   bookSign(b, -W / 2 - 0.04, base + WH - 0.25, z - 0.55);
   lampPost(b, glow, -1.55, z + 0.7);
+  // 屋根の てっぺんから 街灯と 右の ポールへ 旗の ガーランド（お祭りのような 入口）
+  const apex = [0, base + WH + rise - 0.1, z + 0.08];
+  b.add(CYL, 0x6b4a32, { x: 1.95, y: 0.95, z: z + 0.75, sx: 0.06, sy: 1.9, sz: 0.06 });
+  b.add(SPH, 0xf28da0, { x: 1.95, y: 1.93, z: z + 0.75, s: 0.08 });
+  bunting(b, apex, [-1.55, 2.05, z + 0.7], 0.25, 7, 0);
+  bunting(b, apex, [1.95, 1.85, z + 0.75], 0.25, 7, 3);
   g.add(b.mesh(), glow.mesh(true));
   if (withBed) {
     const bd = bed('stone', 0.85, seed);
