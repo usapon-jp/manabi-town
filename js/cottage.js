@@ -287,22 +287,38 @@ export function mushroomHouse({ cap = 0xf26a4b, size = 1, withBed = true, seed =
   g.add(blob(2.9, 2.9, 0.3));
   const R = 1.0; const H = 1.5;
   b.add(CYL, 0xd9cfb6, { y: 0.1, sx: R + 0.1, sy: 0.2, sz: R + 0.1 });
-  b.add(new THREE.CylinderGeometry(1, 1, 1, 24), CREAM, { y: 0.2 + H / 2, sx: R, sy: H, sz: R });
-  // かさ
-  const capY = 0.2 + H - 0.05; const CR = 1.78; const CH = 1.15;
-  const capGeo = new THREE.SphereGeometry(1, 28, 14, 0, Math.PI * 2, 0, Math.PI / 2);
-  b.add(capGeo, cap, { y: capY, sx: CR, sy: CH, sz: CR });
-  b.add(new THREE.CircleGeometry(1, 28).rotateX(Math.PI / 2), 0xffe8c4, { y: capY - 0.01, sx: CR, sy: 1, sz: CR });
-  const frill = new THREE.TorusGeometry(CR - 0.04, 0.09, 8, 36).rotateX(Math.PI / 2);
-  b.add(frill, 0xfff4dc, { y: capY });
+  // きのこの 柄（すこし ふくらんだ 形。下は ひろがって 地面に すわる）
+  const stem = [];
+  for (let i = 0; i <= 12; i++) {
+    const u = i / 12;
+    stem.push(new THREE.Vector2(R * (0.985 - 0.07 * u + 0.025 * Math.sin(u * Math.PI)) + (u < 0.1 ? (0.1 - u) * 1.0 : 0), 0.2 + u * H));
+  }
+  b.add(new THREE.LatheGeometry(stem, 28), CREAM, {});
+  // かさ（ひくい ドームで、ふちが まるく 下へ まきこむ）
+  const capY = 0.2 + H - 0.05; const CR = 1.95; const CH = 1.25;
+  const capProf = [];
+  for (let i = 0; i <= 18; i++) {
+    const a = (i / 18) * (Math.PI / 2);
+    capProf.push(new THREE.Vector2(Math.sin(a) * CR, Math.cos(a) * CH * (0.82 + 0.18 * Math.cos(a))));
+  }
+  // ふちの まきこみ
+  for (let i = 1; i <= 6; i++) {
+    const a = (i / 6) * Math.PI * 0.8;
+    capProf.push(new THREE.Vector2(CR + Math.sin(a) * 0.16, -0.16 + Math.cos(a) * 0.16));
+  }
+  capProf.push(new THREE.Vector2(CR - 0.25, -0.2));
+  capProf.push(new THREE.Vector2(0.01, -0.2));
+  capProf.reverse();
+  b.add(new THREE.LatheGeometry(capProf, 36), cap, { y: capY });
+  b.add(new THREE.CircleGeometry(1, 28).rotateX(Math.PI / 2), 0xffe8c4, { y: capY - 0.19, sx: CR - 0.2, sy: 1, sz: CR - 0.2 });
   // 白い水玉
-  const spots = [[0.9, 0.55, 0.42], [1.5, 0.75, 0.3], [2.3, 0.55, 0.36], [3.1, 0.8, 0.28], [4.0, 0.6, 0.4], [4.8, 0.82, 0.3], [5.6, 0.5, 0.34], [0.1, 0.95, 0.3], [0.0, 0.2, 0.0]];
+  const spots = [[0.9, 0.6, 0.5], [1.6, 0.95, 0.36], [2.3, 0.62, 0.44], [3.1, 1.0, 0.34], [4.0, 0.66, 0.48], [4.8, 1.02, 0.36], [5.6, 0.58, 0.42], [0.2, 1.05, 0.34], [0.0, 0.0, 0.42], [2.7, 1.25, 0.3], [5.2, 1.3, 0.28]];
   for (const [th, ph, sz] of spots) {
     if (!sz) continue;
     const sp = Math.sin(ph); const cp = Math.cos(ph);
-    const px = CR * sp * Math.cos(th); const py = capY + CH * cp; const pz = CR * sp * Math.sin(th);
+    const px = CR * sp * Math.cos(th); const py = capY + CH * cp * (0.82 + 0.18 * cp); const pz = CR * sp * Math.sin(th);
     const q = alignUp(px / (CR * CR), (py - capY) / (CH * CH), pz / (CR * CR));
-    b.add(SPH, 0xfff6e8, { x: px * 0.985, y: capY + (py - capY) * 0.985, z: pz * 0.985, sx: sz, sy: 0.07, sz: sz * 0.8, q });
+    b.add(SPH, 0xfff6e8, { x: px * 0.99, y: capY + (py - capY) * 0.99, z: pz * 0.99, sx: sz, sy: 0.08, sz: sz * 0.85, q });
   }
   // えんとつ
   b.add(CYL, 0xb86d4a, { x: 0.75, y: capY + 1.0, z: -0.55, sx: 0.17, sy: 0.7, sz: 0.17, rz: -0.12 });

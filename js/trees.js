@@ -8,7 +8,7 @@ import { mergeGeometries, mergeVertices } from 'three/addons/utils/BufferGeometr
 const PAL = {
   green: { top: [0.74, 0.86, 0.38], mid: [0.42, 0.68, 0.28], low: [0.2, 0.42, 0.2], dot: null },
   deep: { top: [0.6, 0.8, 0.34], mid: [0.32, 0.58, 0.26], low: [0.14, 0.34, 0.18], dot: null },
-  cherry: { top: [1.0, 0.82, 0.88], mid: [1.0, 0.6, 0.74], low: [0.86, 0.4, 0.56], dot: [1.0, 0.94, 0.96] },
+  cherry: { top: [1.0, 0.74, 0.84], mid: [0.98, 0.48, 0.66], low: [0.78, 0.28, 0.46], dot: [1.0, 0.9, 0.94] },
 };
 const BARK = { light: [0.62, 0.44, 0.3], dark: [0.36, 0.24, 0.17] };
 
@@ -90,7 +90,7 @@ export function treeMaterial() {
     sharedMat = new THREE.MeshLambertMaterial({ vertexColors: true });
     // 日かげでも 色が くすまない ように、葉の 色で ほんのり 光らせる（逆光の さくらが 灰色に ならない）
     sharedMat.onBeforeCompile = (sh) => {
-      sh.fragmentShader = sh.fragmentShader.replace('#include <emissivemap_fragment>', '#include <emissivemap_fragment>\n  totalEmissiveRadiance += vColor * 0.22;');
+      sh.fragmentShader = sh.fragmentShader.replace('#include <emissivemap_fragment>', '#include <emissivemap_fragment>\n  totalEmissiveRadiance += vColor * 0.28;');
     };
   }
   return sharedMat;
@@ -100,8 +100,8 @@ export function treeMaterial() {
 export function makeTree(kind = 'green', size = 1, seed = 1) {
   const rnd = mulberry(seed * 7919 + 13);
   const pal = PAL[kind] || PAL.green;
-  const H = (1.7 + rnd() * 0.5) * size;          // みきの 高さ（葉の 下まで）
-  const R = (1.25 + rnd() * 0.3) * size;         // 葉の ひろがり
+  const H = (1.3 + rnd() * 0.35) * size;          // みきの 高さ（葉の 下まで）
+  const R = (1.45 + rnd() * 0.35) * size;         // 葉の ひろがり
   const lean = (rnd() - 0.5) * 0.25 * size;
   const parts = [limb(0, 0, 0, lean, H + R * 0.5, 0, 0.2 * size, 0.11 * size, 0.08 * size)];
   // えだ（葉の 中へ のびる）
