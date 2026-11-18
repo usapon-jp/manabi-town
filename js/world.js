@@ -4,6 +4,7 @@ import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { CHARACTERS } from './characters.js';
 import { partOf, lookOf, lookKey, avatarName, hasAvatarName } from './avatar.js';
 import { mountAvatar } from './avatar3d.js';
+import { picturebook, softShadow } from './picturebook.js';
 import { readMove, takeJump } from './controls.js';
 import { createTown, CLOCK_TOWER } from './town.js';
 import { createClock, CLOCK_KEY } from './daytime.js';
@@ -435,11 +436,8 @@ function createActor(scene, config, town, mount) {
   const root = new THREE.Group();
   scene.add(root);
 
-  const shadow = new THREE.Mesh(
-    new THREE.CircleGeometry(config.height * 0.38, 24),
-    new THREE.MeshBasicMaterial({ color: 0x3d6b2a, transparent: true, opacity: 0.25, depthWrite: false }),
-  );
-  shadow.rotation.x = -Math.PI / 2;
+  // 足もとの かげ（ふちが ぼけた まるい かげ。picturebook.js）
+  const shadow = softShadow(config.height * 0.3, 0.3);
   shadow.position.y = 0.02;
   scene.add(shadow);
 
@@ -608,6 +606,7 @@ function mountGlb(body, config, height, onBones) {
     (gltf) => {
       const model = gltf.scene;
       model.traverse((o) => { if (o.isMesh) o.frustumCulled = false; });
+      if (config.style) picturebook(model, config.style);
       const box = new THREE.Box3().setFromObject(model);
       const size = box.getSize(new THREE.Vector3());
       const s = height / (size.y || 1);
