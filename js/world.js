@@ -234,6 +234,8 @@ export function createWorld(container) {
   }
   new ResizeObserver(resize).observe(container);
   resize();
+  // たて画面は 横が せまいので、はじめは すこし ひいて 町も 入るように
+  if ((container.clientWidth || 1) < (container.clientHeight || 1)) zoomTo(8.6);
 
   const clock = new THREE.Clock();
   let running = false;

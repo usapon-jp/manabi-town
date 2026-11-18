@@ -390,16 +390,16 @@ const PLAN = [
   { lv: 2, x: 3.6, z: 3.2, r: 0.35, avoid: 1.2, rot: -0.4, make: signpost },
   { lv: 2, x: -4, z: -4.5, r: 0, avoid: 2, make: () => bed('log', 1.45, 11) },
   { lv: 3, x: -9.5, z: 3.5, r: 2.4, avoid: 3.2, make: pond },
-  { lv: 4, x: 8, z: -7.5, r: 1.6, avoid: 3.4, rot: 0.15, make: () => cottage({ roof: 0xa9d95f }) },
+  { lv: 4, x: 8.5, z: -8, r: 2.1, avoid: 4.2, rot: 0.15, make: () => cottage({ roof: 0x8fcf5a, size: 1.35 }) },
   { lv: 4, x: 8, z: -2.2, r: 0, avoid: 4, make: () => fence(7) },
-  { lv: 5, x: -10, z: -9, r: 1.55, avoid: 3.4, rot: -0.25, make: () => mushroomHouse() },
+  { lv: 5, x: -10.5, z: -9.5, r: 2.1, avoid: 4.2, rot: -0.25, make: () => mushroomHouse({ size: 1.4 }) },
   { lv: 6, x: 14, z: 3, r: 1.1, avoid: 2.2, rot: -0.5, make: windmill },
   { lv: 7, x: 0, z: -14, r: 3.2, avoid: 4.2, make: school },
   { lv: 8, x: 6.5, z: 8, r: 2.0, avoid: 2.8, make: fountain },
   { lv: 9, x: 0, z: -31, r: 0, avoid: 0, make: rainbow },
   { lv: 10, x: -15, z: -14, r: 1.6, avoid: 3, rot: 0.6, make: tower },
   ...EXTRA_HOUSES.map(([x, z, rot, wall, roof], i) => ({
-    lv: 11 + i, x, z, r: 1.3, avoid: 2.2, rot, make: () => (i % 2 ? mushroomHouse({ cap: roof, size: 0.8, withBed: false }) : cottage({ roof, size: 0.8, withBed: false })),
+    lv: 11 + i, x, z, r: 1.75, avoid: 2.9, rot, make: () => (i % 2 ? mushroomHouse({ cap: roof, size: 1.1, withBed: false }) : cottage({ roof, size: 1.1, withBed: false })),
   })),
 ];
 

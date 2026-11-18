@@ -96,6 +96,49 @@ function archDoor(b, glow, x, z, w = 0.8, h = 1.15) {
   b.add(BOX, 0xc78a4f, { x, y: h - r - 0.02, z: dz + 0.065, sx: 0.03, sy: 0.4, sz: 0.012 });
 }
 
+// 街灯（木の 柱に つるした ランタン）。glow に 光る ガラス
+export function lampPost(b, glow, x, z, h = 2.1) {
+  b.add(CYL, 0x6b4a32, { x, y: h / 2, z, sx: 0.07, sy: h, sz: 0.07 });
+  b.add(CYL, 0x5a4636, { x, y: 0.08, z, sx: 0.16, sy: 0.16, sz: 0.16 });
+  b.add(BOX, 0x6b4a32, { x: x + 0.22, y: h - 0.05, z, sx: 0.5, sy: 0.06, sz: 0.06 });
+  b.add(new THREE.TorusGeometry(0.16, 0.025, 6, 12, Math.PI / 2), 0x5a4636, { x: x + 0.06, y: h - 0.22, z, rz: 0 });
+  lantern(b, glow, x + 0.42, h - 0.32, z);
+}
+
+// しましまの ひさし（もも色と 白）
+function awning(b, x, y, z, w, d = 0.55) {
+  const n = 7;
+  for (let i = 0; i < n; i++) {
+    const sx = -w / 2 + (i + 0.5) * (w / n);
+    b.add(rboxGeo(w / n + 0.01, 0.04, d, 0.015), i % 2 ? 0xfffaf0 : 0xf28da0, { x: x + sx, y, z: z + d / 2 - 0.05, rx: 0.42 });
+    b.add(SPH, i % 2 ? 0xfffaf0 : 0xf28da0, { x: x + sx, y: y - 0.25, z: z + d - 0.03, sx: w / n / 2, sy: 0.07, sz: 0.03 });
+  }
+  for (const s of [-1, 1]) b.add(BOX, 0x6b4a32, { x: x + s * (w / 2 - 0.04), y: y - 0.05, z: z + 0.25, sx: 0.03, sy: 0.03, sz: 0.5, rx: 0.42 });
+}
+
+// つり看板（ひらいた 本の しるし）
+function bookSign(b, x, y, z) {
+  b.add(BOX, 0x6b4a32, { x, y: y + 0.42, z: z + 0.2, sx: 0.05, sy: 0.05, sz: 0.42 });
+  for (const s of [-1, 1]) b.add(CYL, 0x5a4636, { x: x + s * 0.18, y: y + 0.3, z: z + 0.36, sx: 0.01, sy: 0.22, sz: 0.01 });
+  b.add(rboxGeo(0.62, 0.46, 0.06, 0.05), 0xc78a4f, { x, y, z: z + 0.36, ry: Math.PI / 2 });
+  b.add(rboxGeo(0.52, 0.36, 0.07, 0.04), 0xf6e7c6, { x, y, z: z + 0.36, ry: Math.PI / 2 });
+  for (const s of [-1, 1]) {
+    for (const side of [-1, 1]) {
+      b.add(rboxGeo(0.02, 0.2, 0.16, 0.01), 0xfffaf0, { x: x + side * 0.04, y: y + 0.01, z: z + 0.36 + s * 0.09, rx: s * 0.18 });
+      b.add(rboxGeo(0.022, 0.012, 0.11, 0.004), 0x9a6a3c, { x: x + side * 0.046, y: y + 0.04, z: z + 0.36 + s * 0.09 });
+      b.add(rboxGeo(0.022, 0.012, 0.11, 0.004), 0x9a6a3c, { x: x + side * 0.046, y: y - 0.02, z: z + 0.36 + s * 0.09 });
+    }
+  }
+}
+
+// ゆうびんうけ
+function mailbox(b, x, z, ry = 0) {
+  b.add(CYL, 0x6b4a32, { x, y: 0.45, z, sx: 0.05, sy: 0.9, sz: 0.05 });
+  b.add(rboxGeo(0.32, 0.26, 0.42, 0.08), 0xe86a5a, { x, y: 0.98, z, ry });
+  b.add(HALF, 0xe86a5a, { x, y: 1.1, z, sx: 0.16, sy: 0.12, sz: 0.21, rx: Math.PI / 2, ry });
+  b.add(BOX, 0xffd45c, { x: x + 0.17, y: 1.0, z, sx: 0.02, sy: 0.2, sz: 0.04 });
+}
+
 function roundBush(b, x, y, z, s, flowerColor) {
   const rnd = seeded(Math.floor(x * 100 + z * 37) + 5);
   b.add(SPH, 0x6fb35e, { x, y: y + 0.28 * s, z, s: 0.34 * s });
@@ -218,6 +261,10 @@ export function cottage({ roof = 0xa9d95f, size = 1, withBed = true, seed = 3 } 
   b.add(BOX, 0xb77d4d, { x: 1.55, y: 0.2, z: z + 0.28 + 0.2, sx: 0.5, sy: 0.04, sz: 0.01, ry: 0.2 });
   roundBush(b, 1.5, 0, z + 0.05, 0.9, 0xfff08a);
   stones(b, 0.05, z + 1.0, 3, 0.1, 0.62);
+  // ひさし・つり看板・街灯（絵本の お店のような 入口）
+  awning(b, wx, wy + 0.62, z + 0.04, 0.95);
+  bookSign(b, -W / 2 - 0.04, base + WH - 0.25, z - 0.55);
+  lampPost(b, glow, -1.55, z + 0.7);
   g.add(b.mesh(), glow.mesh(true));
   if (withBed) {
     const bd = bed('stone', 0.85, seed);
@@ -287,6 +334,8 @@ export function mushroomHouse({ cap = 0xf26a4b, size = 1, withBed = true, seed =
   b.add(CYL, 0xefc58c, { x: sx0, y: 0.505, z: sz0, sx: 0.37, sy: 0.02, sz: 0.37 });
   for (const rr of [0.12, 0.22, 0.3]) b.add(new THREE.TorusGeometry(rr, 0.012, 4, 20).rotateX(Math.PI / 2), 0xc58c52, { x: sx0, y: 0.52, z: sz0 });
   stones(b, 0.0, z + 0.9, 3, 0.18, 0.62);
+  mailbox(b, 0.95, z + 1.05, 0.3);
+  lampPost(b, glow, -1.25, z + 0.55, 2.0);
   g.add(b.mesh(), glow.mesh(true));
   // うさぎの立て札
   const sg = new Bag();
