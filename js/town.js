@@ -4,69 +4,11 @@ import * as THREE from 'three';
 import { heightAt } from './terrain.js';
 import { skyNow, DAY_MIN } from './daytime.js';
 
-import { cottage, mushroomHouse, bed } from './cottage.js';
-import { mat, glass, box, cyl, cone, ball, softDot, blob, smoke, Bag, rboxGeo as rboxGeoT, GEO } from './townkit.js';
+import { cottage, mushroomHouse, bed, cuteDoor, roundWindow, roundTower, spireRoof } from './cottage.js';
+import { mat, box, cyl, cone, ball, softDot, blob, Bag, rboxGeo as rboxGeoT, GEO } from './townkit.js';
 const { CYL: CYLT, BOX: BOXT } = GEO;
 import { NEST } from './eggs.js';
 import { school } from './school.js';
-
-// 切り妻（山がたの）屋根。底がy=0、ひさしを少し出す
-function gable(width, depth, rise, color, over = 0.22) {
-  const g = new THREE.Group();
-  const half = width / 2 + over;
-  const rise2 = (rise * half) / (width / 2);
-  const len = Math.hypot(half, rise2);
-  const ang = Math.atan2(rise2, half);
-  const slabD = depth + over * 1.8;
-  const dark = new THREE.Color(color).multiplyScalar(0.78).getHex();
-  for (const side of [-1, 1]) {
-    const slab = box(len, 0.13, slabD, color);
-    slab.position.set((side * half) / 2, rise2 / 2 + 0.05, 0);
-    slab.rotation.z = -side * ang;
-    for (const u of [-0.32, 0, 0.32]) slab.add(box(0.07, 0.05, slabD * 0.99, dark, u * len, 0.08, 0)); // かわらのすじ
-    g.add(slab);
-  }
-  const ridge = cyl(0.09, 0.09, slabD + 0.04, dark, 0, rise2 + 0.1, 0, 8);
-  ridge.rotation.x = Math.PI / 2;
-  g.add(ridge);
-  return g;
-}
-
-// 山がたの壁（切り妻の三角）
-function gableWall(width, rise, color, z, depth = 0.08) {
-  const shape = new THREE.Shape();
-  shape.moveTo(-width / 2, 0); shape.lineTo(width / 2, 0); shape.lineTo(0, rise); shape.closePath();
-  const m = new THREE.Mesh(new THREE.ExtrudeGeometry(shape, { depth, bevelEnabled: false }), mat(color));
-  m.position.z = z - depth / 2;
-  return m;
-}
-
-// まどわく・まど・よろい戸・花ばこ（正面むき）
-function windowAt(g, x, y, z, w, h, shutter = 0x7fb8a4, flowers = true) {
-  g.add(box(w + 0.12, h + 0.12, 0.05, 0xffffff, x, y, z));
-  g.add(box(w, h, 0.07, 0xffe6a6, x, y, z + 0.01)).children.at(-1).material = glass;
-  g.add(box(0.035, h, 0.08, 0xffffff, x, y, z + 0.02), box(w, 0.035, 0.08, 0xffffff, x, y, z + 0.02));
-  g.add(box(w * 0.42, h + 0.1, 0.05, shutter, x - w * 0.75, y, z), box(w * 0.42, h + 0.1, 0.05, shutter, x + w * 0.75, y, z));
-  if (flowers) {
-    g.add(box(w * 1.2, 0.14, 0.18, 0xa56b46, x, y - h / 2 - 0.1, z + 0.1));
-    const cols = [0xff8fb3, 0xfff08a, 0xffffff, 0xc7a6ff];
-    for (let i = 0; i < 5; i++) {
-      g.add(ball(0.075, cols[i % 4], x + (i - 2) * w * 0.24, y - h / 2 + 0.04, z + 0.12));
-      g.add(ball(0.06, 0x62b35a, x + (i - 2) * w * 0.24 + 0.05, y - h / 2 - 0.02, z + 0.12));
-    }
-  }
-}
-
-function archDoor(g, x, y, z, w, h, color = 0x9a6a4a) {
-  const rectH = h - w / 2;
-  g.add(box(w, rectH, 0.08, color, x, y + rectH / 2, z));
-  const arch = new THREE.Mesh(new THREE.CylinderGeometry(w / 2, w / 2, 0.08, 20, 1, false, Math.PI / 2, Math.PI), mat(color));
-  arch.rotation.x = Math.PI / 2;
-  arch.position.set(x, y + rectH, z);
-  g.add(arch);
-  g.add(box(0.05, h * 0.9, 0.09, 0x7a4c30, x, y + h * 0.45, z)); // まんなかの木目
-  g.add(ball(0.04, 0xffd45c, x + w * 0.3, y + h * 0.42, z + 0.06));
-}
 
 function bush(x, z, s = 1) {
   const g = new THREE.Group();
@@ -161,44 +103,36 @@ function fence(length = 7) {
   return g;
 }
 
-function windmill() {
+export function windmill() {
+  // ずんぐりした まるい 塔 ＋ 大きな まるい 帽子の 屋根 ＋ 4まいの 羽（形が 主役。小物は とびらと まる窓だけ）
   const g = new THREE.Group();
   g.add(blob(2.2, 2.2));
-  g.add(cyl(1.05, 1.15, 1.0, 0xc4beb0, 0, 0.5, 0, 20));                // 石の土台
-  g.add(cyl(0.68, 1.0, 2.6, 0xfff0d8, 0, 2.2, 0, 20));                 // 塔
-  g.add(cyl(0.72, 0.72, 0.1, 0x93603e, 0, 3.55, 0, 20));
-  g.add(cyl(0.7, 0.7, 0.08, 0x93603e, 0, 1.8, 0, 20));
-  const dome = new THREE.Mesh(new THREE.SphereGeometry(0.85, 20, 12, 0, Math.PI * 2, 0, Math.PI / 2), mat(0x6fa8dc));
-  dome.position.y = 3.58; dome.scale.set(1, 0.95, 1);
-  g.add(dome);
-  g.add(cone(0.12, 0.35, 0xffd45c, 0, 4.55, 0, 8));
-  // 正面（+z）
-  const door = new THREE.Group();
-  archDoor(door, 0, 0, 0, 0.55, 0.95);
-  door.position.set(0, 0.55, 1.1);
-  g.add(door);
-  const win = new THREE.Mesh(new THREE.CircleGeometry(0.17, 16), glass);
-  win.position.set(0, 2.5, 0.84);
-  g.add(win);
-  const ring = new THREE.Mesh(new THREE.TorusGeometry(0.17, 0.035, 8, 20), mat(0x93603e));
-  ring.position.set(0, 2.5, 0.85);
-  g.add(ring);
+  const b = new Bag(); const glow = new Bag();
+  b.add(GEO.CYL, 0xd8d1c1, { y: 0.15, sx: 1.25, sy: 0.3, sz: 1.25 });
+  roundTower(b, 0, 0.2, 0, 1.08, 0.78, 3.0, 0xfff0d8);
+  // 帽子の 屋根（まるい ドームに ふち）
+  b.add(new THREE.SphereGeometry(1, 28, 14, 0, Math.PI * 2, 0, Math.PI / 2), 0x6fa8dc, { y: 3.15, sx: 1.02, sy: 1.0, sz: 1.02 });
+  b.add(new THREE.TorusGeometry(0.98, 0.1, 8, 28).rotateX(Math.PI / 2), 0x5b93c6, { y: 3.18 });
+  b.add(GEO.SPH, 0xffd45c, { y: 4.2, s: 0.14 });
+  cuteDoor(b, glow, 0, 1.02, 0.66, 1.15);
+  roundWindow(b, glow, 0, 2.35, 0.94, 0.2);
+  g.add(b.mesh(), glow.mesh(true));
+  // 羽（まるい 角の 板。すじは 2本だけ）
   const blades = new THREE.Group();
-  blades.position.set(0, 3.1, 0.95);
-  blades.add(cyl(0.14, 0.14, 0.4, 0x93603e, 0, 0, 0.05, 10).rotateX(Math.PI / 2));
-  blades.add(ball(0.17, 0xffd45c, 0, 0, 0.3));
+  blades.position.set(0, 3.0, 1.05);
+  const bb = new Bag();
+  bb.add(GEO.CYL, 0x93603e, { z: 0.05, sx: 0.14, sy: 0.4, sz: 0.14, rx: Math.PI / 2 });
+  bb.add(GEO.SPH, 0xffd45c, { z: 0.3, s: 0.18 });
   for (let i = 0; i < 4; i++) {
-    const arm = new THREE.Group();
-    arm.rotation.z = (i * Math.PI) / 2;
-    arm.add(box(0.1, 2.7, 0.06, 0x93603e, 0, 1.4, 0));
-    const sail = box(0.62, 1.7, 0.03, 0xffffff, 0.36, 1.65, 0.04);
-    arm.add(sail);
-    for (let k = 0; k < 5; k++) arm.add(box(0.62, 0.03, 0.05, 0xd9b48a, 0.36, 0.85 + k * 0.4, 0.05));
-    arm.add(box(0.03, 1.7, 0.05, 0xd9b48a, 0.36, 1.65, 0.05));
-    blades.add(arm);
+    const q = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 0, 1), (i * Math.PI) / 2);
+    const at = (x, y) => new THREE.Vector3(x, y, 0).applyQuaternion(q);
+    let p = at(0, 1.3); bb.add(rboxGeoT(0.11, 2.5, 0.07, 0.03), 0x93603e, { x: p.x, y: p.y, z: 0.0, q });
+    p = at(0.36, 1.6); bb.add(rboxGeoT(0.6, 1.5, 0.05, 0.08), 0xfffaf0, { x: p.x, y: p.y, z: 0.04, q });
+    for (const k of [1.25, 1.95]) { p = at(0.36, k); bb.add(GEO.BOX, 0xd9b48a, { x: p.x, y: p.y, z: 0.07, sx: 0.6, sy: 0.04, sz: 0.02, q }); }
   }
+  blades.add(bb.mesh());
   g.add(blades);
-  g.add(bush(-1.1, 1.0, 0.9), bush(1.15, 0.9, 0.8));
+  g.add(bush(-1.15, 1.0, 0.9), bush(1.15, 0.95, 0.8));
   g.userData.update = (t) => { blades.rotation.z = -t * 0.8; };
   return g;
 }
@@ -309,33 +243,37 @@ function rainbow() {
   return g;
 }
 
-function tower() {
+export function tower() {
+  // まるい 塔 ＋ 大きな ピンクの とんがり屋根 ＋ 大きな 時計（時計が 見せ場）。わきに 小さな 塔を 2つ
   const g = new THREE.Group();
   g.add(blob(3.4, 3.4, 0.3));
-  g.add(cyl(1.6, 1.8, 0.4, 0xbdb6a6, 0, 0.2, 0, 24));
-  g.add(cyl(1.3, 1.5, 4.9, 0xf4e9ff, 0, 2.85, 0, 24));
-  for (const y of [1.6, 3.2, 4.7]) g.add(cyl(1.42 - y * 0.02, 1.42 - y * 0.02, 0.12, 0xc7a6ff, 0, y, 0, 24));
-  g.add(cyl(1.7, 1.55, 0.3, 0xc7a6ff, 0, 5.45, 0, 24));
-  g.add(cyl(1.4, 1.4, 0.6, 0xf4e9ff, 0, 5.9, 0, 24));
-  g.add(cone(1.75, 2.5, 0xff8fb3, 0, 7.45, 0, 24));
-  for (let i = 0; i < 6; i++) {
-    const a = (i / 6) * Math.PI * 2;
-    g.add(cone(0.22, 0.45, 0xffd45c, Math.cos(a) * 1.55, 5.7 + 0.22, Math.sin(a) * 1.55, 6));
+  const b = new Bag(); const glow = new Bag();
+  b.add(GEO.CYL, 0xd8d1c1, { y: 0.2, sx: 1.75, sy: 0.4, sz: 1.75 });
+  roundTower(b, 0, 0.35, 0, 1.5, 1.28, 5.1, 0xf4e9ff);
+  b.add(GEO.CYL, 0xc7a6ff, { y: 5.45, sx: 1.55, sy: 0.16, sz: 1.55 });
+  spireRoof(b, 0, 5.62, 0, 1.85, 2.9, 0xff8fb3);
+  cuteDoor(b, glow, 0, 1.46, 0.9, 1.55, 0xe6d8f5);
+  for (const a of [0.75, -0.75]) {
+    const q = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), a);
+    roundWindow(b, glow, Math.sin(a) * 1.4, 2.6, Math.cos(a) * 1.4, 0.2, 0xc7a6ff, q);
   }
+  for (const sx of [-1, 1]) {
+    roundTower(b, sx * 2.05, 0, 0.15, 0.68, 0.6, 2.7, 0xf4e9ff, 20);
+    spireRoof(b, sx * 2.05, 2.78, 0.15, 0.85, 1.35, 0x74c0fc, 20);
+    b.add(GEO.SPH, 0xffd45c, { x: sx * 2.05, y: 4.18, z: 0.15, s: 0.09 });
+  }
+  g.add(b.mesh(), glow.mesh(true));
   const star = new THREE.Mesh(new THREE.OctahedronGeometry(0.45, 0), new THREE.MeshBasicMaterial({ color: 0xffe066 }));
   star.position.y = 9.2;
   g.add(star);
   const halo = new THREE.Sprite(new THREE.SpriteMaterial({ map: softDot(), color: 0xfff1a8, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending }));
   halo.scale.setScalar(2.4); halo.position.y = 9.2;
   g.add(halo);
-  const door = new THREE.Group();
-  archDoor(door, 0, 0, 0, 0.9, 1.5);
-  door.position.set(0, 0.4, 1.44);
-  g.add(door);
   // 時計（町の時刻で 針が まわる。上が 昼の まんなか）。Lv10 から「時計塔」
   const clock = new THREE.Group();
-  clock.position.set(0, 3.95, 1.39);
-  clock.rotation.x = -0.04;
+  clock.position.set(0, 4.05, 1.36);
+  clock.rotation.x = -0.03;
+  clock.scale.setScalar(1.25);
   clock.add(new THREE.Mesh(new THREE.CircleGeometry(0.56, 32), mat(0xfffaf0)));
   const rim = new THREE.Mesh(new THREE.TorusGeometry(0.56, 0.06, 8, 32), mat(0xc7a6ff));
   clock.add(rim);
@@ -352,25 +290,6 @@ function tower() {
   hand.add(box(0.06, 0.4, 0.025, 0x5a4a7a, 0, 0.18, 0.05), ball(0.06, 0xffd45c, 0, 0, 0.06));
   clock.add(hand);
   g.add(clock);
-  for (const [y, a] of [[2.6, 0.5], [3.7, -1.0], [4.8, 1.0], [2.4, -1.2]]) {
-    const win = new THREE.Group();
-    win.add(box(0.5, 0.7, 0.05, 0xffffff, 0, 0, 0), box(0.4, 0.6, 0.07, 0xffe6a6, 0, 0, 0.01));
-    win.children[1].material = glass;
-    const arch = new THREE.Mesh(new THREE.CircleGeometry(0.2, 16, 0, Math.PI), glass);
-    arch.position.set(0, 0.3, 0.05);
-    win.add(arch);
-    win.position.set(Math.sin(a) * 1.41, y, Math.cos(a) * 1.41);
-    win.rotation.y = a;
-    g.add(win);
-  }
-  for (const sx of [-1, 1]) {
-    g.add(cyl(0.6, 0.72, 2.8, 0xf4e9ff, sx * 2.1, 1.4, 0.1, 16));
-    g.add(cone(0.82, 1.2, 0x74c0fc, sx * 2.1, 3.4, 0.1, 16));
-    g.add(ball(0.08, 0xffd45c, sx * 2.1, 4.05, 0.1));
-    const w = box(0.25, 0.4, 0.05, 0xffe6a6, sx * 2.1, 1.9, 0.78);
-    w.material = glass;
-    g.add(w);
-  }
   g.userData.update = (t) => {
     star.rotation.y = t * 1.5; star.position.y = 9.2 + Math.sin(t * 2) * 0.12;
     halo.position.y = star.position.y; halo.material.opacity = 0.6 + Math.sin(t * 2.4) * 0.2;

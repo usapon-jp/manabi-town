@@ -188,6 +188,22 @@ export function gableHouse(b, { W, D, WH, base, over, rise, sag, T, wall = CREAM
   return { off, y0, half, slabD, roofAt: (x) => off + roofY(x, half, rise, sag) + T };
 }
 
+// とんがり屋根（すこし へこんだ 線の まるい 円すい ＋ すその まるい ふち）。y が すその 高さ
+export function spireRoof(b, x, y, z, R, H, color, segs = 28) {
+  const prof = [new THREE.Vector2(0.001, -0.12), new THREE.Vector2(R * 0.92, -0.12)];
+  for (let i = 0; i <= 16; i++) { const u = i / 16; prof.push(new THREE.Vector2(Math.max(0.001, R * Math.pow(1 - u, 1.35)), u * H)); }
+  b.add(new THREE.LatheGeometry(prof, segs), color, { x, y, z });
+  b.add(new THREE.TorusGeometry(R * 0.97, Math.max(0.05, R * 0.065), 8, segs).rotateX(Math.PI / 2), new THREE.Color(color).multiplyScalar(0.85).getHex(), { x, y: y - 0.06, z });
+}
+
+// まるい 塔の かべ（下が すこし ひろく、まんなかが ふくらむ）。y0 から 高さ h
+export function roundTower(b, x, y0, z, r0, r1, h, color, segs = 28) {
+  const prof = [new THREE.Vector2(0.001, 0)];
+  for (let i = 0; i <= 12; i++) { const u = i / 12; prof.push(new THREE.Vector2(r0 + (r1 - r0) * u + 0.05 * Math.sin(u * Math.PI) * r0, u * h)); }
+  prof.push(new THREE.Vector2(0.001, h));
+  b.add(new THREE.LatheGeometry(prof, segs), color, { x, y: y0, z });
+}
+
 // ---- コテージ（緑の 屋根の 家） -------------------------------------------
 // 大きな 三角屋根の かたまりが 主役。かべは ずんぐり、正面に まるい とびらと アーチ窓、屋根うらに まる窓
 export function cottage({ roof = 0xa9d95f, wall = CREAM, size = 1, withBed = true, seed = 3 } = {}) {

@@ -3,7 +3,7 @@
 // 細かい ものは 正面の 入口と 窓べだけに あつめる。部品は Bag で ひとつの メッシュに まとめる。
 import * as THREE from 'three';
 import { mat, box, cyl, cone, ball, blob, Bag, GEO, rboxGeo } from './townkit.js';
-import { gableHouse, cuteDoor, archWindow, roundWindow } from './cottage.js';
+import { gableHouse, cuteDoor, archWindow, roundWindow, spireRoof } from './cottage.js';
 
 const WALL = 0xfff0d8;
 const ROOF = 0xe5705f;
@@ -92,17 +92,9 @@ export function school() {
   const tw = 1.5; const tz = -0.15; const tBot = ridge - 0.9; const tTop = ridge + 1.35;
   solid.add(rb(tw, tTop - tBot, tw, 0.16), WALL, { y: (tBot + tTop) / 2, z: tz });
   solid.add(rb(tw + 0.16, 0.14, tw + 0.16, 0.06), WOOD, { y: tTop, z: tz });
-  // とんがり屋根（すこし へこんだ 線の まるい 円すい。すそは 外へ はねる）
-  const prof = [];
+  // とんがり屋根（すこし へこんだ 線の まるい 円すい）
   const RR = 1.12; const HH = 1.9;
-  for (let i = 0; i <= 16; i++) {
-    const u = i / 16;
-    prof.push(new THREE.Vector2(Math.max(0.001, RR * Math.pow(1 - u, 1.35)), u * HH));
-  }
-  prof.unshift(new THREE.Vector2(RR * 0.92, -0.12));
-  prof.unshift(new THREE.Vector2(0.001, -0.12));
-  solid.add(new THREE.LatheGeometry(prof, 28), ROOF, { y: tTop + 0.1, z: tz });
-  solid.add(new THREE.TorusGeometry(RR * 0.97, 0.07, 8, 28).rotateX(Math.PI / 2), new THREE.Color(ROOF).multiplyScalar(0.85).getHex(), { y: tTop + 0.04, z: tz });
+  spireRoof(solid, 0, tTop + 0.1, tz, RR, HH, ROOF);
   g.add(ball(0.14, 0xffd45c, 0, tTop + 0.1 + HH + 0.06, tz), cone(0.08, 0.2, 0xffd45c, 0, tTop + 0.1 + HH + 0.26, tz, 8));
   // 塔の まるまどに 金の かね（前と うしろ）
   const bells = [];
