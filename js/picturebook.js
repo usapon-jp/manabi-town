@@ -13,7 +13,7 @@ const LINE = 0x6b4a3c;   // ふち線の 色（こげ茶）
 // opts: { shadow: かげの 明るさ(0〜1), faceShadow: 顔の かげ, blur: ぼかし, warm: あたたかさ, line: ふち線の 太さ（モデルの 長さ。0 で なし）, faceNames: 顔の メッシュ名 }
 export function picturebook(model, opts = {}) {
   const o = {
-    shadow: 0.74, faceShadow: 0.88, blur: 0.9, warm: 0.6, glow: 0.05, flat: 0.88, tint: 0.06, line: 0, faceNames: ['face'],
+    shadow: 0.62, faceShadow: 0.85, blur: 0.8, warm: 0.5, glow: 0, flat: 1.0, tint: 0.02, line: 0, faceNames: ['face'],
     ...opts,
   };
   const meshes = [];
@@ -59,7 +59,7 @@ function toBookMaterial(src, o) {
 #endif
   // すこし あたたかく、すこし ひかえめに（草原の 色に よせる）
   float pbL = dot( diffuseColor.rgb, vec3( 0.299, 0.587, 0.114 ) );
-  diffuseColor.rgb = mix( vec3( pbL ), diffuseColor.rgb, 0.86 ) * mix( vec3( 1.0 ), vec3( 1.05, 1.0, 0.9 ), ${o.warm.toFixed(2)} );
+  diffuseColor.rgb = mix( vec3( pbL ), diffuseColor.rgb, 0.94 ) * mix( vec3( 1.0 ), vec3( 1.05, 1.0, 0.9 ), ${o.warm.toFixed(2)} );
   // コントラストを ひくく（明るい ところも 暗い ところも まんなかへ）、草原の クリーム色に すこし よせる
   diffuseColor.rgb = mix( vec3( 0.55, 0.52, 0.45 ), diffuseColor.rgb, ${o.flat.toFixed(2)} );
   diffuseColor.rgb = mix( diffuseColor.rgb, vec3( 0.96, 0.9, 0.76 ), ${o.tint.toFixed(2)} );
