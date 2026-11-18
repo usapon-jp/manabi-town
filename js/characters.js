@@ -17,5 +17,7 @@ export const CHARACTERS = {
     },
     walk: { legSwing: 0.6, armFlap: 0.45, bob: 0.06 },
     fallbackColor: 0xffd84d,
+    // 女の子と 同じ 絵本の 絵柄に（js/picturebook.js）
+    style: { shadow: 0.78 },
   },
 };

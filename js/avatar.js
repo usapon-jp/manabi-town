@@ -57,8 +57,16 @@ export const PARTS = [
     // rest は ふだんの すがた（T ポーズの うでを 下ろす）。仮の すがたと 同じ 向き・同じ 歩き方の 数字で 動く
     boneSpace: 'model',
     rest: { leftArm: { z: -1.3 }, rightArm: { z: 1.3 } },
+    // 歩き方に ついてくる 関節（ひざ・ひじ・スカートの 骨）。avatar3d.js の addFollowers
+    follow: {
+      leftKnee: 'J_Bip_L_LowerLeg', rightKnee: 'J_Bip_R_LowerLeg',
+      leftElbow: 'J_Bip_L_LowerArm', rightElbow: 'J_Bip_R_LowerArm',
+      skirt: ['Skirt_000_1', 'Skirt_045_1', 'Skirt_090_1', 'Skirt_135_1', 'Skirt_180_1', 'Skirt_225_1', 'Skirt_270_1', 'Skirt_315_1'],
+    },
+    // 草原の 絵本の 絵柄に そろえる（js/picturebook.js）
+    style: {},
     // 歩き方: 足を前後・うでを前後（armSwing）・うでを 横へ（armFlap）・上下（bob）
-    walk: { legSwing: 0.7, armSwing: 0.55, armFlap: 0.08, bob: 0.05 },
+    walk: { legSwing: 0.45, armSwing: 0.4, armFlap: 0.06, bob: 0.035 },
   },
   { id: 'hair:futatsu', kind: 'hair', label: 'ふたつむすび', mesh: null, placeholder: 'futatsu', color: 'hair' },
   { id: 'hair:bob', kind: 'hair', label: 'ボブ', mesh: null, placeholder: 'bob', color: 'hair' },
