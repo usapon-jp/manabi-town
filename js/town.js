@@ -513,7 +513,7 @@ export function createTown(scene) {
     group.rotation.y = p.rot || 0;
     group.visible = false;
     scene.add(group);
-    return { ...p, x0: p.x, z0: p.z, rot0: p.rot || 0, group, shown: false, stored: false, pop: 1 };
+    return { ...p, x0: p.x, z0: p.z, rot0: p.rot || 0, group, shown: false, stored: false, pop: 1, base: group.scale.x };   // base: 建物ごとの 大きさ（cottage の size など）。ポンッと出る ときも これを たもつ
   });
   let off = false;   // 町の建物が ない島に いるあいだ（見えない・ぶつからない・うごかせない）
   // 小道: その 建物が もとの 場所に 出ている ときだけ 見せる
@@ -538,7 +538,7 @@ export function createTown(scene) {
           it.shown = true;
           vis(it);
           it.pop = pop && lastLv > 0 ? 0 : 1;
-          it.group.scale.setScalar(it.pop === 0 ? 0.001 : 1);
+          it.group.scale.setScalar(it.pop === 0 ? 0.001 : it.base);
           if (pop && lastLv > 0) fresh.push({ id: it.id, label: it.unlock, lv: it.lv, main: it.id });
         } else if (!on && it.shown) {
           it.shown = false;
@@ -596,7 +596,7 @@ export function createTown(scene) {
           it.pop = Math.min(1, it.pop + dt / 0.9);
           const k = it.pop - 1;
           const s = 1 + 2.2 * k * k * k + 1.2 * k * k; // ちょっとはねてから止まる
-          it.group.scale.setScalar(Math.max(0.001, s));
+          it.group.scale.setScalar(Math.max(0.001, s * it.base));
         }
         it.group.userData.update?.(t, camPos, it.group.position);
       }
