@@ -5,6 +5,7 @@ import { CHARACTERS } from './characters.js';
 import { partOf, lookOf, lookKey, avatarName, hasAvatarName } from './avatar.js';
 import { mountAvatar } from './avatar3d.js';
 import { picturebook, softShadow } from './picturebook.js';
+import { applyWorldLook } from './worldlook.js';
 import { readMove, takeJump } from './controls.js';
 import { createTown, CLOCK_TOWER } from './town.js';
 import { createClock, CLOCK_KEY } from './daytime.js';
@@ -29,8 +30,8 @@ export function createWorld(container) {
   renderer.setPixelRatio(pixelRatio());
   container.appendChild(renderer.domElement);
 
-  renderer.toneMapping = THREE.ACESFilmicToneMapping;
-  renderer.toneMappingExposure = 1.05;
+  // 絵本の 世界の 光と 色の しあげ（worldlook.js）
+  applyWorldLook(renderer);
 
   const scene = new THREE.Scene();
   const camera = new THREE.PerspectiveCamera(46, 1, 0.1, 220);

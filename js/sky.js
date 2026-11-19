@@ -28,8 +28,9 @@ function skyMaterial() {
         vec2 sflat = normalize(vec2(uSun.x, uSun.z) + 1e-5);
         float side = 0.5 + 0.5 * dot(dflat, sflat);
         vec3 hz = mix(uHzAway, uHz, smoothstep(0.0, 1.0, side));
-        vec3 col = mix(hz, uMid, smoothstep(0.0, 0.16, h));
-        col = mix(col, uTop, smoothstep(0.1, 0.62, h));
+        // 絵本の 空: 地平線から 上へ ゆっくり 色が うつる（帯を ひろく、さかいめを やわらかく）
+        vec3 col = mix(hz, uMid, smoothstep(-0.02, 0.3, h));
+        col = mix(col, uTop, smoothstep(0.16, 0.9, h));
         float s = max(dot(d, uSun), 0.0);
         col += uSunCol * pow(s, 6.0) * uGlow;                          // ひろがる光
         col += uSunCol * pow(s, 2.0) * uGlow * 0.18 * (1.0 - smoothstep(0.0, 0.35, h));   // 地平線に そう 光
@@ -111,7 +112,8 @@ export function createSky(scene, parts) {
   moon.renderOrder = -1;
   mesh.add(stars, moon);
   scene.add(mesh);
-  const fog = new THREE.Fog(0xf6e9cf, 34, 150);
+  // 霞: キャラの すこし 先から うすく かかりはじめ、とおくの 木や 雲海を 空に なじませる（奥ゆき）
+  const fog = new THREE.Fog(0xf6e9cf, 24, 115);
   scene.fog = fog;
 
   const cloudMats = [];
@@ -161,6 +163,8 @@ export function createSky(scene, parts) {
       mesh.position.copy(camPos);
       // 霞（フォグ）は 地平線と 同じ色に
       setS(fog.color, [(s.hz[0] + s.hzAway[0]) / 2, (s.hz[1] + s.hzAway[1]) / 2, (s.hz[2] + s.hzAway[2]) / 2]);
+      // 夜は 霞を うすく（町の 灯りが しずまない ように）
+      fog.near = 24 + s.night * 10; fog.far = 115 + s.night * 35;
       // 星と月
       stars.material.uniforms.uA.value = s.stars;
       stars.material.uniforms.uT.value = t;
