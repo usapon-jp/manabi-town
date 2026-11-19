@@ -29,7 +29,7 @@ function patchChunks() {
 	// くらい ところは ほんのり ももいろ、明るい ところは クリーム色に（夕方の 光の 色み）
 	c *= mix( vec3( 1.0, 0.95, 0.93 ), vec3( 1.03, 1.0, 0.93 ), smoothstep( 0.0, 0.6, l ) );
 	// いちばん くらい ところを すこし もちあげる（線形の 値。画面では こげ茶くらいに）
-	c = c * 0.975 + vec3( 0.009, 0.006, 0.005 );
+	c = c * 0.99 + vec3( 0.004, 0.003, 0.002 );
 	return saturate( c );
 }`,
   );
@@ -38,5 +38,5 @@ function patchChunks() {
 export function applyWorldLook(renderer) {
   patchChunks();
   renderer.toneMapping = THREE.CustomToneMapping;
-  renderer.toneMappingExposure = 1.05;
+  renderer.toneMappingExposure = 0.97;
 }

@@ -113,7 +113,7 @@ export function createSky(scene, parts) {
   mesh.add(stars, moon);
   scene.add(mesh);
   // 霞: キャラの すこし 先から うすく かかりはじめ、とおくの 木や 雲海を 空に なじませる（奥ゆき）
-  const fog = new THREE.Fog(0xf6e9cf, 24, 115);
+  const fog = new THREE.Fog(0xf6e9cf, 30, 135);
   scene.fog = fog;
 
   const cloudMats = [];
@@ -164,7 +164,7 @@ export function createSky(scene, parts) {
       // 霞（フォグ）は 地平線と 同じ色に
       setS(fog.color, [(s.hz[0] + s.hzAway[0]) / 2, (s.hz[1] + s.hzAway[1]) / 2, (s.hz[2] + s.hzAway[2]) / 2]);
       // 夜は 霞を うすく（町の 灯りが しずまない ように）
-      fog.near = 24 + s.night * 10; fog.far = 115 + s.night * 35;
+      fog.near = 30 + s.night * 8; fog.far = 135 + s.night * 25;
       // 星と月
       stars.material.uniforms.uA.value = s.stars;
       stars.material.uniforms.uT.value = t;
