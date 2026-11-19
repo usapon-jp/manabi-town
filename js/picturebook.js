@@ -41,6 +41,8 @@ function toBookMaterial(src, o) {
   // ほんの すこし 自分で 光らせて、日かげでも 色が しずみすぎない ように
   if (src.map && o.glow > 0) { mat.emissiveMap = src.map; mat.emissive = new THREE.Color(0xffffff).multiplyScalar(o.glow); }
   mat.name = src.name;
+  // 町の 光の やわらげ（worldlook.js）は キャラには かけない（自分の 2だんの かげを つかう）
+  mat.defines = { PB_CHAR: '' };
   mat.onBeforeCompile = (shader) => {
     shader.uniforms.pbShadow = { value: o.shadow };
     shader.fragmentShader = shader.fragmentShader

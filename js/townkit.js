@@ -3,14 +3,47 @@ import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 
 
+// 絵本の 絵の具の ぬり（2026-11-18）: 町の 部品の 表面に
+// - ゆるい 色の むら（場所で ほんの すこし 明るさと 色みが かわる。1色べたの プラスチックに 見えない ように）
+// - こまかい 紙の つぶ
+// - 足もと（もとの 高さから 0.5m くらい）を すこし こく（地面に すわって 見える）
+// 場所は 世界の 座標で きめるので、部品の 大きさに かかわらず 同じ こまかさ。テクスチャは つかわない（軽い）
+export function paint(material) {
+  material.onBeforeCompile = (sh) => {
+    sh.vertexShader = sh.vertexShader
+      .replace('#include <common>', '#include <common>\nvarying vec3 vPbW;\nvarying float vPbH;')
+      .replace('#include <project_vertex>', `#include <project_vertex>
+        vec4 pbW = modelMatrix * vec4( transformed, 1.0 );
+        #ifdef USE_INSTANCING
+        pbW = modelMatrix * instanceMatrix * vec4( transformed, 1.0 );
+        #endif
+        vPbW = pbW.xyz;
+        vPbH = pbW.y;   // 地面は だいたい 高さ 0`);
+    sh.fragmentShader = sh.fragmentShader
+      .replace('#include <common>', '#include <common>\nvarying vec3 vPbW;\nvarying float vPbH;')
+      .replace('#include <color_fragment>', `#include <color_fragment>
+        {
+          vec3 w = vPbW;
+          float lowF = sin( w.x * 1.3 + sin( w.z * 0.9 ) * 1.7 ) * sin( w.y * 1.7 + w.z * 0.6 ) ;
+          float midF = sin( w.x * 5.1 + w.y * 3.7 ) * sin( w.z * 4.3 - w.y * 2.9 );
+          float grain = fract( sin( dot( floor( w * 38.0 ), vec3( 12.9898, 78.233, 37.719 ) ) ) * 43758.5453 );
+          diffuseColor.rgb *= 1.0 + 0.045 * lowF + 0.03 * midF + 0.035 * ( grain - 0.5 );
+          diffuseColor.rgb *= mix( vec3( 1.0, 0.985, 0.95 ), vec3( 1.0 ), smoothstep( -0.6, 0.6, lowF ) );
+          diffuseColor.rgb *= mix( 0.8, 1.0, smoothstep( -0.2, 0.5, vPbH ) );
+        }`);
+  };
+  material.customProgramCacheKey = () => 'pb-paint';
+  return material;
+}
+
 const mats = new Map();
 // 絵本らしいやわらかい色。かげでも色がくすまないよう、ほんのり自分でも光らせる
 export const mat = (color, opts = {}) => {
   const key = color + JSON.stringify(opts);
-  if (!mats.has(key)) mats.set(key, new THREE.MeshLambertMaterial({ color, emissive: color, emissiveIntensity: 0.24, ...opts }));
+  if (!mats.has(key)) mats.set(key, paint(new THREE.MeshLambertMaterial({ color, emissive: color, emissiveIntensity: 0.24, ...opts })));
   return mats.get(key);
 };
-export const glass = (() => new THREE.MeshBasicMaterial({ color: 0xffe6a6 }))();
+export const glass = (() => new THREE.MeshBasicMaterial({ color: 0xffd58a, toneMapped: false }))();
 
 export const box = (w, h, d, color, x = 0, y = 0, z = 0) => {
   const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat(color));
@@ -136,11 +169,29 @@ export class Bag {
   // glow: true なら、かげにならず光って見える（まどの明かり）
   mesh(glow = false) {
     if (!bagMat) {
-      bagMat = new THREE.MeshLambertMaterial({ vertexColors: true, emissive: 0x2e2a24 });
-      glowMat = new THREE.MeshBasicMaterial({ vertexColors: true });
+      bagMat = paint(new THREE.MeshLambertMaterial({ vertexColors: true, emissive: 0x2e2a24 }));
+      // まどの 明かり: トーンマッピングで 白っぽく ならない ように、あたたかい だいだい色の まま 光らせる
+      glowMat = new THREE.MeshBasicMaterial({ vertexColors: true, toneMapped: false });
     }
     if (!this.list.length) return new THREE.Group();
-    return new THREE.Mesh(mergeGeometries(this.list), glow ? glowMat : bagMat);
+    const mesh = new THREE.Mesh(mergeGeometries(this.list), glow ? glowMat : bagMat);
+    // 光の わ（ランタンなど。halo(x,y,z,s) で 足した 場所）
+    if (glow && this.halos?.length) {
+      const g = new THREE.Group();
+      g.add(mesh);
+      for (const [x, y, z, sc] of this.halos) {
+        const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: softDot(), color: 0xffbf66, transparent: true, opacity: 0.5, depthWrite: false, blending: THREE.AdditiveBlending, toneMapped: false }));
+        sp.position.set(x, y, z); sp.scale.setScalar(sc);
+        g.add(sp);
+      }
+      return g;
+    }
+    return mesh;
+  }
+  // ぼんやり 光る わを 足す（mesh(true) の ときに スプライトに なる）
+  halo(x, y, z, s = 0.8) {
+    (this.halos ||= []).push([x, y, z, s]);
+    return this;
   }
 }
 

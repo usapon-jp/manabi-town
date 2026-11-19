@@ -50,7 +50,7 @@ export const PARTS = [
     // きゃらくる「カーディガン版」（VRM から 軽くした GLB。髪・服は モデルに 入っている）
     model: 'assets/models/girl.glb',
     placeholder: 'girl',  // model が ないとき・読めないときの 仮の すがた（avatar3d.js の BODIES）
-    height: 1.15,         // 箱庭の中での 背の高さ（ピヨちゃんは 1.0）
+    height: 1.32,         // 箱庭の中での 背の高さ（2026-11-19 1.15→1.32。花・建物に くらべて 小さかった）
     speed: 1.6,
     bones: VRM,
     // 骨の 向きが ばらばらな モデル（VRM）は、関節を モデルの 前(+z)・左(+x)・上(+y) の 向きで まわす。
