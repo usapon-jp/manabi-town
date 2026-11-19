@@ -511,6 +511,11 @@ function mergeStones(list) {
 
 // 草や木をよけるための判定（建物が出る前から場所をあけておく）
 // 教科の たまごの 巣（eggs.js の NEST）も、草が つきぬけないよう あけておく
+// たまごの 巣（いつも 見えている）。草花を はじめから 生やさない ところ
+export function isNestSpot(x, z, pad = 0) {
+  return Math.hypot(x - NEST.x, z - NEST.z) < NEST.r + 0.35 + pad;
+}
+
 export function isTownSpot(x, z, pad = 0) {
   if (Math.hypot(x - NEST.x, z - NEST.z) < NEST.r + 0.35 + pad) return true;
   if (nearTrail(x, z, pad)) return true;
@@ -537,8 +542,23 @@ export function createTown(scene) {
   let extraWalls = [];
   let blockers = [];   // 教科の 建物・たまごの 巣（eggs3d.js が 入れかえる）。[{ x, z, r }]
   let lastLv = 0;
+  // 建物・小道が 出たり 動いたり したら しらせる（草花は 見えている 建物の ところだけ よける）
+  const coverFns = [];
+  const notify = () => coverFns.forEach((fn) => fn());
 
   return {
+    onCover(fn) { coverFns.push(fn); fn(); },
+    // (x,z) が いま 見えている 建物・小道・巣に かかるか
+    covers(x, z, pad = 0) {
+      if (isNestSpot(x, z, pad)) return true;
+      for (const it of items) if (it.group.visible && it.avoid > 0 && Math.hypot(x - it.x, z - it.z) < it.avoid + pad) return true;
+      for (const t of trails) {
+        if (!t.m.visible) continue;
+        const tr = t.tr;
+        if (tr.pts.some((q, i) => i > 0 && segDist(x, z, tr.pts[i - 1], q) < (tr.w || TRAIL_W) * 0.5 + pad)) return true;
+      }
+      return false;
+    },
     // pop: false のときは最初から出ておく。true なら、ふえた分だけポンッと出る
     // あたらしく出た建物の [{id,label}] をかえす（レベルアップのおしらせに使う）
     setLevel(lv, pop = true) {
@@ -557,10 +577,11 @@ export function createTown(scene) {
         }
       }
       lastLv = lv;
+      notify();
       return fresh;
     },
     // 町の建物が ある島（はじまりの島）に いるときだけ on。ほかの島では まるごと かくす
-    setOn(on) { off = !on; items.forEach(vis); },
+    setOn(on) { off = !on; items.forEach(vis); notify(); },
     // 子どもがしまった・うごかした分を重ねる。map = { id: { x, z, rot, stored } }。ないものは、もとの場所にもどる
     setOverrides(map) {
       for (const it of items) {
@@ -572,6 +593,7 @@ export function createTown(scene) {
         it.group.rotation.y = rot;
         vis(it);
       }
+      notify();
     },
     // いま出ていて、うごかせる建物（しまってあるもの以外）
     movables() { if (off) return []; return items.filter((it) => it.movable && it.shown && !it.stored).map((it) => ({ id: it.id, label: it.label, x: it.x, z: it.z, r: it.r, rot: it.group.rotation.y })); },

@@ -2,7 +2,7 @@
 // チューリップ、シロツメクサ、タンポポ。どれも風にゆれる。meadow.js から makePlants(wind) で呼ぶ。
 import * as THREE from 'three';
 import { heightAt } from './terrain.js';
-import { isTownSpot } from './town.js';
+import { isNestSpot } from './town.js';
 import { addWind } from './wind.js';
 
 const MEADOW_R = 26;
@@ -345,13 +345,13 @@ function scatter({ template, count, flowerColors, clusters, clusterSpread, scale
         const cc = centers[Math.floor(Math.random() * centers.length)];
         x = cc[0] + gauss() * clusterSpread; z = cc[1] + gauss() * clusterSpread;
       } else [x, z] = inDisc(MEADOW_R);
-      if (Math.hypot(x, z) < MEADOW_R && !isTownSpot(x, z, -0.2)) break;
+      if (Math.hypot(x, z) < MEADOW_R && !isNestSpot(x, z, -0.2)) break;
       x = 99;
     }
     if (x === 99) { [x, z] = inDisc(10); }
     e.set(rand(-tilt, tilt), Math.random() * Math.PI * 2, rand(-tilt, tilt));
     q.setFromEuler(e);
-    const k = rand(scale[0], scale[1]);
+    const k = rand(scale[0], scale[1]) * 0.8;   // 野原の 花は すこし 小さめに（2026-11-19）
     s.set(k, k * rand(0.9, 1.15), k);
     v.set(x, heightAt(x, z) - 0.02, z);
     m.compose(v, q, s);

@@ -67,6 +67,8 @@ export function createWorld(container) {
 
   // 勉強したぶんだけ街が育つ（レベルに合わせて建物がふえる）
   const town = createTown(scene);
+  // 草花は 見えている 建物・小道の ところだけ よける（まだ 出ていない 建物の 場所に はげた あとを 作らない）
+  town.onCover(() => meadow.clearTown((x, z) => town.covers(x, z, -0.3)));
   // 画面に出すのは いつも島1つ分。町の建物は「はじまりの島」にだけ ある（islands.js の town: true）
   let shownLv = 0; let shownTown = null;
   const refreshTown = () => {

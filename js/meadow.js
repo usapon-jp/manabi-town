@@ -3,7 +3,7 @@
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { heightAt, dug } from './terrain.js';
-import { isTownSpot } from './town.js';
+import { isTownSpot, isNestSpot } from './town.js';
 import { makeWind, addWind } from './wind.js';
 import { makePlants } from './plants.js';
 import { createCutMask } from './cutmask.js';
@@ -32,8 +32,8 @@ function inDisc(radius) {
 // 街の建物の場所をよけた場所
 function freeSpot(radius, pad = 0) {
   let p = inDisc(radius);
-  // 街の場所はまばらに（まったくの空き地にはしない）
-  for (let i = 0; i < 8 && isTownSpot(p[0], p[1], pad) && Math.random() < 0.8; i++) p = inDisc(radius);
+  // 巣だけ よける（建物・小道の ところは、建物が 出たときに かくす。clearTown）
+  for (let i = 0; i < 8 && isNestSpot(p[0], p[1], pad); i++) p = inDisc(radius);
   return p;
 }
 // ゆるいノイズ（0〜1）。草のむらや地面の色のゆらぎに使う
@@ -290,11 +290,11 @@ function makeFlowers(wind) {
     } else {
       [x, z] = inDisc(MEADOW_R); pal = Math.random() < 0.6 ? palette[0] : palette[Math.floor(Math.random() * palette.length)];
     }
-    // 町の 場所・小道に かかったら、ほかの あいた 場所へ（まんなかに あつめない）
-    for (let k = 0; k < 8 && (Math.hypot(x, z) > MEADOW_R || isTownSpot(x, z, -0.2)); k++) { [x, z] = inDisc(MEADOW_R - 1); pal = palette[0]; }
+    // 草原の 外・巣に かかったら、ほかの 場所へ
+    for (let k = 0; k < 8 && (Math.hypot(x, z) > MEADOW_R || isNestSpot(x, z, -0.2)); k++) { [x, z] = inDisc(MEADOW_R - 1); pal = palette[0]; }
     e.set(rand(-0.25, 0.25), Math.random() * Math.PI * 2, rand(-0.25, 0.25));
     q.setFromEuler(e);
-    const k = rand(0.8, 1.5);
+    const k = rand(0.8, 1.5) * 0.8;   // 女の子・建物に くらべて 大きすぎないように（2026-11-19）
     s.set(k, k * rand(0.85, 1.25), k);
     p.set(x, heightAt(x, z) - 0.02, z);
     m.compose(p, q, s);
@@ -526,6 +526,23 @@ export function createMeadow(scene) {
   grass.userData.q = 0.4; lowable.push(grass);
   flowers.traverse((o) => { if (o.isInstancedMesh) { o.userData.q = 0.4; lowable.push(o); } });
   plants.traverse((o) => { if (o.isInstancedMesh) { o.userData.q = 0.45; lowable.push(o); } });
+  // 見えている 建物・小道の ところの 草花を かくす（レベルで 建物が ふえたり、動かしたり したとき）。
+  // もとの 置き方は とっておくので、建物が なくなれば また 生える
+  const clearable = [grass];
+  flowers.traverse((o) => { if (o.isInstancedMesh) clearable.push(o); });
+  plants.traverse((o) => { if (o.isInstancedMesh) clearable.push(o); });
+  for (const m of clearable) m.userData.orig = m.instanceMatrix.array.slice();
+  function clearTown(test) {
+    for (const m of clearable) {
+      const o = m.userData.orig; const a = m.instanceMatrix.array;
+      for (let i = 0; i < o.length; i += 16) {
+        if (test(o[i + 12], o[i + 14])) a.fill(0, i, i + 16);
+        else for (let k = 0; k < 16; k++) a[i + k] = o[i + k];
+      }
+      m.instanceMatrix.needsUpdate = true;
+    }
+  }
+
   function setQuality(q) {
     for (const m of lowable) {
       if (m.userData.full == null) m.userData.full = m.count;
@@ -537,6 +554,7 @@ export function createMeadow(scene) {
   }
 
   return {
+    clearTown,
     ground,
     cut,
     wind,
