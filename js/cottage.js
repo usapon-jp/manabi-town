@@ -2,6 +2,7 @@
 // ちいさなコテージ（うろこ屋根）と、きのこのおうち、丸太・石でかこった花だん。town.js から使う。
 import * as THREE from 'three';
 import { mergeVertices } from 'three/addons/utils/BufferGeometryUtils.js';
+import { propReady } from './props.js';
 import { Bag, GEO, rboxGeo, alignUp, leafBlade, tulip, hyacinth, daisy, smallYellow, seeded, blob, smoke, softDot } from './townkit.js';
 
 const { SPH, CYL, BOX, HALF } = GEO;
@@ -244,6 +245,33 @@ export function cottage({ roof = 0xa9d95f, wall = CREAM, size = 1, withBed = tru
   return g;
 }
 
+// うさぽん村の つた（assets/models/ivy.json）を、まるい かべに そわせて はる。
+// a0 = 正面からの 角度、y0 = 下はし、h = 高さ。かべの はんけいは bodyR(y)
+const ivyGeoCache = new Map();
+function ivyOn(g, bodyR, a0, y0, h) {
+  const holder = new THREE.Group();
+  g.add(holder);
+  propReady('ivy').then((P) => {
+    const key = `${a0},${y0},${h},${bodyR(0.5).toFixed(3)},${bodyR(1.2).toFixed(3)}`;
+    let geo = ivyGeoCache.get(key);
+    if (!geo) {
+      geo = P.g.clone();
+      const pos = geo.attributes.position; const k = h / P.h;
+      for (let i = 0; i < pos.count; i++) {
+        const x = pos.getX(i) * k; const y = pos.getY(i) * k + y0; const z = pos.getZ(i) * k;
+        const r = bodyR(y) + 0.05 + z;
+        const ang = a0 + x / r;
+        pos.setXYZ(i, Math.sin(ang) * r, y, Math.cos(ang) * r);
+      }
+      geo.computeVertexNormals();
+      ivyGeoCache.set(key, geo);
+    }
+    if (!ivyMat) { ivyMat = P.mat.clone(); ivyMat.color.set(0xd8f0c0); }
+    holder.add(new THREE.Mesh(geo, ivyMat));
+  }).catch(() => {});
+}
+let ivyMat = null;
+
 // ---- きのこのおうち ---------------------------------------------------------
 // ぽてっと まるい 絵本の 家（2026-11-19 フミオさん「生き物みたいに 愛嬌のある 家に」）。
 // 形が 主役: 厚くて ふっくらした 傘（ふちは 場所ごとに すこし たわむ）＋ 短めで ふくらんだ 本体。
@@ -254,8 +282,8 @@ function capWarp(x, y, z, CR) {
   const r = Math.hypot(x, z); const th = Math.atan2(z, x);
   const k = Math.min(1, Math.max(0, (r - CR * 0.45) / (CR * 0.6)));
   const kk = k * k * (3 - 2 * k);
-  const dy = kk * (-0.22 * (0.5 + 0.5 * Math.sin(2 * th + 0.7)) - 0.08 * Math.sin(3 * th + 1.9));
-  const sr = 1 + kk * (0.04 * Math.sin(2 * th + 0.3) + 0.022 * Math.sin(5 * th + 1.1));
+  const dy = kk * (-0.2 * (0.5 + 0.5 * Math.sin(2 * th + 0.7)) - 0.07 * Math.sin(3 * th + 1.9));
+  const sr = 1 + kk * (0.04 * Math.sin(2 * th + 0.3) + 0.015 * Math.sin(3 * th + 1.1));
   return [x * sr, y + dy, z * sr];
 }
 
@@ -279,7 +307,7 @@ export function mushroomHouse({ cap = 0xf26a4b, size = 1, withBed = true, seed =
   const b = new Bag(); const glow = new Bag();
   g.add(blob(3.0, 3.0, 0.32));
   // 本体（短めで ふっくら。下は まるく 地面に すわる）
-  const bodyPts = [[0.001, 0], [0.92, 0.0], [1.14, 0.1], [1.25, 0.5], [1.22, 1.0], [1.1, 1.5], [0.98, 1.97]];
+  const bodyPts = [[0.001, 0], [1.12, 0.0], [1.36, 0.1], [1.42, 0.42], [1.34, 0.9], [1.2, 1.45], [1.06, 2.04]];
   const body = smoothLathe(bodyPts, 40, 40);
   b.add(body.geo, 0xfff3dc, {});
   const bodyR = (y) => { // y での 本体の はんけい（だいたい）
@@ -289,7 +317,7 @@ export function mushroomHouse({ cap = 0xf26a4b, size = 1, withBed = true, seed =
     return best.x;
   };
   // 傘（厚く ふっくら。ふちは まるく まきこみ、すこし たわむ）
-  const capY = 1.95; const CR = 2.3; const CH = 1.75; const RR = 0.36;
+  const capY = 2.02; const CR = 2.45; const CH = 1.8; const RR = 0.5;
   const capPts = [];
   for (let i = 0; i <= 10; i++) {
     const a = (i / 10) * (Math.PI / 2);
@@ -300,7 +328,7 @@ export function mushroomHouse({ cap = 0xf26a4b, size = 1, withBed = true, seed =
   const warp = (x, y, z) => { const [wx, wy, wz] = capWarp(x, y, z, CR); return [wx, wy + capY, wz]; };
   b.add(smoothLathe(capPts.reverse(), 56, 60, warp).geo, cap, {});
   // 傘の うら（クリーム色。本体へ なめらかに つながる）
-  const underPts = [[CR - RR * 1.3, -RR * 0.92], [CR * 0.7, -RR * 0.75], [1.35, -RR * 0.35], [1.02, 0.0]];
+  const underPts = [[CR - RR * 1.3, -RR * 0.92], [CR * 0.72, -RR * 0.72], [1.42, -RR * 0.3], [1.08, 0.0]];
   b.add(smoothLathe(underPts.reverse(), 56, 24, warp).geo, 0xffe6c2, {});
   // 白い 水玉（大きめを すこし。傘の 面に そわせる）
   const capAt = (a, th) => {
@@ -308,7 +336,7 @@ export function mushroomHouse({ cap = 0xf26a4b, size = 1, withBed = true, seed =
     const r = (CR - RR) * Math.pow(sa, 0.8) + RR * sa; const y = CH * Math.pow(ca, 0.75);
     return new THREE.Vector3(...warp(Math.cos(th) * r, y, Math.sin(th) * r));
   };
-  const spots = [[0.75, 0.9, 0.5], [0.95, 2.3, 0.44], [0.7, 3.5, 0.5], [0.9, 4.7, 0.46], [0.78, 5.8, 0.42], [0.08, 0.0, 0.46], [1.15, 1.55, 0.3], [1.12, 4.05, 0.32], [0.42, 2.9, 0.34]];
+  const spots = [[0.75, 0.9, 0.55], [0.95, 2.3, 0.48], [0.7, 3.5, 0.55], [0.9, 4.7, 0.5], [0.78, 5.8, 0.46], [0.08, 0.0, 0.5], [1.12, 1.55, 0.34], [1.1, 4.05, 0.36], [0.42, 2.9, 0.38]];
   for (const [a, th, sz] of spots) {
     const p = capAt(a, th);
     const n = capAt(a + 0.02, th).sub(capAt(a - 0.02, th)).cross(capAt(a, th + 0.02).sub(capAt(a, th - 0.02))).normalize();
@@ -321,34 +349,23 @@ export function mushroomHouse({ cap = 0xf26a4b, size = 1, withBed = true, seed =
   b.add(CYL, 0xb86d4a, { x: chp.x, y: chp.y + 0.2, z: chp.z, sx: 0.13, sy: 0.55, sz: 0.13, rz: 0.15 });
   b.add(CYL, 0xb86d4a, { x: chp.x - 0.06, y: chp.y + 0.55, z: chp.z, sx: 0.13, sy: 0.3, sz: 0.13, rz: -0.25 });
   b.add(CYL, 0xd2875f, { x: chp.x - 0.1, y: chp.y + 0.71, z: chp.z, sx: 0.18, sy: 0.08, sz: 0.18, rz: -0.25 });
-  // 顔: まんなかに まるい とびら、左右に まる窓
-  const zf = 1.25;
-  cuteDoor(b, glow, 0, zf, 0.8, 1.2, 0xe9d3a8);
-  b.add(rboxGeo(1.05, 0.1, 0.5, 0.05), 0xdccaa6, { y: 0.05, z: zf + 0.3 });
-  b.add(rboxGeo(0.6, 0.02, 0.3, 0.01), 0xd88f8f, { y: 0.11, z: zf + 0.33 });   // 玄関マット
+  // 顔: まんなかに 大きな まるい とびら、左右に 大きめの まる窓
+  const zf = bodyR(0.6) - 0.02;
+  cuteDoor(b, glow, 0, zf, 0.94, 1.28, 0xe9d3a8);
+  b.add(rboxGeo(1.2, 0.1, 0.55, 0.05), 0xdccaa6, { y: 0.05, z: zf + 0.3 });
+  b.add(rboxGeo(0.66, 0.02, 0.32, 0.01), 0xd88f8f, { y: 0.11, z: zf + 0.34 });   // 玄関マット
   for (const sd of [-1, 1]) {
-    const wa = sd * 0.8; const wy = 1.25; const wr = bodyR(wy) + 0.01;
+    const wa = sd * 0.86; const wy = 1.05; const wr = bodyR(wy) + 0.01;
     const q = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), wa);
-    roundWindow(b, glow, Math.sin(wa) * wr, wy, Math.cos(wa) * wr, 0.24, 0xc98a52, q);
+    roundWindow(b, glow, Math.sin(wa) * wr, wy, Math.cos(wa) * wr, 0.31, 0xc98a52, q);
   }
   // 入口の わきの ランプ
-  lantern(b, glow, -0.6, 1.42, bodyR(1.42) + 0.02);
-  // つた（とびらの 左から 傘の 下まで のぼる）＋ 小さな 花
-  const rnd = seeded(seed + 3);
-  for (let i = 0; i < 26; i++) {
-    const t = i / 25;
-    const y = 0.12 + t * 1.5;
-    const ang = -1.25 + 0.12 * t + 0.08 * Math.sin(t * 9);
-    const r = bodyR(y) + 0.02;
-    const x = Math.sin(ang) * r; const z = Math.cos(ang) * r;
-    const q = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), ang);
-    b.add(SPH, i % 3 ? 0x5fa34a : 0x78bb64, { x, y, z, sx: 0.1, sy: 0.07, sz: 0.035, q });
-    if (i % 2) b.add(SPH, 0x6fb35e, { x: x + Math.cos(ang) * (rnd() - 0.5) * 0.2, y: y + 0.05, z: z - Math.sin(ang) * (rnd() - 0.5) * 0.2, sx: 0.08, sy: 0.055, sz: 0.03, q });
-    if (i % 5 === 2) b.add(SPH, i % 10 === 2 ? 0xff9fbd : 0xfffaf0, { x: x * 1.03, y: y + 0.03, z: z * 1.03, s: 0.05 });
-  }
+  lantern(b, glow, 0.62, 1.3, bodyR(1.3) + 0.03);
+  // つた（うさぽん村の つたの モデルを 本体の まるみに そわせて 左の 窓の 外がわに）
+  ivyOn(g, bodyR, -0.5, 0.0, 1.75);
   // 花の 鉢を 入口の 両がわに
   for (const sd of [-1, 1]) {
-    const px = sd * 0.72; const pz = zf + 0.42;
+    const px = sd * 0.86; const pz = zf + 0.4;
     b.add(new THREE.CylinderGeometry(0.19, 0.14, 0.3, 14), 0xd27a52, { x: px, y: 0.15, z: pz });
     b.add(CYL, 0xc06a45, { x: px, y: 0.3, z: pz, sx: 0.21, sy: 0.05, sz: 0.21 });
     b.add(SPH, 0x6fb35e, { x: px, y: 0.4, z: pz, sx: 0.2, sy: 0.15, sz: 0.2 });
@@ -358,17 +375,17 @@ export function mushroomHouse({ cap = 0xf26a4b, size = 1, withBed = true, seed =
     }
   }
   // 石の 道（とびらから 外へ）
-  stones(b, 0.05, zf + 0.95, 4, 0.12, 0.55);
+  stones(b, 0.05, zf + 0.95, 3, 0.12, 0.55);
   // くらしの けはい: じょうろ
-  const wcx = 1.05; const wcz = zf + 0.55;
+  const wcx = 1.22; const wcz = zf + 0.62;
   b.add(CYL, 0x9fb8a0, { x: wcx, y: 0.17, z: wcz, sx: 0.17, sy: 0.32, sz: 0.17 });
   b.add(CYL, 0x8aa68c, { x: wcx, y: 0.34, z: wcz, sx: 0.18, sy: 0.04, sz: 0.18 });
   b.add(CYL, 0x9fb8a0, { x: wcx + 0.24, y: 0.3, z: wcz, sx: 0.035, sy: 0.34, sz: 0.035, rz: -0.9 });
   b.add(new THREE.TorusGeometry(0.13, 0.022, 6, 14), 0x8aa68c, { x: wcx - 0.08, y: 0.36, z: wcz });
   g.add(b.mesh(), glow.mesh(true));
   if (withBed) {
-    const bd = bed('log', 0.8, seed);
-    bd.position.set(-2.0, 0, 0.7);
+    const bd = bed('log', 0.7, seed);
+    bd.position.set(-2.15, 0, 0.45);
     g.add(bd);
   }
   const sm = smoke(chp.x - 0.1, chp.y + 0.8, chp.z);
