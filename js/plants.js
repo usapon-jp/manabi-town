@@ -381,7 +381,7 @@ export const SPECIES_KEYS = Object.keys(SPECIES);
 
 export function makePlants(wind) {
   const g = new THREE.Group();
-  const counts = { buttercup: [110, 9, 1.9], lupine: [260, 10, 1.6], tulip: [220, 10, 1.5], clover: [160, 12, 2.2], dandelion: [200, 8, 2.4] };
+  const counts = { buttercup: [155, 9, 1.9], lupine: [360, 10, 1.6], tulip: [310, 10, 1.5], clover: [225, 12, 2.2], dandelion: [280, 8, 2.4] };   // 花を 小さく した ぶん 1.4倍
   for (const key of SPECIES_KEYS) {
     const sp = SPECIES[key];
     if (sp.gacha) continue;   // ガチャの花は、野原には はえない

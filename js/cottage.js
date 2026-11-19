@@ -303,95 +303,116 @@ function smoothLathe(pts2, segs, n = 48, warp = null) {
 }
 
 export function mushroomHouse({ cap = 0xf26a4b, size = 1, withBed = true, seed = 7 } = {}) {
+  // 見本（2026-11-19 フミオさん）の 比率: 傘の はば ≒ 本体の 1.5倍、本体は すそ広がりの ドーム、傘は ぽってり 厚い
   const g = new THREE.Group();
   const b = new Bag(); const glow = new Bag();
-  g.add(blob(3.0, 3.0, 0.32));
-  // 本体（短めで ふっくら。下は まるく 地面に すわる）
-  const bodyPts = [[0.001, 0], [1.12, 0.0], [1.36, 0.1], [1.42, 0.42], [1.34, 0.9], [1.2, 1.45], [1.06, 2.04]];
-  const body = smoothLathe(bodyPts, 40, 40);
-  b.add(body.geo, 0xfff3dc, {});
-  const bodyR = (y) => { // y での 本体の はんけい（だいたい）
+  g.add(blob(3.1, 3.1, 0.32));
+  // 本体（すそが いちばん 広い ドーム。上は 傘の 中へ）
+  const bodyPts = [[0.001, 0], [1.5, 0.0], [1.66, 0.12], [1.66, 0.5], [1.55, 1.05], [1.36, 1.6], [1.1, 2.15], [0.75, 2.5]];
+  const body = smoothLathe(bodyPts, 44, 48);
+  b.add(body.geo, 0xfff1d6, {});
+  const bodyR = (y) => {
     const pts = body.curve.getPoints(80);
     let best = pts[0];
     for (const p of pts) if (Math.abs(p.y - y) < Math.abs(best.y - y)) best = p;
     return best.x;
   };
-  // 傘（厚く ふっくら。ふちは まるく まきこみ、すこし たわむ）
-  const capY = 2.02; const CR = 2.45; const CH = 1.8; const RR = 0.5;
+  // 傘（ぽってり 厚い ドーム。ふちは 太く まるく まきこむ）
+  const capY = 2.45; const CR = 2.5; const CH = 2.0; const RR = 0.58;
+  const rAt = (sa) => (CR - RR) * Math.pow(sa, 0.62) + RR * sa;
+  const yAt = (ca) => CH * Math.pow(ca, 0.8);
   const capPts = [];
-  for (let i = 0; i <= 10; i++) {
-    const a = (i / 10) * (Math.PI / 2);
-    const sa = Math.sin(a); const ca = Math.cos(a);
-    capPts.push([(CR - RR) * Math.pow(sa, 0.8) + RR * sa, CH * Math.pow(ca, 0.75) - RR * 0.0]);
-  }
-  capPts.push([CR + 0.02, -RR * 0.45], [CR - RR * 0.55, -RR * 0.98], [CR - RR * 1.4, -RR * 0.9]);
+  for (let i = 0; i <= 10; i++) { const a = (i / 10) * (Math.PI / 2); capPts.push([rAt(Math.sin(a)), yAt(Math.cos(a))]); }
+  capPts.push([CR + 0.04, -RR * 0.5], [CR - RR * 0.5, -RR * 1.0], [CR - RR * 1.35, -RR * 0.92]);
   const warp = (x, y, z) => { const [wx, wy, wz] = capWarp(x, y, z, CR); return [wx, wy + capY, wz]; };
-  b.add(smoothLathe(capPts.reverse(), 56, 60, warp).geo, cap, {});
-  // 傘の うら（クリーム色。本体へ なめらかに つながる）
-  const underPts = [[CR - RR * 1.3, -RR * 0.92], [CR * 0.72, -RR * 0.72], [1.42, -RR * 0.3], [1.08, 0.0]];
-  b.add(smoothLathe(underPts.reverse(), 56, 24, warp).geo, 0xffe6c2, {});
-  // 白い 水玉（大きめを すこし。傘の 面に そわせる）
-  const capAt = (a, th) => {
-    const sa = Math.sin(a); const ca = Math.cos(a);
-    const r = (CR - RR) * Math.pow(sa, 0.8) + RR * sa; const y = CH * Math.pow(ca, 0.75);
-    return new THREE.Vector3(...warp(Math.cos(th) * r, y, Math.sin(th) * r));
-  };
-  const spots = [[0.75, 0.9, 0.55], [0.95, 2.3, 0.48], [0.7, 3.5, 0.55], [0.9, 4.7, 0.5], [0.78, 5.8, 0.46], [0.08, 0.0, 0.5], [1.12, 1.55, 0.34], [1.1, 4.05, 0.36], [0.42, 2.9, 0.38]];
+  b.add(smoothLathe(capPts.reverse(), 60, 64, warp).geo, cap, {});
+  // 傘の うら（あたたかい クリーム色。ランプの 光が あたって 見える）
+  const underPts = [[CR - RR * 1.3, -RR * 0.9], [CR * 0.7, -RR * 0.6], [1.0, -RR * 0.1], [0.7, 0.05]];
+  b.add(smoothLathe(underPts.reverse(), 60, 24, warp).geo, 0xffd9a0, {});
+  // 白い 水玉（大きくて まるい だ円を すこし）
+  const capAt = (a, th) => new THREE.Vector3(...warp(Math.cos(th) * rAt(Math.sin(a)), yAt(Math.cos(a)), Math.sin(th) * rAt(Math.sin(a))));
+  const spots = [[0.55, 1.45, 0.62], [0.95, 2.35, 0.58], [0.95, 0.7, 0.55], [0.5, 3.4, 0.6], [0.92, 4.4, 0.56], [0.7, 5.5, 0.6], [0.05, 0, 0.5], [1.22, 1.6, 0.38]];
   for (const [a, th, sz] of spots) {
     const p = capAt(a, th);
     const n = capAt(a + 0.02, th).sub(capAt(a - 0.02, th)).cross(capAt(a, th + 0.02).sub(capAt(a, th - 0.02))).normalize();
     if (n.y < 0) n.negate();
-    p.addScaledVector(n, 0.02);
-    b.add(SPH, 0xfffaf0, { x: p.x, y: p.y, z: p.z, sx: sz, sy: 0.1, sz: sz * 0.86, q: alignUp(n.x, n.y, n.z) });
+    p.addScaledVector(n, 0.03);
+    b.add(SPH, 0xfff4e2, { x: p.x, y: p.y, z: p.z, sx: sz, sy: 0.12, sz: sz * 0.8, q: alignUp(n.x, n.y, n.z) });
   }
-  // 小さな えんとつ（うしろ。くの字に まがった パイプと けむり。住んでいる しるし）
-  const chp = capAt(0.62, -2.3);
-  b.add(CYL, 0xb86d4a, { x: chp.x, y: chp.y + 0.2, z: chp.z, sx: 0.13, sy: 0.55, sz: 0.13, rz: 0.15 });
-  b.add(CYL, 0xb86d4a, { x: chp.x - 0.06, y: chp.y + 0.55, z: chp.z, sx: 0.13, sy: 0.3, sz: 0.13, rz: -0.25 });
-  b.add(CYL, 0xd2875f, { x: chp.x - 0.1, y: chp.y + 0.71, z: chp.z, sx: 0.18, sy: 0.08, sz: 0.18, rz: -0.25 });
-  // 顔: まんなかに 大きな まるい とびら、左右に 大きめの まる窓
-  const zf = bodyR(0.6) - 0.02;
-  cuteDoor(b, glow, 0, zf, 0.94, 1.28, 0xe9d3a8);
-  b.add(rboxGeo(1.2, 0.1, 0.55, 0.05), 0xdccaa6, { y: 0.05, z: zf + 0.3 });
-  b.add(rboxGeo(0.66, 0.02, 0.32, 0.01), 0xd88f8f, { y: 0.11, z: zf + 0.34 });   // 玄関マット
-  for (const sd of [-1, 1]) {
-    const wa = sd * 0.86; const wy = 1.05; const wr = bodyR(wy) + 0.01;
+  // えんとつ（右うえ。植木ばちの ような 形）
+  const chp = capAt(0.82, 0.55);
+  b.add(new THREE.CylinderGeometry(0.17, 0.15, 0.55, 16), 0xc8784a, { x: chp.x, y: chp.y + 0.15, z: chp.z });
+  b.add(CYL, 0xd98a58, { x: chp.x, y: chp.y + 0.45, z: chp.z, sx: 0.24, sy: 0.14, sz: 0.24 });
+  // 顔: 大きな アーチの とびら（ステップつき）と 右の まる窓
+  // とびらは 本体の かたむきに あわせて すこし うしろへ たおす（下の ふくらみが とびらを つきぬけないように）
+  const zf = bodyR(0.7);
+  const tilt = Math.atan2(bodyR(0.05) - bodyR(1.5), 1.45);
+  const db = new Bag(); const dg = new Bag();
+  cuteDoor(db, dg, 0, 0, 1.0, 1.5, 0xf2dcb0);
+  const dm = new THREE.Matrix4().compose(new THREE.Vector3(-0.05, 0, bodyR(0.05) + 0.1), new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1, 0, 0), -tilt), new THREE.Vector3(1, 1, 1));
+  for (const gg of db.list) b.list.push(gg.applyMatrix4(dm));
+  for (const gg of dg.list) glow.list.push(gg.applyMatrix4(dm));
+  b.add(rboxGeo(1.25, 0.16, 0.5, 0.07), 0xf0dfbf, { x: -0.05, y: 0.08, z: zf + 0.18 });
+  {
+    const wa = 0.8; const wy = 1.05; const wr = bodyR(wy) - 0.02;
     const q = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), wa);
-    roundWindow(b, glow, Math.sin(wa) * wr, wy, Math.cos(wa) * wr, 0.31, 0xc98a52, q);
+    roundWindow(b, glow, Math.sin(wa) * wr, wy, Math.cos(wa) * wr, 0.4, 0xb8743f, q);
   }
-  // 入口の わきの ランプ
-  lantern(b, glow, 0.62, 1.3, bodyR(1.3) + 0.03);
-  // つた（うさぽん村の つたの モデルを 本体の まるみに そわせて 左の 窓の 外がわに）
-  ivyOn(g, bodyR, -0.5, 0.0, 1.75);
-  // 花の 鉢を 入口の 両がわに
-  for (const sd of [-1, 1]) {
-    const px = sd * 0.86; const pz = zf + 0.4;
-    b.add(new THREE.CylinderGeometry(0.19, 0.14, 0.3, 14), 0xd27a52, { x: px, y: 0.15, z: pz });
-    b.add(CYL, 0xc06a45, { x: px, y: 0.3, z: pz, sx: 0.21, sy: 0.05, sz: 0.21 });
-    b.add(SPH, 0x6fb35e, { x: px, y: 0.4, z: pz, sx: 0.2, sy: 0.15, sz: 0.2 });
-    for (let k = 0; k < 4; k++) {
-      const a = k * 1.7 + sd;
-      b.add(SPH, sd < 0 ? 0xff9fbd : 0xffd84a, { x: px + Math.cos(a) * 0.12, y: 0.5 + (k % 2) * 0.04, z: pz + Math.sin(a) * 0.12, s: 0.065 });
+  // 左の ランプ（かべから うでで つるす）
+  {
+    const wa = -0.72; const wy = 2.0; const wr = bodyR(wy);
+    const x0 = Math.sin(wa) * wr; const z0 = Math.cos(wa) * wr;
+    b.add(BOX, 0x6b4a32, { x: x0 - 0.2, y: wy, z: z0 + 0.12, sx: 0.45, sy: 0.06, sz: 0.06, ry: 0.5 });
+    lantern(b, glow, x0 - 0.38, wy - 0.38, z0 + 0.22);
+  }
+  // とびらの 上の つたの アーチ（葉と 白い 花）
+  const rnd = seeded(seed + 3);
+  for (let i = 0; i <= 30; i++) {
+    const t = i / 30;
+    const ang = -0.62 + t * 1.12;                      // 左下 → 上 → 右
+    const y = 0.75 + Math.sin(t * Math.PI) * 1.25 + (t > 0.5 ? (t - 0.5) * 0.3 : 0);
+    const r = bodyR(y) + 0.03;
+    const x = Math.sin(ang) * r; const z = Math.cos(ang) * r;
+    const q = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), ang).multiply(new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 0, 1), rnd() * 6));
+    b.add(SPH, i % 3 ? 0x6fbf55 : 0x8ccf68, { x, y, z, sx: 0.14, sy: 0.1, sz: 0.04, q });
+    if (i % 4 === 2) {
+      b.add(SPH, 0xffffff, { x: x * 1.02, y: y + 0.02, z: z * 1.02, sx: 0.1, sy: 0.1, sz: 0.04, q });
+      b.add(SPH, 0xffcf3a, { x: x * 1.04, y: y + 0.02, z: z * 1.04, s: 0.04 });
     }
   }
-  // 石の 道（とびらから 外へ）
-  stones(b, 0.05, zf + 0.95, 3, 0.12, 0.55);
-  // くらしの けはい: じょうろ
-  const wcx = 1.22; const wcz = zf + 0.62;
-  b.add(CYL, 0x9fb8a0, { x: wcx, y: 0.17, z: wcz, sx: 0.17, sy: 0.32, sz: 0.17 });
-  b.add(CYL, 0x8aa68c, { x: wcx, y: 0.34, z: wcz, sx: 0.18, sy: 0.04, sz: 0.18 });
-  b.add(CYL, 0x9fb8a0, { x: wcx + 0.24, y: 0.3, z: wcz, sx: 0.035, sy: 0.34, sz: 0.035, rz: -0.9 });
-  b.add(new THREE.TorusGeometry(0.13, 0.022, 6, 14), 0x8aa68c, { x: wcx - 0.08, y: 0.36, z: wcz });
-  g.add(b.mesh(), glow.mesh(true));
-  if (withBed) {
-    const bd = bed('log', 0.7, seed);
-    bd.position.set(-2.15, 0, 0.45);
-    g.add(bd);
+  // 左: 木の さくと チューリップ
+  const fx = -1.6; const fz = 1.1;
+  for (const [dx, dz] of [[-0.55, -0.2], [0.05, 0.12], [0.6, 0.35]]) {
+    b.add(rboxGeo(0.24, 0.62, 0.24, 0.07), 0xc98a52, { x: fx + dx, y: 0.31, z: fz + dz, ry: 0.4 });
+    b.add(SPH, 0xd99a62, { x: fx + dx, y: 0.64, z: fz + dz, sx: 0.13, sy: 0.07, sz: 0.13 });
   }
-  const sm = smoke(chp.x - 0.1, chp.y + 0.8, chp.z);
+  b.add(rboxGeo(1.25, 0.12, 0.08, 0.04), 0xb87a45, { x: fx + 0.03, y: 0.36, z: fz + 0.08, ry: -0.45 });
+  for (const [dx, dz, c] of [[-0.35, -0.45, 0xff8fb0], [0.0, -0.3, 0xff7aa0], [0.32, -0.12, 0xff9fbd], [-0.6, -0.55, 0xff9fbd]]) {
+    b.add(CYL, 0x5fae4a, { x: fx + dx, y: 0.35, z: fz + dz, sx: 0.03, sy: 0.7, sz: 0.03 });
+    b.add(SPH, c, { x: fx + dx, y: 0.75, z: fz + dz, sx: 0.12, sy: 0.15, sz: 0.12 });
+    b.add(SPH, 0x6fbf55, { x: fx + dx + 0.06, y: 0.25, z: fz + dz, sx: 0.06, sy: 0.18, sz: 0.03, rz: -0.4 });
+  }
+  daisy(b, fx + 0.15, fz + 0.15, 0.1, 0.18, 1.2);
+  // 右: まるい しげみ（白い 花）と、花の 鉢
+  const bx = 1.3; const bz = 1.15;
+  b.add(SPH, 0x6db84e, { x: bx, y: 0.4, z: bz, sx: 0.5, sy: 0.42, sz: 0.42 });
+  b.add(SPH, 0x7cc35a, { x: bx + 0.32, y: 0.3, z: bz + 0.12, s: 0.32 });
+  for (const [dx, dy] of [[-0.15, 0.55], [0.12, 0.35], [-0.32, 0.3]]) {
+    b.add(SPH, 0xffffff, { x: bx + dx, y: dy, z: bz + 0.4, sx: 0.08, sy: 0.08, sz: 0.03 });
+    b.add(SPH, 0xffcf3a, { x: bx + dx, y: dy, z: bz + 0.43, s: 0.03 });
+  }
+  const px = 2.1; const pz = 0.75;
+  b.add(new THREE.CylinderGeometry(0.28, 0.22, 0.45, 16), 0xd0784a, { x: px, y: 0.22, z: pz });
+  b.add(CYL, 0xc06a40, { x: px, y: 0.44, z: pz, sx: 0.31, sy: 0.08, sz: 0.31 });
+  b.add(SPH, 0x6fb35e, { x: px, y: 0.55, z: pz, sx: 0.28, sy: 0.15, sz: 0.28 });
+  for (let k = 0; k < 4; k++) { const a = k * 1.6; daisy(b, px + Math.cos(a) * 0.14, pz + Math.sin(a) * 0.14, 0.08, 0.58 + (k % 2) * 0.05, 1.1); }
+  // 石の 道（大きな まるい 飛び石 3つ）
+  for (const [x, z, w] of [[0.05, zf + 0.85, 0.42], [-0.35, zf + 1.55, 0.44], [-0.85, zf + 2.2, 0.46]]) b.add(CYL, 0xf0dfbf, { x, y: 0.03, z, sx: w, sy: 0.08, sz: w * 0.7 });
+  g.add(b.mesh(), glow.mesh(true));
+  void withBed;
+  const sm = smoke(chp.x, chp.y + 0.6, chp.z);
   g.add(sm);
-  const bedUpdate = g.children.find((c) => c.userData.update)?.userData.update;
-  g.userData.update = (t) => { sm.userData.tick(t); bedUpdate?.(t); };
+  g.userData.update = (t) => { sm.userData.tick(t); };
   g.scale.setScalar(size);
   return g;
 }

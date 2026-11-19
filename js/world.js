@@ -36,7 +36,7 @@ export function createWorld(container) {
   const scene = new THREE.Scene();
   // カメラ: 女の子の 目の 高さに ちかい ひくめの 位置から（絵本の 1ページの ように、キャラが 大きく、うしろに 町と 木が 見える）
   const camera = new THREE.PerspectiveCamera(40, 1, 0.1, 220);
-  const view = { angle: 0, dist: 6.6, height: 2.0, lookY: 1.15, target: new THREE.Vector3() };
+  const view = { angle: 0, dist: 6.6, height: 2.05, lookY: 1.25, target: new THREE.Vector3() };
 
   // 絵本のような草原（空・雲海・草・花・木・ちょうちょ）
   const meadow = createMeadow(scene);

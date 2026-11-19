@@ -312,7 +312,7 @@ const PLAN = [
   { lv: 3, x: -9.5, z: 3.5, r: 2.4, avoid: 3.2, make: pond },
   { lv: 4, x: 8.5, z: -8, r: 2.1, avoid: 4.2, rot: 0.15, make: () => cottage({ roof: 0x8fcf5a, size: 1.35 }) },
   { lv: 4, x: 8, z: -2.2, r: 0, avoid: 4, make: () => fence(7) },
-  { lv: 5, x: -10.5, z: -9.5, r: 2.1, avoid: 4.2, rot: -0.25, make: () => mushroomHouse({ size: 1.4 }) },
+  { lv: 5, x: -10.5, z: -9.5, r: 2.4, avoid: 4.4, rot: -0.25, make: () => mushroomHouse({ size: 1.4 }) },
   { lv: 6, x: 14, z: 3, r: 1.1, avoid: 2.2, rot: -0.5, make: windmill },
   { lv: 7, x: 0, z: -14, r: 3.2, avoid: 4.2, make: school },
   { lv: 8, x: 6.5, z: 8, r: 2.0, avoid: 2.8, make: fountain },

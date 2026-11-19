@@ -16,7 +16,7 @@ export const HORIZON = new THREE.Color(0xf6e9cf);
 
 const MEADOW_R = 27;      // 草と花がはえるはんい
 const GRASS_COUNT = 26000;
-const FLOWER_COUNT = 3400;
+const FLOWER_COUNT = 4800;   // 花を 0.8倍に した ぶん ふやす（2026-11-19）
 
 // ---- 小さな道具 ---------------------------------------------------------
 
