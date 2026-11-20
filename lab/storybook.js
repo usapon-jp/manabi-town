@@ -9,7 +9,7 @@
 //   ?fs=0.67         花の 大きさ（ふつう 2/3、1 = いまの まま）
 //   ?gs=0.75         草の 背（ふつう 0.75、1 = いまの まま）
 //   ?more=1          花を ふやす 割合（1 = 2倍、0 = いまの 数）
-//   ?big=1.3         女の子・ピヨ先生・家の 大きさ（1 = いまの ゲーム）。カメラも 同じ 倍率で 引く
+//   ?big=1.5         女の子・ピヨ先生・家の 大きさ（1 = いまの ゲーム）。カメラも 同じ 倍率で 引く
 //   ?hud=0           左上の 数字を かくす
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
@@ -32,7 +32,7 @@ const ZONES = P.get('zones') === '1';   // ふつうは いまの 置き方（�
 const FS = Number(P.get('fs') ?? 1);       // 花の 大きさ
 const GS = Number(P.get('gs') ?? 1);       // 草の 背
 const MORE = Number(P.get('more') ?? 0);   // 花を ふやす 割合（1 = 2倍）
-const BIG = Number(P.get('big') ?? 1.3);   // 女の子・ピヨ先生・家の 大きさ（いまの ゲーム = 1）。カメラも 同じ 倍率で 引く
+const BIG = Number(P.get('big') ?? 1.5);   // 2026-11-20 フミオさん 1.5 に決定（ピヨの顔が草の上に出て見やすい）   // 女の子・ピヨ先生・家の 大きさ（いまの ゲーム = 1）。カメラも 同じ 倍率で 引く
 
 const stage = document.getElementById('stage');
 const hud = document.getElementById('hud');
