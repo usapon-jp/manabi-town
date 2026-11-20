@@ -8,7 +8,8 @@ import { woodTex, texturedMat } from './felt.js';
 
 const H = 1.32;
 const ROOF = 0x9fd06a;      // 若草
-const EAR = 0xf2a3b8;       // うさぎの 耳の えんとつ
+const CHIMNEY = 0xd9a48a;   // えんとつ（やさしい れんが色の ねんど）
+const CHIMNEY_TOP = 0xc98f76;
 const WOOD = 0xc78a4f;      // cottage.js の 扉の 木と 同じ 色
 const FRAME = 0xe8cf9e;
 const TILES = new Set([0xa9d873, 0x94c862]);
@@ -21,7 +22,7 @@ function splitBag(roofColor) {
     clay, roof, wood,
     add(geo, color, o) {
       const c = typeof color === 'number' ? color : new THREE.Color(color).getHex();
-      (c === roofColor || c === EAR || TILES.has(c) ? roof : WOODISH.has(c) ? wood : clay).add(geo, color, o);
+      (c === roofColor || TILES.has(c) ? roof : WOODISH.has(c) ? wood : clay).add(geo, color, o);
       return this;
     },
   };
@@ -55,10 +56,10 @@ export function protoHouse({ mat = 'wood' } = {}) {
     }
   }
 
-  // うさぎの 耳の えんとつ（ずんぐりした 筒に、ちいさな 耳 2つ）
+  // えんとつ（ふつうの ねんどの 筒。2026-11-20 フミオさん「うさ耳の 煙突は いらない」）
   const cx = 0.72; const cz = -0.5; const cy = roofAt(cx);
-  b.add(rboxGeo(0.5, 0.95, 0.5, 0.16), EAR, { x: cx, y: cy + 0.15, z: cz, rz: -0.05 });
-  for (const s of [-1, 1]) b.add(rboxGeo(0.15, 0.48, 0.09, 0.07), EAR, { x: cx + s * 0.12, y: cy + 0.82, z: cz, rz: s * 0.2 - 0.05 });
+  b.add(rboxGeo(0.42, 0.85, 0.42, 0.12), CHIMNEY, { x: cx, y: cy + 0.12, z: cz });
+  b.add(rboxGeo(0.5, 0.12, 0.5, 0.05), CHIMNEY_TOP, { x: cx, y: cy + 0.56, z: cz });
 
   // 正面: 扉（1.2H）は まんなか、左右に まる窓、屋根うらに 小さな まる窓。見せ場は 入口まわりだけ
   const z = D / 2;
@@ -72,7 +73,7 @@ export function protoHouse({ mat = 'wood' } = {}) {
   // 2026-11-20 フミオさん: 建物は「ねんど＋木目」（フェルトは 服だけ）。'wood' で 扉・わくに 木目
   if (mat === 'wood') woodMesh.material = texturedMat(woodTex(), 0.8);
   g.add(clayMesh, roofMesh, woodMesh, glow.mesh(true));
-  const sm = smoke(cx, cy + 1.05, cz);
+  const sm = smoke(cx, cy + 0.8, cz);
   g.add(sm);
   g.userData.update = (t) => sm.userData.tick(t);
   g.userData.footprint = { w: W + 1.6, d: D + 2.2 };   // 草花を よける はんい（入口の 前を 広めに）

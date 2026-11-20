@@ -5,6 +5,8 @@
 //   ?clear=1         女の子の 足もとの 草花を よける（あり／なしの 比較用）
 //   ?t=16            町の 時刻（daytime.js の 分。あさ 4.5・ひる 16・ゆうがた 39・よる 52）
 //   ?cam=game|wide   カメラ（game = いまの ゲームと 同じ きょり、wide = 引き）
+//   ?zones=0         花の ところ／短い 草の ところ を わけない（いまの お花畑の まま。2026-11-20 試し）
+//   ?fs=0.67         花の 大きさ（zones の とき。ふつう 2/3）
 //   ?hud=0           左上の 数字を かくす
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
@@ -15,12 +17,15 @@ import { lookOf, partOf } from '../js/avatar.js';
 import { CHARACTERS } from '../js/characters.js';
 import { picturebook, softShadow } from '../js/picturebook.js';
 import { protoHouse } from './proto-house.js';
+import { zoneMeadow } from './meadow-zones.js';
 
 const P = new URLSearchParams(location.search);
 const MAT = P.get('mat') || 'wood';
 const CLEAR = P.get('clear') === '1';
 const MINUTE = Number(P.get('t') ?? 16);
 const CAM = P.get('cam') || 'game';
+const ZONES = P.get('zones') !== '0';
+const FS = Number(P.get('fs') ?? 2 / 3);
 
 const stage = document.getElementById('stage');
 const hud = document.getElementById('hud');
@@ -64,6 +69,20 @@ new GLTFLoader().load(CHARACTERS.piyo.model, (gltf) => {
   piyo.add(model); piyoReady = true;
 }, undefined, () => { piyoReady = true; });
 
+// ---- 花の ところ と 短い 草の ところ（家の まえ・女の子の まわりは 短い 草の 広場） ----
+if (ZONES) {
+  zoneMeadow(scene, {
+    fs: FS,
+    // カメラから 見える ところに 花の かたまりを いくつか（女の子・家の まわりは 短い 草の 広場）
+    beds: [{ x: -2.8, z: 1.2, r: 1.8 }, { x: 3.3, z: 1.8, r: 1.7 }, { x: 3.0, z: -3.6, r: 2.0 }, { x: -4.2, z: -3.2, r: 2.2 }, { x: -1.4, z: 4.6, r: 1.4 }],
+    keepShort: (x, z) => {
+      const d1 = Math.hypot(x - HOUSE.x, (z - HOUSE.z - 1.2) * 1.1);
+      const d2 = Math.hypot(x - GIRL.x, z - GIRL.z);
+      return Math.max(1 - Math.min(1, Math.max(0, (d1 - 2.2) / 1.0)), 1 - Math.min(1, Math.max(0, (d2 - 0.9) / 1.0)));
+    },
+  });
+}
+
 // ---- 草花を よける（家の まわり・入口から 女の子までの 小道。clear=1 なら 女の子の 足もとも） ----
 const fp = house.userData.footprint;
 meadow.clearTown((x, z) => {
@@ -102,9 +121,10 @@ function frame() {
   if (acc > 0.5) { fps = frames / acc; frames = 0; acc = 0; }
   const info = renderer.info.render;
   hud.innerHTML = `描画 ${info.calls} 回 ・ 三角形 ${(info.triangles / 10000).toFixed(1)}万 ・ ${fps.toFixed(0)} fps<br>`
-    + `質感 ${MAT === 'wood' ? 'ねんど＋木目' : 'ねんど'} ・ 足もと ${CLEAR ? 'よける' : 'そのまま'}<br>`
+    + `質感 ${MAT === 'wood' ? 'ねんど＋木目' : 'ねんど'} ・ 足もと ${CLEAR ? 'よける' : 'そのまま'} ・ 花畑 ${ZONES ? `むら（花 ${FS.toFixed(2)}倍）` : 'いまのまま'}<br>`
     + '<a href="lab/storybook.html?mat=wood">ねんど＋木目</a><a href="lab/storybook.html?mat=clay">ねんど</a>'
     + `<a href="lab/storybook.html?mat=${MAT}&clear=${CLEAR ? 0 : 1}">足もと切りかえ</a>`
+    + `<a href="lab/storybook.html?mat=${MAT}&zones=${ZONES ? 0 : 1}">花畑 切りかえ</a>`
     + `<a href="lab/storybook.html?mat=${MAT}&t=39">ゆうがた</a><a href="lab/storybook.html?mat=${MAT}&cam=wide">引き</a>`;
   if (girlReady && piyoReady && t > 1.5) window.READY = true;
   requestAnimationFrame(frame);
