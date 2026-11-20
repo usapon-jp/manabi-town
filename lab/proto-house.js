@@ -16,31 +16,33 @@ const TILES = new Set([0xa9d873, 0x94c862]);
 const WOODISH = new Set([WOOD, FRAME, 0xa86f3f, 0xd9a066, 0x9a6a3c]);
 
 // 色で 行き先を わける Bag（gableHouse・cuteDoor が 1つの Bag に 足す ものを、屋根・木・そのほかに 分ける）
-function splitBag(roofColor) {
+function splitBag(roofColor, tiles = TILES) {
   const clay = new Bag(); const roof = new Bag(); const wood = new Bag();
   return {
     clay, roof, wood,
     add(geo, color, o) {
       const c = typeof color === 'number' ? color : new THREE.Color(color).getHex();
-      (c === roofColor || TILES.has(c) ? roof : WOODISH.has(c) ? wood : clay).add(geo, color, o);
+      (c === roofColor || tiles.has(c) ? roof : WOODISH.has(c) ? wood : clay).add(geo, color, o);
       return this;
     },
   };
 }
 
-export function protoHouse({ mat = 'wood' } = {}) {
+export function protoHouse({ mat = 'wood', roof = ROOF } = {}) {
+  // roof: 屋根の 色（瓦は その 色の 明るい／くらい 3色）
+  const rc = new THREE.Color(roof);
+  const TILE = [roof, rc.clone().offsetHSL(0, 0, 0.05).getHex(), rc.clone().offsetHSL(0, 0, -0.05).getHex()];
   const g = new THREE.Group();
-  const b = splitBag(ROOF); const glow = new Bag();
+  const b = splitBag(roof, new Set(TILE)); const glow = new Bag();
   const W = 2.7; const D = 2.5; const WH = 1.95; const base = 0.18;
   const over = 0.5; const rise = 2.15; const sag = 0.18; const T = 0.36;
   g.add(blob(3.0, 3.1, 0.3));
-  const { off, y0, slabD, roofAt } = gableHouse(b, { W, D, WH, base, over, rise, sag, T, roof: ROOF });
+  const { off, y0, slabD, roofAt } = gableHouse(b, { W, D, WH, base, over, rise, sag, T, roof });
 
   // ねんどの うろこ瓦（2026-11-20 フミオさん「ねんどの 屋根瓦が すき」）。屋根の 上に まるい 瓦を 段ずつ ずらして ならべる。
   // 下の 段ほど 手前に 来るよう、てっぺんから のき へ 少しずつ 重ねる
   const half = W / 2 + over;
   const tile = new THREE.SphereGeometry(1, 10, 6, 0, Math.PI * 2, 0, Math.PI / 2);   // 上 半分だけ
-  const TILE = [0x9fd06a, 0xa9d873, 0x94c862];
   const rows = 8; const cols = 9;
   for (let r = 0; r < rows; r++) {
     const u = (r + 0.5) / rows;                     // 0 = てっぺん、1 = のき
