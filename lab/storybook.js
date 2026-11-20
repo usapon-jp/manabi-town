@@ -5,8 +5,10 @@
 //   ?clear=1         女の子の 足もとの 草花を よける（あり／なしの 比較用）
 //   ?t=16            町の 時刻（daytime.js の 分。あさ 4.5・ひる 16・ゆうがた 39・よる 52）
 //   ?cam=game|wide   カメラ（game = いまの ゲームと 同じ きょり、wide = 引き）
-//   ?zones=0         花の ところ／短い 草の ところ を わけない（いまの お花畑の まま。2026-11-20 試し）
-//   ?fs=0.67         花の 大きさ（zones の とき。ふつう 2/3）
+//   ?zones=1         花の ところ／短い 草の ところ を わける（2026-11-20 試し → さみしい、で 見送り）
+//   ?fs=0.67         花の 大きさ（ふつう 2/3、1 = いまの まま）
+//   ?gs=0.75         草の 背（ふつう 0.75、1 = いまの まま）
+//   ?more=1          花を ふやす 割合（1 = 2倍、0 = いまの 数）
 //   ?hud=0           左上の 数字を かくす
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
@@ -24,8 +26,10 @@ const MAT = P.get('mat') || 'wood';
 const CLEAR = P.get('clear') === '1';
 const MINUTE = Number(P.get('t') ?? 16);
 const CAM = P.get('cam') || 'game';
-const ZONES = P.get('zones') !== '0';
+const ZONES = P.get('zones') === '1';   // ふつうは いまの 置き方（花の 大きさ だけ fs 倍）
 const FS = Number(P.get('fs') ?? 2 / 3);
+const GS = Number(P.get('gs') ?? 0.75);
+const MORE = Number(P.get('more') ?? 1);   // 花を ふやす 割合（1 = 2倍、0 = いまの 数）   // 草の 背（花を 小さく したら 草に うもれないよう 草も 低く）
 
 const stage = document.getElementById('stage');
 const hud = document.getElementById('hud');
@@ -70,9 +74,13 @@ new GLTFLoader().load(CHARACTERS.piyo.model, (gltf) => {
 }, undefined, () => { piyoReady = true; });
 
 // ---- 花の ところ と 短い 草の ところ（家の まえ・女の子の まわりは 短い 草の 広場） ----
-if (ZONES) {
+if (ZONES || FS !== 1 || GS !== 1 || MORE > 0) {
   zoneMeadow(scene, {
+    zones: ZONES,
     fs: FS,
+    gs: GS,
+    more: MORE,
+    avoid: (x, z) => Math.abs(x - HOUSE.x) < 2.9 && Math.abs(z - HOUSE.z) < 2.4,
     // カメラから 見える ところに 花の かたまりを いくつか（女の子・家の まわりは 短い 草の 広場）
     beds: [{ x: -2.8, z: 1.2, r: 1.8 }, { x: 3.3, z: 1.8, r: 1.7 }, { x: 3.0, z: -3.6, r: 2.0 }, { x: -4.2, z: -3.2, r: 2.2 }, { x: -1.4, z: 4.6, r: 1.4 }],
     keepShort: (x, z) => {
@@ -121,7 +129,7 @@ function frame() {
   if (acc > 0.5) { fps = frames / acc; frames = 0; acc = 0; }
   const info = renderer.info.render;
   hud.innerHTML = `描画 ${info.calls} 回 ・ 三角形 ${(info.triangles / 10000).toFixed(1)}万 ・ ${fps.toFixed(0)} fps<br>`
-    + `質感 ${MAT === 'wood' ? 'ねんど＋木目' : 'ねんど'} ・ 足もと ${CLEAR ? 'よける' : 'そのまま'} ・ 花畑 ${ZONES ? `むら（花 ${FS.toFixed(2)}倍）` : 'いまのまま'}<br>`
+    + `質感 ${MAT === 'wood' ? 'ねんど＋木目' : 'ねんど'} ・ 足もと ${CLEAR ? 'よける' : 'そのまま'} ・ 花畑 ${ZONES ? 'むら' : 'いまの置き方'}（花 ${FS.toFixed(2)}倍・草 ${GS.toFixed(2)}倍・数 ${(1 + MORE).toFixed(1)}倍）<br>`
     + '<a href="lab/storybook.html?mat=wood">ねんど＋木目</a><a href="lab/storybook.html?mat=clay">ねんど</a>'
     + `<a href="lab/storybook.html?mat=${MAT}&clear=${CLEAR ? 0 : 1}">足もと切りかえ</a>`
     + `<a href="lab/storybook.html?mat=${MAT}&zones=${ZONES ? 0 : 1}">花畑 切りかえ</a>`
