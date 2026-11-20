@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <!-- 試作シーン（公開版の町とは別。main には入れない）。パスはリポジトリの 直下から -->
+  <base href="../">
+  <title>絵本の村 試作</title>
+  <style>
+    html, body { margin: 0; height: 100%; background: #f6ead8; overflow: hidden; font-family: system-ui, sans-serif; }
+    #stage { position: fixed; inset: 0; }
+    #hud { position: fixed; left: 8px; top: 8px; padding: 6px 10px; border-radius: 10px; background: rgba(255,255,255,.75); font-size: 12px; line-height: 1.5; color: #4a3b2a; }
+    #hud a { color: #a0603a; margin-right: 6px; }
+  </style>
+  <script type="importmap">
+    { "imports": { "three": "./vendor/three/three.module.js", "three/addons/": "./vendor/three/addons/" } }
+  </script>
+</head>
+<body>
+  <div id="stage"></div>
+  <div id="hud"></div>
+  <script type="module" src="lab/storybook.js"></script>
+</body>
+</html>
