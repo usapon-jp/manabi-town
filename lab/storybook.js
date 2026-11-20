@@ -9,6 +9,7 @@
 //   ?fs=0.67         花の 大きさ（ふつう 2/3、1 = いまの まま）
 //   ?gs=0.75         草の 背（ふつう 0.75、1 = いまの まま）
 //   ?more=1          花を ふやす 割合（1 = 2倍、0 = いまの 数）
+//   ?big=1.3         女の子・ピヨ先生・家の 大きさ（1 = いまの ゲーム）。カメラも 同じ 倍率で 引く
 //   ?hud=0           左上の 数字を かくす
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
@@ -27,9 +28,11 @@ const CLEAR = P.get('clear') === '1';
 const MINUTE = Number(P.get('t') ?? 16);
 const CAM = P.get('cam') || 'game';
 const ZONES = P.get('zones') === '1';   // ふつうは いまの 置き方（花の 大きさ だけ fs 倍）
-const FS = Number(P.get('fs') ?? 2 / 3);
-const GS = Number(P.get('gs') ?? 0.75);
-const MORE = Number(P.get('more') ?? 1);   // 花を ふやす 割合（1 = 2倍、0 = いまの 数）   // 草の 背（花を 小さく したら 草に うもれないよう 草も 低く）
+// 2026-11-20 フミオさん「女の子を 大きくして、お花畑は 今のまま」→ ふつうは 草花 そのまま、BIG で キャラと 家を 大きく
+const FS = Number(P.get('fs') ?? 1);       // 花の 大きさ
+const GS = Number(P.get('gs') ?? 1);       // 草の 背
+const MORE = Number(P.get('more') ?? 0);   // 花を ふやす 割合（1 = 2倍）
+const BIG = Number(P.get('big') ?? 1.3);   // 女の子・ピヨ先生・家の 大きさ（いまの ゲーム = 1）。カメラも 同じ 倍率で 引く
 
 const stage = document.getElementById('stage');
 const hud = document.getElementById('hud');
@@ -46,22 +49,22 @@ const meadow = createMeadow(scene);
 meadow.setPixelRatio(renderer.getPixelRatio());
 
 // ---- 家（女の子の 前、すこし 奥） ----
-const HOUSE = { x: -0.4, z: -4.6 };
+const HOUSE = { x: 0.5 + (-0.4 - 0.5) * BIG, z: -4.6 * BIG };   // 女の子との きょりも BIG 倍
 const house = protoHouse({ mat: MAT });
-house.position.set(HOUSE.x, 0, HOUSE.z);
+house.position.set(HOUSE.x, 0, HOUSE.z); house.scale.setScalar(BIG);
 scene.add(house);
 
 // ---- 女の子（いまの girl.glb）と ピヨ先生 ----
 const GIRL = new THREE.Vector3(0.5, 0, 0);
-const girl = new THREE.Group(); girl.position.copy(GIRL); girl.rotation.y = 0.35; scene.add(girl);
+const girl = new THREE.Group(); girl.position.copy(GIRL); girl.rotation.y = 0.35; girl.scale.setScalar(BIG); scene.add(girl);
 const girlDef = partOf('body:girl');
-const gs = softShadow(girlDef.height * 0.3, 0.3); gs.position.set(GIRL.x, 0.02, GIRL.z); scene.add(gs);
+const gs = softShadow(girlDef.height * 0.3 * BIG, 0.3); gs.position.set(GIRL.x, 0.02, GIRL.z); scene.add(gs);
 let girlReady = false;
 mountAvatar(girl, lookOf(null), () => { girlReady = true; });
 
-const PIYO = new THREE.Vector3(1.55, 0, 0.55);
-const piyo = new THREE.Group(); piyo.position.copy(PIYO); piyo.rotation.y = -0.25; scene.add(piyo);
-const ps = softShadow(0.72 * 0.3, 0.3); ps.position.set(PIYO.x, 0.02, PIYO.z); scene.add(ps);
+const PIYO = new THREE.Vector3(0.5 + 1.05 * BIG, 0, 0.55 * BIG);
+const piyo = new THREE.Group(); piyo.position.copy(PIYO); piyo.rotation.y = -0.25; piyo.scale.setScalar(BIG); scene.add(piyo);
+const ps = softShadow(0.72 * 0.3 * BIG, 0.3); ps.position.set(PIYO.x, 0.02, PIYO.z); scene.add(ps);
 let piyoReady = false;
 new GLTFLoader().load(CHARACTERS.piyo.model, (gltf) => {
   const model = gltf.scene;
@@ -92,7 +95,7 @@ if (ZONES || FS !== 1 || GS !== 1 || MORE > 0) {
 }
 
 // ---- 草花を よける（家の まわり・入口から 女の子までの 小道。clear=1 なら 女の子の 足もとも） ----
-const fp = house.userData.footprint;
+const fp = { w: house.userData.footprint.w * BIG, d: house.userData.footprint.d * BIG };
 meadow.clearTown((x, z) => {
   const dx = x - HOUSE.x; const dz = z - HOUSE.z;
   if (Math.abs(dx) < fp.w / 2 && dz > -fp.d / 2 && dz < fp.d / 2 + 0.6) return true;
@@ -103,10 +106,11 @@ meadow.clearTown((x, z) => {
 
 // ---- カメラ ----
 function placeCamera() {
-  if (CAM === 'wide') { camera.position.set(6.5, 5.6, 9.5); camera.lookAt(-0.2, 1.3, -2.4); return; }
+  const k = BIG;
+  if (CAM === 'wide') { camera.position.set(GIRL.x + 6.0 * k, 5.6 * k, 9.5 * k); camera.lookAt(GIRL.x - 0.7 * k, 1.3 * k, -2.4 * k); return; }
   // いまの ゲームと 同じ きょり（world.js の view: dist 6.6・height 2.05・lookY 1.25）。女の子の 正面 すこし 右から
-  camera.position.set(GIRL.x + 1.6, 2.05, GIRL.z + 6.4);
-  camera.lookAt(GIRL.x - 0.3, 1.25, GIRL.z - 1.2);
+  camera.position.set(GIRL.x + 1.6 * k, 2.05 * k, GIRL.z + 6.4 * k);
+  camera.lookAt(GIRL.x - 0.3 * k, 1.25 * k, GIRL.z - 1.2 * k);
 }
 function resize() {
   const w = stage.clientWidth; const h = stage.clientHeight;
@@ -129,7 +133,7 @@ function frame() {
   if (acc > 0.5) { fps = frames / acc; frames = 0; acc = 0; }
   const info = renderer.info.render;
   hud.innerHTML = `描画 ${info.calls} 回 ・ 三角形 ${(info.triangles / 10000).toFixed(1)}万 ・ ${fps.toFixed(0)} fps<br>`
-    + `質感 ${MAT === 'wood' ? 'ねんど＋木目' : 'ねんど'} ・ 足もと ${CLEAR ? 'よける' : 'そのまま'} ・ 花畑 ${ZONES ? 'むら' : 'いまの置き方'}（花 ${FS.toFixed(2)}倍・草 ${GS.toFixed(2)}倍・数 ${(1 + MORE).toFixed(1)}倍）<br>`
+    + `質感 ${MAT === 'wood' ? 'ねんど＋木目' : 'ねんど'} ・ 足もと ${CLEAR ? 'よける' : 'そのまま'} ・ 花畑 ${ZONES ? 'むら' : 'いまの置き方'}（花 ${FS.toFixed(2)}倍・草 ${GS.toFixed(2)}倍・数 ${(1 + MORE).toFixed(1)}倍）・キャラと家 ${BIG.toFixed(2)}倍<br>`
     + '<a href="lab/storybook.html?mat=wood">ねんど＋木目</a><a href="lab/storybook.html?mat=clay">ねんど</a>'
     + `<a href="lab/storybook.html?mat=${MAT}&clear=${CLEAR ? 0 : 1}">足もと切りかえ</a>`
     + `<a href="lab/storybook.html?mat=${MAT}&zones=${ZONES ? 0 : 1}">花畑 切りかえ</a>`
