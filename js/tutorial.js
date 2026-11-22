@@ -11,14 +11,13 @@ const STEPS = [
   { text: 'ホームに もどろう', target: () => tab('home'), tap: 'target', open: 'home' },
   { text: 'きょうやることは ここ。数字は のこりの 数', target: () => document.querySelector('.quest-mark') || document.querySelector('.go'), tap: 'any', pad: 6 },
   { text: '毎日つづけて れんぞく日数を のばそう', target: () => streakAndPoints(), tap: 'any', pad: 6 },
-  { text: 'ポイントを もっと ほしいときは ここ', target: () => document.querySelector('.bonus-btn'), tap: 'any', pad: 6 },
-  { text: 'きょうやることの ぜんぶ。自分で 書いて ふやせるよ', target: () => tab('quest'), tap: 'target', open: 'quest' },
+  { text: '勉強は ここ。すぐ はじめられるよ', target: () => tab('quest'), tap: 'target', open: 'quest' },
   { text: 'タイマーで 勉強を計ろう', target: () => tab('timer'), tap: 'target', open: 'timer' },
 ];
 
 const tab = (name) => document.querySelector(`.tabs button[data-tab="${name}"]`);
 
-// れんぞく日数と ポイントだけ 光らせる（となりの ボーナスまで 光らせると、まんなかを おして ボーナスが ひらいてしまう）
+// れんぞく日数と ポイントだけ 光らせる（となりの ガチャまで 光らせると、まんなかを おして ガチャが ひらいてしまう）
 function streakAndPoints() {
   const a = document.querySelector('.hud .fire');
   const b = document.querySelector('.hud .points');

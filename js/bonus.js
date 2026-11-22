@@ -1,5 +1,5 @@
 // ボーナス（原神のデイリー・イベントのような、えらべる追加のクエスト）。
-// 上のギフトのボタンからひらく。
+// 「勉強」タブの「まいにち」の 中に ならべる（2026-11-17 までは 上のバーの 🎁から ひらいていた）。
 // - 見るだけ: 「きょうのおすすめ」「すすみ表」をひらくと少しポイント（1日1回ずつ）
 // - ドリル: 漢字・英単語・計算を5もんずつ（1日1回ずつポイント。そのあとは練習）
 // - きょうのチャレンジ: タイマー30分
@@ -65,20 +65,6 @@ function goals(p) {
   };
 }
 
-// ギフトについた数字（いま受けとれる・やれるもの）
-export function bonusCount(p) {
-  const { day, wk } = state(p);
-  const g = goals(p);
-  let n = 0;
-  if (!day.lookRec) n += 1;
-  if (!day.lookProg) n += 1;
-  drillsFor(p).forEach((d) => { if (!day[`drill:${d.id}`]) n += 1; });
-  if (dueReview(p).length) n += 1;
-  g.daily.forEach((x) => { if (!day[x.id] && x.now >= x.goal) n += 1; });
-  g.weekly.forEach((x) => { if (!wk[x.id] && x.now >= x.goal) n += 1; });
-  return n;
-}
-
 // 見るだけのポイント（1日1回）
 function lookReward(p, key, deps) {
   const { day } = state(p);
@@ -97,47 +83,48 @@ function sheet(cls, ...kids) {
 
 const bar = (now, goal) => h('span', { class: 'gbar' }, h('i', { style: `width:${Math.min(100, Math.round((now / goal) * 100))}%` }));
 
-// ---- ボーナスの一覧 -----------------------------------------------------------
+// ---- ポイントの お題（「勉強」タブの 中に ならべる。むかしの 上のバーの 🎁ボーナス） ----------------------
+// 2026-11-17: 🎁は「ごほうび」ではなく「やると ポイントが もらえる お題」だったので、上のバーから はずして 勉強の 側へ。
+// 見るだけの お題（おすすめ・進み具合を 見る）は ならべない（見れば これまでどおり +3）
 
-export function openBonus(p, deps) {
-  document.querySelector('.sheet.bonus-sheet')?.remove();
-  const { day, wk } = state(p);
-  const g = goals(p);
+const row = ({ ic, label, sub, reward, done, ready, onTap, progress }) => h('li', { class: `quest-row ${done ? 'done' : ''} ${ready ? 'ready' : ''}`, ...(done ? {} : { onclick: onTap, style: 'cursor:pointer' }) },
+  h('span', { class: 'q-ic' }, icon(ic)),
+  h('span', { class: 'q-main' }, h('b', {}, label), progress || (sub ? h('small', {}, sub) : null)),
+  done
+    ? h('span', { class: 'q-done' }, icon('check'))
+    : h('button', { class: `q-go ${ready ? 'claim' : ''}`, 'aria-label': label }, ready ? 'うけとる' : [icon('sprout'), `${reward}`]));
 
-  const row = ({ ic, label, sub, reward, done, ready, onTap, progress }) => h('li', { class: `quest-row ${done ? 'done' : ''} ${ready ? 'ready' : ''}`, ...(done ? {} : { onclick: onTap, style: 'cursor:pointer' }) },
-    h('span', { class: 'q-ic' }, icon(ic)),
-    h('span', { class: 'q-main' }, h('b', {}, label), progress || (sub ? h('small', {}, sub) : null)),
-    done
-      ? h('span', { class: 'q-done' }, icon('check'))
-      : h('button', { class: `q-go ${ready ? 'claim' : ''}`, 'aria-label': label }, ready ? 'うけとる' : [icon('sprout'), `${reward}`]));
-
-  const reopen = () => { s.close(); deps.render(); openBonus(p, deps); };
-
-  const look = [
-    row({ ic: 'eye', label: 'きょうのおすすめを 見る', reward: LOOK_POINTS, done: day.lookRec,
-      onTap: () => { s.close(); deps.openRecommend(); } }),
-    row({ ic: 'chart-column', label: '進み具合を 見る', reward: LOOK_POINTS, done: day.lookProg,
-      onTap: () => { s.close(); openProgress(p, deps); } }),
-  ];
-
-  const drills = drillsFor(p).map((d) => {
-    const key = `drill:${d.id}`;
-    const res = day[key];
+// 漢字・英単語・計算の「もう 5もん」（1日1回ずつ ポイント）
+export function drillRows(p, deps) {
+  const { day } = state(p);
+  const list = drillsFor(p).map((d) => {
+    const res = day[`drill:${d.id}`];
     return row({ ic: d.ic, label: `${d.label} 5もん`, reward: `${DRILL_PER_CORRECT * 5 + DRILL_CLEAR}`,
       sub: res ? `${res.score} / ${res.total}` : '1もん5・ぜんぶで +10', done: !!res,
-      onTap: () => { s.close(); startDrill(p, d, deps); } });
+      onTap: () => startDrill(p, d, deps) });
   });
+  return list.length ? h('ul', { class: 'quest-list' }, list) : null;
+}
 
-  // やりなおし・にがて（成績につながるクエスト）
+// やりなおし・にがて・実力テスト・タイマー・今週の イベント
+export function pointsCard(p, deps) {
+  const { day, wk } = state(p);
+  const g = goals(p);
   const due = dueReview(p).length;
   const fix = [
     due ? row({ ic: 'notebook-pen', label: `やりなおし ${Math.min(due, REVIEW_MAX)}もん`, sub: `まちがえた問題を もういちど・1もん${REVIEW_PER_CORRECT}`,
-      reward: Math.min(due, REVIEW_MAX) * REVIEW_PER_CORRECT + REVIEW_CLEAR, onTap: () => { s.close(); startReview(p, deps); } }) : null,
+      reward: Math.min(due, REVIEW_MAX) * REVIEW_PER_CORRECT + REVIEW_CLEAR, onTap: () => startReview(p, deps) }) : null,
     ...openWeak(p).slice(0, 3).map((w) => row({ ic: 'target', label: `にがて: ${w.topic}`, sub: `${w.subject}・ピヨ先生の 3もん`,
-      reward: 3 * WEAK_PER_CORRECT + WEAK_CLEAR, onTap: (e) => { s.close(); startWeak(p, w, deps); } })),
+      reward: 3 * WEAK_PER_CORRECT + WEAK_CLEAR, onTap: (e) => {
+        // 問題づくり（AI）の あいだは もう一度 おしても 何もしない（ボタンに「作り中…」）
+        const li = e.currentTarget;
+        if (li.dataset.busy) return;
+        li.dataset.busy = '1';
+        Promise.resolve(startWeak(p, w, deps, li.querySelector('.q-go'))).finally(() => { delete li.dataset.busy; });
+      } })),
     isAdult(p) ? null : row({ ic: 'trophy', label: '実力テストの点を 入れる', sub: 'テストが かえってきたら', reward: '30〜100',
-      onTap: () => { s.close(); openTestEntry(p, deps); } }),
-  ];
+      onTap: () => openTestEntry(p, deps) }),
+  ].filter(Boolean);
 
   const goalRow = (x, store) => {
     const done = !!store[x.id];
@@ -146,28 +133,24 @@ export function openBonus(p, deps) {
       progress: h('span', { class: 'q-prog' }, bar(x.now, x.goal), h('small', {}, `${Math.min(x.now, x.goal)} / ${x.goal}`)),
       onTap: () => {
         if (!ready) {   // まだなら、そのページへ とぶ
-          s.close();
-          deps.goTab?.(x.tab);
+          if (x.tab !== 'quest') deps.goTab?.(x.tab);
           toast(`あと ${x.goal - x.now}${x.id.startsWith('min') ? '分' : ''}！`);
           return;
         }
         store[x.id] = true;
         deps.gain(p, x.reward, `ボーナス: ${x.label}`, { study: false });
-        reopen();
       } });
   };
-
-  // 週のおわりまで
-  const left = 6 - ((new Date().getDay() + 6) % 7);
-  const s = sheet('bonus-card',
-    h('p', { class: 'sheet-title' }, icon('gift'), ' ボーナス'),
-    h('p', { class: 'sheet-sub' }, 'もっと ポイントを あつめたいときに'),
-    h('div', { class: 'q-group' }, h('h4', {}, 'きょう'), h('ul', { class: 'quest-list' }, look, drills, g.daily.map((x) => goalRow(x, day)))),
-    fix.some(Boolean) ? h('div', { class: 'q-group' }, h('h4', {}, 'せいせきアップ'), h('ul', { class: 'quest-list' }, fix)) : null,
+  const left = 6 - ((new Date().getDay() + 6) % 7);   // 週の おわりまで
+  // うけとれる ものの 数（たたんでいても わかるように）。やりなおしが まっている・うけとれる ときは ひらいておく
+  const ready = [...g.daily.map((x) => [x, day]), ...g.weekly.map((x) => [x, wk])].filter(([x, st]) => !st[x.id] && x.now >= x.goal).length;
+  return h('details', { class: 'fold-sec points-card', open: ready || due ? true : null },
+    h('summary', {}, icon('sprout'), ' ポイントの お題', ready ? h('i', { class: 'tab-badge inline' }, String(ready)) : null),
+    h('div', { class: 'card quest' },
+    fix.length ? h('ul', { class: 'quest-list' }, fix) : null,
+    h('ul', { class: 'quest-list' }, g.daily.map((x) => goalRow(x, day))),
     h('div', { class: 'q-group event' }, h('h4', {}, '今週のイベント', h('small', {}, left ? `のこり${left}日` : 'きょうまで')),
-      h('ul', { class: 'quest-list' }, g.weekly.map((x) => goalRow(x, wk)))),
-  );
-  s.el.classList.add('bonus-sheet');
+      h('ul', { class: 'quest-list' }, g.weekly.map((x) => goalRow(x, wk))))));
 }
 
 export async function startDrill(p, d, deps) {
