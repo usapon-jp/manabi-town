@@ -429,6 +429,7 @@ export function createEggs({ scene, town, cut }) {
   const byId = new Map(items.map((it) => [it.def.id, it]));
 
   let on = true;
+  let hidden = false;
   let has = false;
   let quiet = false;   // カメラの あいだは 頭の上の「！」を かくす（写真に うつらないように）
   let blockersSig = '';
@@ -543,10 +544,12 @@ export function createEggs({ scene, town, cut }) {
       }
       refreshBlockers();
     },
+    // しばらく かくす（きせかえの あいだ、女の子の 前に たって じゃまに ならないよう）
+    setHidden(v) { hidden = !!v; root.visible = on && !hidden; },
     // 町の 島（はじまりの島）に いるときだけ 出す
     setOn(v) {
       on = !!v;
-      root.visible = on;
+      root.visible = on && !hidden;
       nest.visible = on && has;
       refreshBlockers();
     },

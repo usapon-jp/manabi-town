@@ -1679,8 +1679,8 @@ input.pin { font-size: 26px; letter-spacing: 0.5em; text-align: center; }
 .fold-add .routine-form, .fold-add .form { margin-top: 10px; }
 .today-card > .link { margin-top: 8px; }
 .diary-sum { margin: 0 0 10px; color: var(--ink-soft); font-size: 14px; }
-.stamps-pick { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-bottom: 10px; }
-.stamp-btn { font: inherit; display: grid; justify-items: center; gap: 4px; padding: 10px 2px; border-radius: 16px; border: 2px solid var(--line); background: #fff; color: var(--ink); cursor: pointer; box-shadow: 0 3px 0 var(--press, var(--line)); }
+.stamps-pick { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; margin-bottom: 10px; }
+.stamp-btn { font: inherit; min-width: 0; display: grid; justify-items: center; gap: 4px; padding: 10px 2px; border-radius: 16px; border: 2px solid var(--line); background: #fff; color: var(--ink); cursor: pointer; box-shadow: 0 3px 0 var(--press, var(--line)); }
 .stamp-btn .ic { width: 26px; height: 26px; color: var(--accent-dark); }
 .stamp-btn small { font-size: 11px; font-weight: 500; white-space: nowrap; }
 .stamp-btn.on { background: var(--accent); border-color: var(--accent-dark); color: #fff; box-shadow: 0 3px 0 var(--accent-dark); }
@@ -1705,16 +1705,16 @@ input.pin { font-size: 26px; letter-spacing: 0.5em; text-align: center; }
 .diary-fab:active { transform: scale(0.94); }
 .diary-fab[hidden], body.running .diary-fab, body:has(.timer-run) .diary-fab, body:has(.sheet) .diary-fab, body.touring .diary-fab { display: none; }
 @media (orientation: landscape) and (max-height: 540px) { .diary-fab { bottom: calc(env(safe-area-inset-bottom) + 14px); left: calc(var(--rail) + 14px); } }
-.diary-sheet .sheet-card { max-height: 88vh; overflow-y: auto; display: grid; grid-template-columns: minmax(0, 1fr); gap: 12px; }
+.diary-sheet .sheet-card { max-height: 88vh; max-height: 88svh; overflow-y: auto; overflow-x: hidden; overscroll-behavior: contain; -webkit-overflow-scrolling: touch; display: grid; grid-template-columns: minmax(0, 1fr); gap: 12px; }
 .diary-body { display: grid; grid-template-columns: minmax(0, 1fr); gap: 12px; min-width: 0; }
 .diary-body .mine-input { width: 100%; box-sizing: border-box; }
 .diary-card h3 { margin: 0 0 6px; }
 .cal-head { display: flex; align-items: center; justify-content: space-between; }
 .cal-head b { font-size: 17px; }
 .cal-nav { width: 40px; height: 40px; border-radius: 50%; border: 2px solid var(--line); background: #fff; display: grid; place-items: center; color: var(--accent-dark); cursor: pointer; }
-.cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; }
+.cal-grid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 4px; }
 .cal-wd { text-align: center; color: var(--ink-soft); }
-.cal-day { font: inherit; aspect-ratio: 1 / 1.1; border: 1.5px solid var(--line); border-radius: 12px; background: #fff; display: grid; align-content: center; justify-items: center; gap: 1px; padding: 0; cursor: pointer; color: var(--ink); }
+.cal-day { font: inherit; min-width: 0; min-height: 0; aspect-ratio: 1 / 1.1; border: 1.5px solid var(--line); border-radius: 12px; background: #fff; display: grid; align-content: center; justify-items: center; gap: 1px; padding: 0; cursor: pointer; color: var(--ink); }
 .cal-day small { font-size: 11px; color: var(--ink-soft); }
 .cal-day .ic { width: 20px; height: 20px; color: var(--accent-dark); }
 .cal-day.act { background: var(--leaf-soft); }
@@ -1726,8 +1726,18 @@ input.pin { font-size: 26px; letter-spacing: 0.5em; text-align: center; }
 .cal-sum b { min-width: 3em; }
 .cal-st { display: inline-flex; align-items: center; gap: 3px; }
 .cal-st .ic { width: 14px; height: 14px; }
-.cal-detail { display: flex; flex-wrap: wrap; gap: 4px 10px; align-items: center; font-size: 14px; }
-.cal-detail p { flex-basis: 100%; margin: 0; color: var(--ink-soft); }
+.cal-detail { min-width: 0; display: flex; flex-wrap: wrap; gap: 4px 10px; align-items: center; font-size: 14px; }
+.cal-detail p { flex-basis: 100%; min-width: 0; margin: 0; color: var(--ink-soft); word-break: normal; overflow-wrap: anywhere; }
+/* せまいスマホ（iPhone SE など）でも 横に はみ出さない: カレンダーの マスと スタンプを 少し 小さく */
+@media (max-width: 380px) {
+  .diary-sheet .sheet-card { padding: 18px 14px; }
+  .cal-grid { gap: 3px; }
+  .cal-day { border-radius: 10px; overflow: hidden; }
+  .cal-day .ic { width: 16px; height: 16px; }
+  .cal-day small { font-size: 10px; }
+  .stamps-pick { gap: 6px; }
+  .stamp-btn small { font-size: 10px; letter-spacing: -0.04em; }
+}
 .chip .ic { width: 11px; height: 11px; vertical-align: -1px; margin-right: 2px; }
 .fold-sec { margin: 0 0 12px; }
 .fold-sec > summary { list-style: none; display: flex; align-items: center; gap: 8px; padding: 12px 16px; border-radius: 18px; border: 2px solid var(--line); background: #fffdf5; font-weight: 700; cursor: pointer; box-shadow: var(--soft); }
@@ -2030,6 +2040,26 @@ input.pin { font-size: 26px; letter-spacing: 0.5em; text-align: center; }
 .an-card.named .an-row, .an-card.named .an-later { display: none; }
 .an-card.named .an-say { font-size: 20px; }
 /* 名前を つけている あいだは、町の ボタンを かくして 女の子を 見せる */
+/* ---- きせかえ（js/dressup.js）。名前の カードと 同じ 出かた ---- */
+.du-card { gap: 10px; max-height: min(56vh, 520px); overflow-y: auto; overscroll-behavior: contain; }
+.du-head { display: flex; align-items: center; justify-content: space-between; }
+.du-head .an-say { display: inline-flex; align-items: center; gap: 4px; }
+.du-body { display: grid; gap: 10px; }
+.du-sec { display: grid; gap: 6px; }
+.du-sec > b { font-size: 14px; color: var(--ink-soft); }
+.du-chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.du-chip { font: inherit; font-weight: 800; font-size: 15px; padding: 8px 14px; border-radius: 999px; border: 2px solid var(--edge); background: #fff; color: var(--ink); display: inline-flex; flex-direction: column; align-items: center; line-height: 1.15; }
+.du-chip.on { border-color: var(--accent); background: var(--leaf-soft); color: var(--accent-dark); }
+.du-chip.locked { opacity: 0.6; }
+.du-chip small { font-size: 11px; font-weight: 700; color: var(--ink-soft); }
+.du-swatches { display: flex; flex-wrap: wrap; gap: 8px; }
+.du-sw { width: 34px; height: 34px; border-radius: 50%; border: 3px solid #fff; background: var(--c); box-shadow: 0 0 0 2px var(--edge); padding: 0; }
+.du-sw.on { box-shadow: 0 0 0 3px var(--accent); transform: scale(1.08); }
+.du-slider { display: grid; gap: 2px; font-size: 14px; font-weight: 700; color: var(--ink); }
+.du-range { display: flex; align-items: center; gap: 8px; }
+.du-range small { flex: none; width: 4.2em; font-size: 11px; color: var(--ink-soft); text-align: center; }
+.du-range input { flex: 1; min-width: 0; accent-color: var(--accent); }
+.g-wear { margin-top: 4px; }
 body:has(.avatar-name) #pad, body:has(.avatar-name) #bubble, body:has(.avatar-name) .tabs, body:has(.avatar-name) .ask-fab, body:has(.avatar-name) .diary-fab, body:has(.avatar-name) .wedit, body:has(.avatar-name) .wuse { visibility: hidden; }
 /* せっていの「まちの 女の子」 */
 .avatar-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
@@ -2422,3 +2452,62 @@ body.cam-mode .ctrl-pad { z-index: 6; bottom: env(safe-area-inset-bottom); }
 .think-prog { width: 100%; max-width: 320px; display: flex; align-items: center; gap: 10px; margin: 6px 0; }
 .think-prog small { flex: none; color: var(--ink-soft); }
 .think-card .btn.primary { width: 100%; max-width: 320px; }
+
+/* 中2社会・地理のフラッシュカード（スマホ縦／横対応） */
+.geo-layer { position: fixed; inset: 0; z-index: 11000; overflow: auto; background: #f9f7f0; color: #403c34; padding: max(16px, env(safe-area-inset-top)) 16px max(16px, env(safe-area-inset-bottom)); }
+.geo-shell { max-width: 580px; margin: 0 auto; display: grid; gap: 14px; }
+.geo-top { display: flex; align-items: center; justify-content: space-between; color: #786c5c; }
+.geo-top small { font-size: 14px; font-weight: 700; }
+.geo-close { border: 0; border-radius: 50%; width: 38px; height: 38px; font-size: 24px; background: #ede4d5; color: #55493a; }
+.geo-shell h2 { font-size: clamp(21px, 5vw, 27px); margin: 8px 0 0; }
+.geo-note { margin: 0; line-height: 1.7; }
+.geo-totals { display: flex; flex-wrap: wrap; gap: 12px; background: #fff; padding: 15px; border-radius: 15px; border: 1px solid #e1d7c4; font-size: 14px; }
+.geo-totals b { font-size: 20px; }
+.geo-row { display: grid; grid-template-columns: 1fr auto; text-align: left; gap: 3px 6px; border: 1px solid #e1d7c4; border-radius: 16px; background: #fff; padding: 16px 18px; color: inherit; font: inherit; }
+.geo-row b { font-size: 17px; }
+.geo-row small { grid-column: 1; font-size: 13px; color: #847664; }
+.geo-row span { grid-row: 1/3; grid-column: 2; place-self: center; font-size: 26px; color: #b38b6b; }
+.geo-progress { display: flex; justify-content: space-between; align-items: center; gap: 12px; font-size: 14px; }
+.geo-progress span { font-weight: 700; }
+.geo-back { border: 0; background: transparent; color: #75563e; text-decoration: underline; padding: 10px; font: inherit; }
+.geo-flip { display: block; width: 100%; padding: 0; border: 0; background: transparent; color: inherit; font: inherit; cursor: pointer; }
+.geo-card { min-height: min(48vh, 310px); border: 2px solid #d6bc9e; border-radius: 22px; background: #fffdf9; box-shadow: 0 4px 12px #7d59431a; padding: 25px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 20px; text-align: center; }
+.geo-card small { color: #9a7957; font-size: 14px; }
+.geo-card strong { font-size: clamp(21px, 5vw, 30px); line-height: 1.6; overflow-wrap: anywhere; }
+.geo-actions { display: flex; gap: 12px; justify-content: center; }
+.geo-action { width: 100%; min-height: 52px; }
+.geo-mark { flex: 1; min-height: 58px; border-radius: 15px; font-size: 18px; font-weight: 750; border: 2px solid #bcac96; background: #fff; color: #534d43; }
+.geo-mark.known { border-color: #799e71; background: #e9f5e5; color: #315b2d; }
+.geo-mark.missed { border-color: #c28f82; background: #fff0ea; color: #883f30; }
+@media (prefers-reduced-motion: reduce) { .geo-card { scroll-behavior: auto; } }
+/* ---- タイマー: あとから たす・とめる ときの 確かめ（2026-11-17） ---- */
+.records .label-row .label { margin: 0; }
+.records .add-time { display: inline-flex; align-items: center; gap: 2px; font-weight: 800; font-size: 15px; color: #6b8450; padding: 6px 2px; }
+.records .add-time .ic, .records .add-time svg { width: 16px; height: 16px; }
+.rec-tag { display: inline-block; margin-left: 6px; padding: 1px 7px; border-radius: 999px; background: #f3e8cf; color: #8a6516; font-size: 11.5px; font-weight: 800; vertical-align: 1px; white-space: nowrap; }
+.add-time-card { justify-items: stretch; max-height: calc(100dvh - 32px); overflow-y: auto; }
+.add-time-card .sheet-title, .add-time-card .sheet-sub { text-align: center; }
+.add-time-card .sheet-title svg { width: 22px; height: 22px; vertical-align: -3px; }
+.add-time-card .seg { margin-top: 0; }
+.add-time-card .picks { justify-content: center; }
+.min-step { display: flex; align-items: center; justify-content: center; gap: 22px; }
+.min-step .big-num { margin: 0; min-width: 2.4em; font-size: 56px; font-weight: 800; line-height: 1; color: var(--navy); text-align: center; }
+.min-step .big-num small { font-size: 20px; margin-left: 4px; }
+.min-step .round { width: 52px; height: 52px; border-radius: 50%; border: 1.5px solid var(--line); background: #fff; color: var(--navy); box-shadow: var(--soft); display: grid; place-items: center; }
+.min-step .round:active { transform: scale(0.94); }
+.min-step .round:disabled { opacity: 0.35; box-shadow: none; }
+.min-step .round svg { width: 24px; height: 24px; }
+.add-time-note { text-align: center; color: var(--ink-soft); font-size: 12px; font-weight: 700; }
+.timer-stop { z-index: 40; }
+.timer-stop .link.danger { color: #b5651d; }
+/* 横むきの スマホ（ひくい 画面）は つめて、なるべく 1まいに おさめる */
+@media (max-height: 500px) {
+  .add-time-card { gap: 8px; padding: 14px 18px; }
+  .add-time-card .sheet-sub { display: none; }
+  .add-time-card .picks .pick { padding: 6px 10px; font-size: 14px; }
+  .add-time-card .picks.kinds .pick { display: flex; flex-direction: row; align-items: center; justify-content: center; gap: 4px; }
+  .add-time-card .picks.kinds .pick svg { width: 18px; height: 18px; }
+  .min-step { gap: 16px; }
+  .min-step .big-num { font-size: 40px; }
+  .min-step .round { width: 44px; height: 44px; }
+}

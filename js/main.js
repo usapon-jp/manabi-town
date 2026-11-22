@@ -16,6 +16,7 @@ import { photosCard } from './photos.js';
 import { openAsk } from './ask.js';
 import { townAskButton, openTownAsk } from './townask.js';
 import { openAvatarNaming } from './avatarname.js';
+import { openDressup } from './dressup.js';
 import { hasAvatarName, avatarName } from './avatar.js';
 import { initEggs, offerEggs, piyoSay } from './eggui.js';
 import { initBank } from './bankui.js';
@@ -233,6 +234,8 @@ const bonusDeps = {
   celebrate: () => world?.celebrate(),
   goTab: (t) => show(t),   // ボーナスから そのページへ
   openRecommend: () => openRecommend(currentProfile(), recommendations(currentProfile()), bonusDeps),
+  // ガチャで もらった 帽子を すぐ かぶる（きせかえ）
+  dressup: (p) => { show('home'); worldLoaded.then(() => openDressup(p, { world, onDone: () => render() })); },
 };
 
 // ピヨちゃんと 勉強する（デイリーの あとも つづけて とける）
@@ -1157,7 +1160,8 @@ function renderSettings(p) {
     h('label', {}, 'なまえ', name),
     h('div', { class: 'avatar-row' },
       h('span', {}, 'まちの 女の子', h('b', {}, hasAvatarName(p) ? avatarName(p) : 'まだ なまえが ないよ')),
-      h('button', { class: 'btn small', type: 'button', onclick: () => { show('home'); worldLoaded.then(() => openAvatarNaming(p, { world, onDone: () => render() })); } }, hasAvatarName(p) ? 'かえる' : 'つける')),
+      h('button', { class: 'btn small', type: 'button', onclick: () => { show('home'); worldLoaded.then(() => openAvatarNaming(p, { world, onDone: () => render() })); } }, hasAvatarName(p) ? 'かえる' : 'つける'),
+      h('button', { class: 'btn small', type: 'button', onclick: () => bonusDeps.dressup(p) }, 'きせかえ')),
     h('label', {}, '学年', grade),
     pin.el,
     h('button', { class: 'btn primary', type: 'submit' }, 'ほぞん')),

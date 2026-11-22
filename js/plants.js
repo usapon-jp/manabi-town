@@ -2,7 +2,7 @@
 // チューリップ、シロツメクサ、タンポポ。どれも風にゆれる。meadow.js から makePlants(wind) で呼ぶ。
 import * as THREE from 'three';
 import { heightAt } from './terrain.js';
-import { isTownSpot } from './town.js';
+import { isNestSpot } from './town.js';
 import { addWind } from './wind.js';
 
 const MEADOW_R = 26;
@@ -345,13 +345,13 @@ function scatter({ template, count, flowerColors, clusters, clusterSpread, scale
         const cc = centers[Math.floor(Math.random() * centers.length)];
         x = cc[0] + gauss() * clusterSpread; z = cc[1] + gauss() * clusterSpread;
       } else [x, z] = inDisc(MEADOW_R);
-      if (Math.hypot(x, z) < MEADOW_R && !isTownSpot(x, z, -0.2)) break;
+      if (Math.hypot(x, z) < MEADOW_R && !isNestSpot(x, z, -0.2)) break;
       x = 99;
     }
     if (x === 99) { [x, z] = inDisc(10); }
     e.set(rand(-tilt, tilt), Math.random() * Math.PI * 2, rand(-tilt, tilt));
     q.setFromEuler(e);
-    const k = rand(scale[0], scale[1]);
+    const k = rand(scale[0], scale[1]) * 0.8;   // 野原の 花は すこし 小さめに（2026-11-19）
     s.set(k, k * rand(0.9, 1.15), k);
     v.set(x, heightAt(x, z) - 0.02, z);
     m.compose(v, q, s);
@@ -381,7 +381,7 @@ export const SPECIES_KEYS = Object.keys(SPECIES);
 
 export function makePlants(wind) {
   const g = new THREE.Group();
-  const counts = { buttercup: [110, 9, 1.9], lupine: [260, 10, 1.6], tulip: [220, 10, 1.5], clover: [160, 12, 2.2], dandelion: [200, 8, 2.4] };
+  const counts = { buttercup: [155, 9, 1.9], lupine: [360, 10, 1.6], tulip: [310, 10, 1.5], clover: [225, 12, 2.2], dandelion: [280, 8, 2.4] };   // 花を 小さく した ぶん 1.4倍
   for (const key of SPECIES_KEYS) {
     const sp = SPECIES[key];
     if (sp.gacha) continue;   // ガチャの花は、野原には はえない

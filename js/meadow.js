@@ -3,18 +3,20 @@
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { heightAt, dug } from './terrain.js';
-import { isTownSpot } from './town.js';
+import { isTownSpot, isNestSpot } from './town.js';
 import { makeWind, addWind } from './wind.js';
 import { makePlants } from './plants.js';
 import { createCutMask } from './cutmask.js';
 import { createSky } from './sky.js';
+import { softShadow } from './picturebook.js';
+import { makeTree, petals } from './trees.js';
 
 export const SUN_DIR = new THREE.Vector3(0.5, 0.42, -0.75).normalize();
 export const HORIZON = new THREE.Color(0xf6e9cf);
 
 const MEADOW_R = 27;      // 草と花がはえるはんい
 const GRASS_COUNT = 26000;
-const FLOWER_COUNT = 3400;
+const FLOWER_COUNT = 4800;   // 花を 0.8倍に した ぶん ふやす（2026-11-19）
 
 // ---- 小さな道具 ---------------------------------------------------------
 
@@ -30,8 +32,8 @@ function inDisc(radius) {
 // 街の建物の場所をよけた場所
 function freeSpot(radius, pad = 0) {
   let p = inDisc(radius);
-  // 街の場所はまばらに（まったくの空き地にはしない）
-  for (let i = 0; i < 8 && isTownSpot(p[0], p[1], pad) && Math.random() < 0.8; i++) p = inDisc(radius);
+  // 巣だけ よける（建物・小道の ところは、建物が 出たときに かくす。clearTown）
+  for (let i = 0; i < 8 && isNestSpot(p[0], p[1], pad); i++) p = inDisc(radius);
   return p;
 }
 // ゆるいノイズ（0〜1）。草のむらや地面の色のゆらぎに使う
@@ -110,7 +112,8 @@ function makeGround(cut, wind) {
   geo.rotateX(-Math.PI / 2);
   const pos = geo.attributes.position;
   const col = new Float32Array(pos.count * 3);
-  const a = new THREE.Color(0x77ad4d); const b = new THREE.Color(0xa6c85c); const c = new THREE.Color(0x5f9a49);
+  // 絵本の 草原: すこし 黄みよりで やわらかい 緑（2026-11-18）
+  const a = new THREE.Color(0x88b257); const b = new THREE.Color(0xb3cb6a); const c = new THREE.Color(0x6fa04f);
   const tmp = new THREE.Color();
   for (let i = 0; i < pos.count; i++) {
     const x = pos.getX(i); const z = pos.getZ(i);
@@ -147,7 +150,7 @@ function makeGround(cut, wind) {
       float inner = smoothstep(0.42, 0.62, pm);
       float rim = smoothstep(0.28, 0.42, pm) * (1.0 - inner);
       float sp = 0.5 + 0.5 * sin(vXZ.x * 9.0) * sin(vXZ.y * 11.0);
-      vec3 soil = vec3(0.79, 0.60, 0.31) * (0.93 + 0.07 * sp);
+      vec3 soil = vec3(0.84, 0.64, 0.42) * (0.94 + 0.06 * sp);   // ももいろがかった やさしい 土の 色
       diffuseColor.rgb = mix(diffuseColor.rgb, diffuseColor.rgb * 0.8, rim);
       diffuseColor.rgb = mix(diffuseColor.rgb, soil, inner);
       float bm = texture2D(uCut, (vXZ + uCutR) / (2.0 * uCutR)).g;
@@ -181,7 +184,7 @@ function makeGrass(wind) {
     const k = pos.getY(i) / H;
     pos.setX(i, pos.getX(i) * (1 - k * 0.92));
     pos.setZ(i, k * k * 0.14);                       // 先がおじぎしている
-    const v = 0.45 + k * 0.7;                        // 根もとは濃く、先は明るく
+    const v = 0.58 + k * 0.55;                       // 根もとは すこし こく、先は明るく（コントラストは やさしく）
     cols.set([v * 0.9, v, v * 0.8], i * 3);
   }
   geo.setAttribute('color', new THREE.BufferAttribute(cols, 3));
@@ -203,7 +206,7 @@ function makeGrass(wind) {
     p.set(x, heightAt(x, z) - 0.02, z);
     m.compose(p, q, s);
     mesh.setMatrixAt(i, m);
-    c.setHSL(0.235 + patch * 0.06 + Math.random() * 0.03, 0.55 + Math.random() * 0.2, 0.42 + Math.random() * 0.1);
+    c.setHSL(0.228 + patch * 0.055 + Math.random() * 0.03, 0.5 + Math.random() * 0.15, 0.45 + Math.random() * 0.1);   // ひかえめな 彩度の やわらかい 緑
     mesh.setColorAt(i, c);
   }
   return mesh;
@@ -287,10 +290,11 @@ function makeFlowers(wind) {
     } else {
       [x, z] = inDisc(MEADOW_R); pal = Math.random() < 0.6 ? palette[0] : palette[Math.floor(Math.random() * palette.length)];
     }
-    if (Math.hypot(x, z) > MEADOW_R || isTownSpot(x, z, -0.2)) { x = rand(-3, 3); z = rand(-3, 3); pal = palette[0]; }
+    // 草原の 外・巣に かかったら、ほかの 場所へ
+    for (let k = 0; k < 8 && (Math.hypot(x, z) > MEADOW_R || isNestSpot(x, z, -0.2)); k++) { [x, z] = inDisc(MEADOW_R - 1); pal = palette[0]; }
     e.set(rand(-0.25, 0.25), Math.random() * Math.PI * 2, rand(-0.25, 0.25));
     q.setFromEuler(e);
-    const k = rand(0.8, 1.5);
+    const k = rand(0.8, 1.5) * 0.8;   // 女の子・建物に くらべて 大きすぎないように（2026-11-19）
     s.set(k, k * rand(0.85, 1.25), k);
     p.set(x, heightAt(x, z) - 0.02, z);
     m.compose(p, q, s);
@@ -306,34 +310,99 @@ function makeFlowers(wind) {
 // ---- 木 ------------------------------------------------------------------
 
 function makeTrees() {
-  const trunkMat = new THREE.MeshLambertMaterial({ color: 0x9c7456 });
-  const leafMats = [0x86c26c, 0x97cf74, 0x78b865, 0xa7d27a].map((color) => new THREE.MeshLambertMaterial({ color }));
+  // 絵本の 木（trees.js）: ふわふわの 緑の 木と、ところどころに さくら。町の 建物より 大きく、草原を かこむ
+  const kinds = ['green', 'cherry', 'green', 'deep', 'green', 'cherry', 'green', 'green', 'deep', 'cherry', 'green', 'green', 'cherry', 'deep', 'green', 'green'];
   const trees = [];
-  for (let i = 0; i < 14; i++) {
+  const cherries = [];
+  kinds.forEach((kind, i) => {
     let x; let z;
-    for (let tries = 0; tries < 12; tries++) {
-      const a = Math.random() * Math.PI * 2; const r = rand(16, 27);
+    for (let tries = 0; tries < 14; tries++) {
+      const a = Math.random() * Math.PI * 2; const r = rand(15, 26);
       x = Math.cos(a) * r; z = Math.sin(a) * r;
-      if (!isTownSpot(x, z, 2)) break;
+      if (!isTownSpot(x, z, 2.4)) break;
     }
+    const size = rand(0.85, 1.3) * (kind === 'cherry' ? 0.95 : 1);
     const t = new THREE.Group();
-    const h = rand(1.3, 2.2);
-    const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.13, 0.24, h, 8), trunkMat);
-    trunk.position.y = h / 2;
-    t.add(trunk);
-    const base = leafMats[i % 4];
-    const sc = rand(0.9, 1.35);
-    // まるい葉っぱのかたまりを3〜4こ重ねる（絵本のわたあめ風）
-    [[0, 0.9, 0, 1.15], [0.7, 0.55, 0.2, 0.8], [-0.6, 0.6, -0.25, 0.85], [0.1, 1.55, -0.1, 0.75]].forEach(([dx, dy, dz, r]) => {
-      const leaf = new THREE.Mesh(new THREE.SphereGeometry(r * sc, 14, 10), base);
-      leaf.position.set(dx * sc, h + dy * sc, dz * sc);
-      t.add(leaf);
-    });
-    t.position.set(x, heightAt(x, z), z);
+    const tree = makeTree(kind, size, i + 1);
+    t.add(tree);
+    // 足もとの やわらかい かげ
+    const sh = softShadow(tree.userData.canopy.r * 1.25, 0.3);
+    sh.position.y = 0.03;
+    t.add(sh);
+    t.position.set(x, heightAt(x, z) - 0.05, z);
     t.rotation.y = Math.random() * 6;
     trees.push(t);
+    if (kind === 'cherry') cherries.push({ x, z, r: tree.userData.canopy.r, top: tree.userData.canopy.y + heightAt(x, z) });
+  });
+  // 町の 近くにも 小さめの さくらを 3本（手前に 花の 色が 入って 絵本の 1まいの 絵に なる）
+  // （町の 建物・小道・池を さけた あき地。カメラの すぐ うしろには 置かない）
+  [[2.2, 12.3], [-12.3, -2.2], [-7.1, 8.4]].forEach(([x0, z0], i) => {
+    let x = x0; let z = z0; let ok = !isTownSpot(x, z, 2.0);
+    for (let tries = 0; tries < 10 && !ok; tries++) {
+      x = x0 + (Math.random() - 0.5) * 2; z = z0 + (Math.random() - 0.5) * 2;
+      ok = !isTownSpot(x, z, 2.0);
+    }
+    if (!ok) return;
+    const t = new THREE.Group();
+    const tree = makeTree('cherry', rand(0.72, 0.85), 40 + i);
+    t.add(tree);
+    const sh = softShadow(tree.userData.canopy.r * 1.25, 0.3);
+    sh.position.y = 0.03;
+    t.add(sh);
+    t.position.set(x, heightAt(x, z) - 0.05, z);
+    t.rotation.y = Math.random() * 6;
+    trees.push(t);
+    cherries.push({ x, z, r: tree.userData.canopy.r, top: tree.userData.canopy.y + heightAt(x, z) });
+  });
+  return { trees, cherries };
+}
+
+// ---- 遠くの 丘 -----------------------------------------------------------
+// 雲海の むこうに うかぶ なだらかな 丘と、ところどころの 木（霞で 空に なじむ。奥ゆき）
+function makeHills() {
+  const geos = [];
+  const v = new THREE.Vector3();
+  const lowC = new THREE.Color(0x5f9a52); const topC = new THREE.Color(0xb8d77a); const tmp = new THREE.Color();
+  const blobAt = (x, z, rx, ry, rz, y0, a, b) => {
+    const g = new THREE.SphereGeometry(1, 20, 10, 0, Math.PI * 2, 0, Math.PI / 2);
+    const pos = g.attributes.position;
+    const col = new Float32Array(pos.count * 3);
+    for (let i = 0; i < pos.count; i++) {
+      v.fromBufferAttribute(pos, i);
+      const bump = 1 + 0.06 * Math.sin(v.x * 7 + x) * Math.sin(v.z * 6 + z);
+      pos.setXYZ(i, x + v.x * rx * bump, y0 + v.y * ry * bump, z + v.z * rz * bump);
+      tmp.copy(a).lerp(b, Math.min(1, v.y * 1.1));
+      col.set([tmp.r, tmp.g, tmp.b], i * 3);
+    }
+    g.setAttribute('color', new THREE.BufferAttribute(col, 3));
+    g.deleteAttribute('uv');
+    g.computeVertexNormals();
+    geos.push(g);
+  };
+  const pink = new THREE.Color(0xf4a9c0); const pinkTop = new THREE.Color(0xffd9e4);
+  const deep = new THREE.Color(0x4f8a4a); const leaf = new THREE.Color(0x8cc063);
+  for (let i = 0; i < 16; i++) {
+    const a = (i / 16) * Math.PI * 2 + rand(-0.12, 0.12);
+    const r = rand(78, 98);
+    const x = Math.cos(a) * r; const z = Math.sin(a) * r;
+    const w = rand(16, 26);
+    blobAt(x, z, w, rand(9, 17), w * rand(0.5, 0.8), -12, lowC, topC);
+    // 丘の 上の 木（まるい かたまり。さくらも まぜる）
+    for (let k = 0; k < 4; k++) {
+      const u = (k / 3 - 0.5) * w * 1.1;
+      const tx = x + -Math.sin(a) * u; const tz = z + Math.cos(a) * u;
+      const ty = -12 + 13 * Math.cos((u / w) * 1.4) - 1;
+      const cherry = (i + k) % 3 === 0;
+      blobAt(tx, tz, rand(2.2, 3.4), rand(2.6, 3.8), rand(2.2, 3.4), ty, cherry ? pink : deep, cherry ? pinkTop : leaf);
+    }
   }
-  return trees;
+  const mat = new THREE.MeshLambertMaterial({ vertexColors: true });
+  mat.onBeforeCompile = (sh) => {
+    sh.fragmentShader = sh.fragmentShader.replace('#include <emissivemap_fragment>', '#include <emissivemap_fragment>\n  totalEmissiveRadiance += vColor * 0.25;');
+  };
+  const mesh = new THREE.Mesh(mergeGeometries(geos), mat);
+  mesh.renderOrder = -0.5;
+  return mesh;
 }
 
 // ---- ただよう光とちょうちょ ---------------------------------------------
@@ -361,6 +430,32 @@ function makeMotes() {
     p.needsUpdate = true;
   };
   return points;
+}
+
+// 空気に うかぶ 大きな 光の たま（絵本の やわらかい ぼけ）。昼だけ
+function makeBokeh(dot) {
+  const group = new THREE.Group();
+  const list = [];
+  for (let i = 0; i < 14; i++) {
+    const sp = new THREE.Sprite(new THREE.SpriteMaterial({
+      map: dot, color: i % 3 ? 0xfff4dc : 0xffe2c8, transparent: true, opacity: 0, depthWrite: false, fog: false, blending: THREE.AdditiveBlending,
+    }));
+    const a = Math.random() * Math.PI * 2; const r = rand(7, 24);
+    const base = new THREE.Vector3(Math.cos(a) * r, rand(2.5, 9), Math.sin(a) * r);
+    sp.position.copy(base);
+    sp.scale.setScalar(rand(1.4, 3.6));
+    group.add(sp);
+    list.push({ sp, base, ph: Math.random() * 6.28, k: rand(0.12, 0.26) });
+  }
+  group.userData.update = (t, day) => {
+    group.visible = day > 0.02;
+    if (!group.visible) return;
+    for (const o of list) {
+      o.sp.position.set(o.base.x + Math.sin(t * 0.08 + o.ph) * 1.2, o.base.y + Math.sin(t * 0.13 + o.ph * 2) * 0.6, o.base.z);
+      o.sp.material.opacity = o.k * day * (0.75 + 0.25 * Math.sin(t * 0.4 + o.ph));
+    }
+  };
+  return group;
 }
 
 function makeButterflies() {
@@ -414,16 +509,40 @@ export function createMeadow(scene) {
   const plants = makePlants(wind);
   const motes = makeMotes();
   const butterflies = makeButterflies();
-  scene.add(ground, clouds, grass, flowers, plants, motes, butterflies);
+  const dot = softDot();
+  const bokeh = makeBokeh(dot);
+  scene.add(ground, clouds, grass, flowers, plants, motes, butterflies, bokeh);
   // 空（時間で 色が かわる）。光と 雲・光のつぶ・ちょうちょも 時間に あわせる
-  const sky = createSky(scene, { hemi, sun, clouds, motes, butterflies, dot: softDot() });
-  makeTrees().forEach((t) => scene.add(t));
+  const sky = createSky(scene, { hemi, sun, clouds, motes, butterflies, dot });
+  scene.add(makeHills());
+  const { trees, cherries } = makeTrees();
+  trees.forEach((t) => scene.add(t));
+  // さくらの 花びら（昼も 夜も ちらちら）
+  const petal = petals(cherries.length ? cherries : [{ x: 0, z: 0, r: 2, top: 4 }]);
+  scene.add(petal);
 
   // 画質: 'low' のときは、草・花・光のつぶを少なくする（かずは前もって多めに作っておいて、見せる数だけ変える）
   const lowable = [];
   grass.userData.q = 0.4; lowable.push(grass);
   flowers.traverse((o) => { if (o.isInstancedMesh) { o.userData.q = 0.4; lowable.push(o); } });
   plants.traverse((o) => { if (o.isInstancedMesh) { o.userData.q = 0.45; lowable.push(o); } });
+  // 見えている 建物・小道の ところの 草花を かくす（レベルで 建物が ふえたり、動かしたり したとき）。
+  // もとの 置き方は とっておくので、建物が なくなれば また 生える
+  const clearable = [grass];
+  flowers.traverse((o) => { if (o.isInstancedMesh) clearable.push(o); });
+  plants.traverse((o) => { if (o.isInstancedMesh) clearable.push(o); });
+  for (const m of clearable) m.userData.orig = m.instanceMatrix.array.slice();
+  function clearTown(test) {
+    for (const m of clearable) {
+      const o = m.userData.orig; const a = m.instanceMatrix.array;
+      for (let i = 0; i < o.length; i += 16) {
+        if (test(o[i + 12], o[i + 14])) a.fill(0, i, i + 16);
+        else for (let k = 0; k < 16; k++) a[i + k] = o[i + k];
+      }
+      m.instanceMatrix.needsUpdate = true;
+    }
+  }
+
   function setQuality(q) {
     for (const m of lowable) {
       if (m.userData.full == null) m.userData.full = m.count;
@@ -431,9 +550,11 @@ export function createMeadow(scene) {
     }
     const fullPts = motes.geometry.attributes.position.count;
     motes.geometry.setDrawRange(0, q === 'low' ? Math.floor(fullPts / 2) : fullPts);
+    bokeh.children.forEach((b, i) => { b.visible = q !== 'low' || i % 2 === 0; });
   }
 
   return {
+    clearTown,
     ground,
     cut,
     wind,
@@ -446,6 +567,8 @@ export function createMeadow(scene) {
       const now = sky.update(minute, t, camPos);
       clouds.userData.update(t);
       motes.userData.update(t);
+      petal.userData.update(t);
+      bokeh.userData.update(t, 1 - now.night);
       if (butterflies.visible) butterflies.userData.update(t);
       return now;
     },

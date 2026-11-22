@@ -1,6 +1,6 @@
 // オフラインでも開けるように、アプリの部品を端末にしまっておく。
 // 部品を変えたら VERSION を上げる（古いしまい場所は消える）。
-const VERSION = 'manabi-v160';
+const VERSION = 'manabi-v174';
 const FILES = [
   './',
   'index.html',
@@ -20,11 +20,11 @@ const FILES = [
   'assets/artmarks/tottori.png', 'assets/artmarks/toyama.svg', 'assets/artmarks/tsunami-building.svg', 'assets/artmarks/tsunami-hill.svg',
   'assets/artmarks/tsunami-warning.svg', 'assets/artmarks/visualized-meaning.svg', 'assets/artmarks/wakayama.png', 'assets/artmarks/yamagata.svg',
   'assets/artmarks/yamaha-example.svg', 'assets/artmarks/yamanashi.png',
-  'assets/models/piyo_base_rig.glb',
-  'assets/models/lamppost.json',
-  'assets/gacha/fence-iron.webp', 'assets/gacha/fence-stone.webp', 'assets/gacha/fence-white.webp', 'assets/gacha/fence-wood.webp', 'assets/gacha/part-archdoor-brown.webp', 'assets/gacha/part-archdoor.webp', 'assets/gacha/part-door.webp', 'assets/gacha/part-flowerbox.webp', 'assets/gacha/part-roundwindow.webp', 'assets/gacha/part-window.webp', 'assets/gacha/part-wreath.webp', 'assets/gacha/piece-awning.webp', 'assets/gacha/piece-bench.webp', 'assets/gacha/piece-flowerpot.webp', 'assets/gacha/piece-hill.webp', 'assets/gacha/piece-lamppost.webp', 'assets/gacha/piece-lantern.webp', 'assets/gacha/piece-mailbox.webp', 'assets/gacha/piece-raisedbed.webp', 'assets/gacha/piece-rosearch.webp', 'assets/gacha/seed-cosmos.webp', 'assets/gacha/seed-lavender.webp', 'assets/gacha/seed-sunflower.webp',
+  'assets/models/piyo_base_rig.glb', 'assets/models/girl-v2.glb',
+  'assets/models/lamppost.json', 'assets/models/ivy.json',
+  'assets/gacha/fence-iron.webp', 'assets/gacha/fence-stone.webp', 'assets/gacha/fence-white.webp', 'assets/gacha/fence-wood.webp', 'assets/gacha/part-archdoor-brown.webp', 'assets/gacha/part-archdoor.webp', 'assets/gacha/part-door.webp', 'assets/gacha/part-flowerbox.webp', 'assets/gacha/part-roundwindow.webp', 'assets/gacha/part-window.webp', 'assets/gacha/part-wreath.webp', 'assets/gacha/piece-awning.webp', 'assets/gacha/piece-bench.webp', 'assets/gacha/piece-flowerpot.webp', 'assets/gacha/piece-hill.webp', 'assets/gacha/piece-lamppost.webp', 'assets/gacha/piece-lantern.webp', 'assets/gacha/piece-mailbox.webp', 'assets/gacha/piece-raisedbed.webp', 'assets/gacha/piece-rosearch.webp', 'assets/gacha/seed-cosmos.webp', 'assets/gacha/seed-lavender.webp', 'assets/gacha/seed-sunflower.webp', 'assets/gacha/wear-beret.webp',
   'css/style.css',
-  'js/characters.js', 'js/avatar.js', 'js/avatar3d.js', 'js/avatarname.js',
+  'js/characters.js', 'js/avatar.js', 'js/avatar3d.js', 'js/picturebook.js', 'js/worldlook.js', 'js/trees.js', 'js/avatarname.js', 'js/dressup.js',
   'js/eggs.js', 'js/eggs3d.js', 'js/eggui.js', 'js/bank.js', 'js/bankui.js',
   'js/camera.js', 'js/cameraui.js', 'js/album.js', 'js/albumui.js',
   'js/bgm.js',
@@ -33,7 +33,7 @@ const FILES = [
   'js/daytime.js', 'js/sky.js', 'js/clockdial.js',
   'js/bonus.js',
   'js/more.js',
-  'js/study.js', 'js/art-quiz.js', 'js/cards.js',
+  'js/study.js', 'js/art-quiz.js', 'js/geo-flashcards.js', 'js/cards.js',
   'js/brain.js',
   'js/thinking.js',
   'js/thinking-bank.js', 'js/thinking-progress.js', 'js/thinking-art.js',
@@ -63,6 +63,7 @@ const FILES = [
   'js/cottage.js',
   'js/data/english.js',
   'js/data/art-symbols.js',
+  'js/data/geo-flashcards.js',
   'js/data/kanji.js',
   'js/data/kanjibooks.js', 'js/data/textbooks.js', 'js/data/stories.js', 'js/story.js',
   'js/video.js', 'js/data/science-magnet.js', 'assets/video/denryu-jikai-poster.jpg', 'assets/print/denryu-jikai-mondai.pdf', 'assets/print/denryu-jikai-kaitou.pdf',   // 動画 mp4 は 大きいので しまわない（下の fetch でも 素通し）
@@ -86,6 +87,7 @@ const FILES = [
   'js/tools.js',
   'js/wind.js',
   'js/town.js',
+  'js/school.js',
   'js/townart.js',
   'js/townkit.js',
   'js/tutorial.js',

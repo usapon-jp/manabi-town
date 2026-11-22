@@ -4,6 +4,8 @@ import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { CHARACTERS } from './characters.js';
 import { partOf, lookOf, lookKey, avatarName, hasAvatarName } from './avatar.js';
 import { mountAvatar } from './avatar3d.js';
+import { picturebook, softShadow } from './picturebook.js';
+import { applyWorldLook } from './worldlook.js';
 import { readMove, takeJump } from './controls.js';
 import { createTown, CLOCK_TOWER } from './town.js';
 import { createClock, CLOCK_KEY } from './daytime.js';
@@ -28,12 +30,13 @@ export function createWorld(container) {
   renderer.setPixelRatio(pixelRatio());
   container.appendChild(renderer.domElement);
 
-  renderer.toneMapping = THREE.ACESFilmicToneMapping;
-  renderer.toneMappingExposure = 1.05;
+  // 絵本の 世界の 光と 色の しあげ（worldlook.js）
+  applyWorldLook(renderer);
 
   const scene = new THREE.Scene();
-  const camera = new THREE.PerspectiveCamera(46, 1, 0.1, 220);
-  const view = { angle: 0, dist: 11, height: 4.6, lookY: 1.5, target: new THREE.Vector3() };
+  // カメラ: 女の子の 目の 高さに ちかい ひくめの 位置から（絵本の 1ページの ように、キャラが 大きく、うしろに 町と 木が 見える）
+  const camera = new THREE.PerspectiveCamera(40, 1, 0.1, 220);
+  const view = { angle: 0, dist: 6.6, height: 2.05, lookY: 1.25, target: new THREE.Vector3() };
 
   // 絵本のような草原（空・雲海・草・花・木・ちょうちょ）
   const meadow = createMeadow(scene);
@@ -64,6 +67,8 @@ export function createWorld(container) {
 
   // 勉強したぶんだけ街が育つ（レベルに合わせて建物がふえる）
   const town = createTown(scene);
+  // 草花は 見えている 建物・小道の ところだけ よける（まだ 出ていない 建物の 場所に はげた あとを 作らない）
+  town.onCover(() => meadow.clearTown((x, z) => town.covers(x, z, -0.3)));
   // 画面に出すのは いつも島1つ分。町の建物は「はじまりの島」にだけ ある（islands.js の town: true）
   let shownLv = 0; let shownTown = null;
   const refreshTown = () => {
@@ -155,7 +160,7 @@ export function createWorld(container) {
   let tapDown = null;        // パーツ・うごかす の タップ（指を はなすまで まつ）         // 2本指に なったら、指が ぜんぶ はなれるまで なぞらない
   const fingerGap = () => { const [a, b] = [...touches.values()]; return Math.hypot(a.x - b.x, a.y - b.y) || 1; };
   function zoomTo(dist) {
-    const d = Math.min(26, Math.max(6, dist));
+    const d = Math.min(26, Math.max(4.5, dist));
     view.height = view.height * (d / view.dist);
     view.dist = d;
   }
@@ -231,6 +236,8 @@ export function createWorld(container) {
   }
   new ResizeObserver(resize).observe(container);
   resize();
+  // たて画面は 横が せまいので、はじめは すこし ひいて 町も 入るように
+  if ((container.clientWidth || 1) < (container.clientHeight || 1)) zoomTo(8.6);
 
   const clock = new THREE.Clock();
   let running = false;
@@ -272,7 +279,9 @@ export function createWorld(container) {
       wasEditing = editor.active;
       if (wasEditing) { savedDist = view.dist; zoomTo(Math.max(view.dist, 16)); } else if (savedDist) { zoomTo(savedDist); savedDist = 0; }
     }
-    view.target.lerp(focus.at || actor.position, focus.at ? 0.06 : 0.04);
+    // 名前・きせかえで ちかくで 見る ときは、いつも 女の子（ほかを 見ていても）
+    const lookAt = closeUp.on ? actor.position : (focus.at || actor.position);
+    view.target.lerp(lookAt, lookAt === focus.at ? 0.06 : 0.04);
     camera.position.set(
       view.target.x + Math.sin(view.angle) * view.dist,
       view.target.y + view.height,
@@ -398,17 +407,20 @@ export function createWorld(container) {
       focus.at = new THREE.Vector3(x, heightAt(x, z), z);
       zoomTo(8.5);
     },
-    closeUp(on) {
+    // dress: きせかえ（下に 大きな カードが 出るので、女の子を ちかくで 画面の 上の ほうに）
+    closeUp(on, { dress = false } = {}) {
       if (on === closeUp.on) return;
       closeUp.on = on;
       if (on) {
         closeUp.saved = { angle: view.angle, dist: view.dist, height: view.height, lookY: view.lookY };
-        view.angle = actor.heading; view.dist = 4.6; view.height = 2.4; view.lookY = -0.2;
+        view.angle = actor.heading;
+        if (dress) { view.dist = 3.2; view.height = 1.15; view.lookY = 0.45; eggs.setHidden(true); } else { view.dist = 4.6; view.height = 2.4; view.lookY = -0.2; }
         view.target.copy(actor.position);
         const sx = actor.position.x + Math.sin(actor.heading + 0.75) * 1.05; const sz = actor.position.z + Math.cos(actor.heading + 0.75) * 1.05;
         piyo.position.set(sx, heightAt(sx, sz), sz);
       } else if (closeUp.saved) {
         Object.assign(view, closeUp.saved); closeUp.saved = null;
+        eggs.setHidden(false);
       }
     },
     showName() { nameTag.show(5); },
@@ -435,11 +447,8 @@ function createActor(scene, config, town, mount) {
   const root = new THREE.Group();
   scene.add(root);
 
-  const shadow = new THREE.Mesh(
-    new THREE.CircleGeometry(config.height * 0.38, 24),
-    new THREE.MeshBasicMaterial({ color: 0x3d6b2a, transparent: true, opacity: 0.25, depthWrite: false }),
-  );
-  shadow.rotation.x = -Math.PI / 2;
+  // 足もとの かげ（ふちが ぼけた まるい かげ。picturebook.js）
+  const shadow = softShadow(config.height * 0.3, 0.3);
   shadow.position.y = 0.02;
   scene.add(shadow);
 
@@ -453,7 +462,7 @@ function createActor(scene, config, town, mount) {
     for (const [key, b] of Object.entries(found)) { if (b) { bones[key] = b; base[key] = b.rotation.clone(); } }
   });
 
-  const state = { pose: null, target: null, phase: 0, idle: 0, nextWander: 3, jumpT: -1, y: 0, vy: 0, airJumps: 0, manual: 0, stuck: 0 };
+  const state = { pose: null, target: null, phase: 0, idle: 0, nextWander: 3, jumpT: -1, y: 0, vy: 0, airJumps: 0, manual: 0, stuck: 0, run: 0 };
   const GRAVITY = 22;
   const JUMP_V = 7.2;
 
@@ -543,17 +552,28 @@ function createActor(scene, config, town, mount) {
       }
       const inAir = state.y > 0.0001;
 
+      // ダッシュ: 台帳の walk.run が ある キャラは、ダッシュ中 走りの すがたへ すうっと うつる（0〜1）
+      const R = w.run;
+      state.run += ((R && walking && ctl.dash ? 1 : 0) - state.run) * Math.min(1, dt * 6);
+      const r = R ? state.run : 0;
+      const mixv = (a, b) => a + ((b ?? a) - a) * r;
       if (walking) {
         state.idle = 0;
         state.phase += dt * 9 * Math.min(1.8, Math.max(0.7, speedK));
         const s = Math.sin(state.phase);
-        rot('leftLeg', 'x', s * w.legSwing);
-        rot('rightLeg', 'x', -s * w.legSwing);
-        rot('leftArm', 'z', Math.abs(s) * w.armFlap);
-        rot('rightArm', 'z', -Math.abs(s) * w.armFlap);
-        if (w.armSwing) { rot('leftArm', 'x', -s * w.armSwing); rot('rightArm', 'x', s * w.armSwing); }
-        rot('head', 'z', s * 0.06);
-        body.position.y = Math.abs(Math.sin(state.phase)) * w.bob;
+        const legSwing = mixv(w.legSwing, R?.legSwing);
+        const armSwing = mixv(w.armSwing || 0, R?.armSwing);
+        const armFlap = mixv(w.armFlap, R?.armFlap);
+        rot('leftLeg', 'x', s * legSwing);
+        rot('rightLeg', 'x', -s * legSwing);
+        rot('leftArm', 'z', Math.abs(s) * armFlap);
+        rot('rightArm', 'z', -Math.abs(s) * armFlap);
+        if (armSwing) { rot('leftArm', 'x', -s * armSwing); rot('rightArm', 'x', s * armSwing); }
+        rot('head', 'z', s * 0.06 * (1 - r));
+        // 走るときは 前へ かたむき、顔は すこし 起こす
+        rot('spine', 'x', (R?.lean || 0) * r);
+        rot('head', 'x', -(R?.lean || 0) * 0.5 * r);
+        body.position.y = Math.abs(Math.sin(state.phase)) * mixv(w.bob, R?.bob);
       } else {
         state.idle += dt;
         const t = state.idle;
@@ -564,6 +584,7 @@ function createActor(scene, config, town, mount) {
         rot('leftArm', 'x', 0);
         rot('rightArm', 'x', 0);
         rot('head', 'z', Math.sin(t * 0.8) * 0.12);
+        rot('head', 'x', 0);
         rot('spine', 'x', Math.sin(t * 2.2) * 0.03);
         body.position.y = 0;
         poseNow(t);
@@ -608,6 +629,7 @@ function mountGlb(body, config, height, onBones) {
     (gltf) => {
       const model = gltf.scene;
       model.traverse((o) => { if (o.isMesh) o.frustumCulled = false; });
+      if (config.style) picturebook(model, config.style);
       const box = new THREE.Box3().setFromObject(model);
       const size = box.getSize(new THREE.Vector3());
       const s = height / (size.y || 1);

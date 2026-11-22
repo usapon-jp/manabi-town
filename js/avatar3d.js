@@ -5,7 +5,8 @@
 // 歩き方の コードは 同じまま 動く。
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
-import { partOf, PARTS, COLORS } from './avatar.js';
+import { partOf, PARTS, COLORS, COLOR_SHIFT, FACE } from './avatar.js';
+import { picturebook, setColorShift } from './picturebook.js';
 
 const normName = (s) => String(s).toLowerCase().replace(/[^a-z0-9]/g, '');
 
@@ -43,14 +44,32 @@ function glbBody(body, part, look, onBones) {
     if (p.kind === 'body' || !p.mesh) return;
     (Array.isArray(p.mesh) ? p.mesh : [p.mesh]).forEach((m) => meshParts.set(normName(m), p));
   });
+  // 帽子用の 髪・色の ずらし・顔の 調整（台帳の hair / tint / face）
+  const hairNames = part.hair ? { normal: normName(part.hair.normal), hat: normName(part.hair.hat) } : null;
+  const tintOf = new Map();   // メッシュ名 -> 'hair' | 'eye'
+  for (const [slot, names] of Object.entries(part.tint || {})) names.split('|').forEach((n) => tintOf.set(normName(n), slot));
   function apply(l) {
     current = l;
     if (fell) { fell.setLook(l); return; }
     if (!model) return;
     const worn = new Set(Object.values(l.wear));
+    const hat = l.wear.hat && partOf(l.wear.hat)?.mesh;
     model.traverse((o) => {
       if (!o.isMesh) return;
-      const owner = meshParts.get(normName(o.name)) || meshParts.get(normName(o.parent?.name || ''));
+      const name = normName(o.name);
+      if (hairNames && (name === hairNames.normal || name === hairNames.hat)) o.visible = (name === hairNames.hat) === !!hat;
+      const slot = tintOf.get(name);
+      if (slot) {
+        const sh = COLOR_SHIFT[slot]?.[l.colors[slot]] || [0, 1, 1];
+        (Array.isArray(o.material) ? o.material : [o.material]).forEach((m) => setColorShift(m, sh));
+      }
+      if (part.face && name === normName(part.face) && o.morphTargetDictionary) {
+        for (const f of FACE) {
+          const i = o.morphTargetDictionary[f.morph];
+          if (i != null) o.morphTargetInfluences[i] = l.face?.[f.key] || 0;
+        }
+      }
+      const owner = meshParts.get(name) || meshParts.get(normName(o.parent?.name || ''));
       if (!owner) return;
       o.visible = worn.has(owner.id);
       if (owner.color && o.visible) {
@@ -68,6 +87,12 @@ function glbBody(body, part, look, onBones) {
       // 色を のせる 部品は、ほかの体と まざらないよう 材質を 自分用に
       o.material = Array.isArray(o.material) ? o.material.map((m) => m.clone()) : o.material.clone();
     });
+    if (part.style) {
+      // 色を ずらす メッシュ（髪・顔）の 材質に しるし（picturebook.js が 色あいを ずらす しかけを 入れる）
+      const tint = {};
+      model.traverse((o) => { if (o.isMesh && part.tint) for (const [slot, names] of Object.entries(part.tint)) if (names.split('|').some((n) => normName(n) === normName(o.name))) tint[o.name] = slot; });
+      picturebook(model, { ...part.style, tintMeshes: tint });
+    }
     const box = new THREE.Box3().setFromObject(model);
     const size = box.getSize(new THREE.Vector3());
     const s = part.height / (size.y || 1);
@@ -78,6 +103,11 @@ function glbBody(body, part, look, onBones) {
     model.traverse((o) => { if (o.isBone) byName[normName(o.name)] = o; });
     const bones = {};
     for (const [key, name] of Object.entries(part.bones || {})) if (byName[normName(name)]) bones[key] = byName[normName(name)];
+    if (part.boneSpace === 'model') {
+      model.updateMatrixWorld(true);
+      for (const key of Object.keys(bones)) bones[key] = modelSpaceJoint(bones[key], model, part.rest?.[key]);
+      if (part.follow) addFollowers(bones, byName, model, part.follow);
+    }
     onBones(bones);
     apply(current);
   }, undefined, () => {
@@ -85,6 +115,95 @@ function glbBody(body, part, look, onBones) {
     fell = placeholderBody(body, part, current, onBones);
   });
   return { setLook: apply };
+}
+
+// 骨の 向きを モデルの 向き（前 +z・左 +x・上 +y）で かえる 道具。set(q) の q は モデルの 向きでの 回転
+function modelDriver(bone, model) {
+  const q0 = bone.quaternion.clone();
+  const w = bone.getWorldQuaternion(new THREE.Quaternion())
+    .premultiply(model.getWorldQuaternion(new THREE.Quaternion()).invert());
+  const wInv = w.clone().invert();
+  const t = new THREE.Quaternion();
+  return (q) => { bone.quaternion.copy(q0).multiply(t.copy(wInv).multiply(q).multiply(w)); };
+}
+
+// world.js が さわる 関節。rotation（Euler）を 書きかえると、モデルの 向きで まわす。
+// きゅうに 切りかわらないよう、すこし おくれて なめらかに ついていく（歩きはじめ・止まるときの カクッを なくす）。
+// rest は ふだんの すがたの 回転。listeners は まわったときに 呼ぶ（ひざ・スカートが ついてくる）
+const SMOOTH = 22;   // 大きいほど すばやく ついていく
+function modelSpaceJoint(bone, model, rest = {}) {
+  const set = modelDriver(bone, model);
+  const rotation = new THREE.Euler(rest.x || 0, rest.y || 0, rest.z || 0);
+  const target = new THREE.Quaternion().setFromEuler(rotation);
+  const now = target.clone();
+  const listeners = [];
+  let last = performance.now();
+  const apply = () => {
+    target.setFromEuler(rotation);
+    const t = performance.now();
+    const dt = Math.min(0.1, (t - last) / 1000); last = t;
+    now.slerp(target, 1 - Math.exp(-dt * SMOOTH));
+    set(now);
+    listeners.forEach((f) => f(now));
+  };
+  rotation._onChange(apply);
+  set(now);
+  return { rotation, bone, now, listeners };
+}
+
+// 歩き方に ついてくる 関節（world.js は 知らなくてよい）
+// - ひざ: 足が うしろへ いくほど まげる（足を 前へ はこぶ ときの けりあげ）
+// - ひじ: いつも すこし まげて、うでを 大きく ふるほど（走るとき）もっと まげる
+// - スカート: 下の 足と いっしょに 前後へ ゆれて、足を ひらくと すそが ひろがる（足が つきぬけない ように）
+function addFollowers(bones, byName, model, f) {
+  const find = (n) => byName[normName(n)];
+  const ex = new THREE.Euler();
+  const angleX = (q) => ex.setFromQuaternion(q).x;
+  const rx = (a) => new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1, 0, 0), a);
+  for (const [legKey, kneeName] of [['leftLeg', f.leftKnee], ['rightLeg', f.rightKnee]]) {
+    const knee = find(kneeName || '');
+    if (!knee || !bones[legKey]) continue;
+    const set = modelDriver(knee, model);
+    const k = f.knee || { base: 0.08, gain: 1.1, max: 2 };
+    bones[legKey].listeners.push((q) => { const a = angleX(q); set(rx(Math.min(k.max, k.base + k.gain * Math.max(0, a)))); });
+  }
+  for (const [armKey, elbowName] of [['leftArm', f.leftElbow], ['rightArm', f.rightElbow]]) {
+    const elbow = find(elbowName || '');
+    if (!elbow || !bones[armKey]) continue;
+    const set = modelDriver(elbow, model);
+    // ひじ下を 外へ ひらく（elbowOut。左うでは +z が 外）
+    const out = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 0, 1), (armKey === 'leftArm' ? 1 : -1) * (f.elbowOut || 0));
+    const cb = (q) => { const a = angleX(q); set(out.clone().multiply(rx(-0.28 - 0.6 * Math.max(0, -a) - 0.35 * Math.max(0, a)))); };
+    bones[armKey].listeners.push(cb);
+    cb(bones[armKey].now);
+  }
+  // スカート: 骨の 根もとが こしの どちらがわに あるかで、左右の 足の きき目を きめる
+  const hips = bones.hips?.bone;
+  const skirt = (f.skirt || []).map(find).filter(Boolean);
+  if (!hips || !skirt.length || !bones.leftLeg || !bones.rightLeg) return;
+  model.updateMatrixWorld(true);
+  const toModel = new THREE.Matrix4().copy(model.matrixWorld).invert();
+  const hp = hips.getWorldPosition(new THREE.Vector3()).applyMatrix4(toModel);
+  const down = new THREE.Vector3(0, -1, 0);
+  const parts = skirt.map((b) => {
+    const p = b.getWorldPosition(new THREE.Vector3()).applyMatrix4(toModel).sub(hp);
+    p.y = 0; p.normalize();
+    return { set: modelDriver(b, model), dir: p, wl: 0.5 + 0.5 * p.x };
+  });
+  const flare = new THREE.Quaternion(); const q = new THREE.Quaternion(); const v = new THREE.Vector3();
+  const update = () => {
+    const al = angleX(bones.leftLeg.now); const ar = angleX(bones.rightLeg.now);
+    const open = Math.min(0.5, Math.abs(al - ar) * 0.35);
+    for (const s of parts) {
+      const swing = (al * s.wl + ar * (1 - s.wl)) * 0.75;
+      // すそを 外へ ひらく（前と うしろが よく ひらく）
+      const k = open * (0.4 + 0.6 * Math.abs(s.dir.z));
+      flare.setFromUnitVectors(down, v.copy(s.dir).multiplyScalar(Math.tan(k)).add(down).normalize());
+      s.set(q.copy(rx(swing)).multiply(flare));
+    }
+  };
+  bones.leftLeg.listeners.push(update);
+  bones.rightLeg.listeners.push(update);
 }
 
 // ---- 仮の すがた（コードで作る） --------------------------------------------------------
