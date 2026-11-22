@@ -2030,6 +2030,26 @@ input.pin { font-size: 26px; letter-spacing: 0.5em; text-align: center; }
 .an-card.named .an-row, .an-card.named .an-later { display: none; }
 .an-card.named .an-say { font-size: 20px; }
 /* 名前を つけている あいだは、町の ボタンを かくして 女の子を 見せる */
+/* ---- きせかえ（js/dressup.js）。名前の カードと 同じ 出かた ---- */
+.du-card { gap: 10px; max-height: min(56vh, 520px); overflow-y: auto; overscroll-behavior: contain; }
+.du-head { display: flex; align-items: center; justify-content: space-between; }
+.du-head .an-say { display: inline-flex; align-items: center; gap: 4px; }
+.du-body { display: grid; gap: 10px; }
+.du-sec { display: grid; gap: 6px; }
+.du-sec > b { font-size: 14px; color: var(--ink-soft); }
+.du-chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.du-chip { font: inherit; font-weight: 800; font-size: 15px; padding: 8px 14px; border-radius: 999px; border: 2px solid var(--edge); background: #fff; color: var(--ink); display: inline-flex; flex-direction: column; align-items: center; line-height: 1.15; }
+.du-chip.on { border-color: var(--accent); background: var(--leaf-soft); color: var(--accent-dark); }
+.du-chip.locked { opacity: 0.6; }
+.du-chip small { font-size: 11px; font-weight: 700; color: var(--ink-soft); }
+.du-swatches { display: flex; flex-wrap: wrap; gap: 8px; }
+.du-sw { width: 34px; height: 34px; border-radius: 50%; border: 3px solid #fff; background: var(--c); box-shadow: 0 0 0 2px var(--edge); padding: 0; }
+.du-sw.on { box-shadow: 0 0 0 3px var(--accent); transform: scale(1.08); }
+.du-slider { display: grid; gap: 2px; font-size: 14px; font-weight: 700; color: var(--ink); }
+.du-range { display: flex; align-items: center; gap: 8px; }
+.du-range small { flex: none; width: 4.2em; font-size: 11px; color: var(--ink-soft); text-align: center; }
+.du-range input { flex: 1; min-width: 0; accent-color: var(--accent); }
+.g-wear { margin-top: 4px; }
 body:has(.avatar-name) #pad, body:has(.avatar-name) #bubble, body:has(.avatar-name) .tabs, body:has(.avatar-name) .ask-fab, body:has(.avatar-name) .diary-fab, body:has(.avatar-name) .wedit, body:has(.avatar-name) .wuse { visibility: hidden; }
 /* せっていの「まちの 女の子」 */
 .avatar-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; }

@@ -5,8 +5,8 @@
 // 歩き方の コードは 同じまま 動く。
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
-import { partOf, PARTS, COLORS } from './avatar.js';
-import { picturebook } from './picturebook.js';
+import { partOf, PARTS, COLORS, COLOR_SHIFT, FACE } from './avatar.js';
+import { picturebook, setColorShift } from './picturebook.js';
 
 const normName = (s) => String(s).toLowerCase().replace(/[^a-z0-9]/g, '');
 
@@ -44,14 +44,32 @@ function glbBody(body, part, look, onBones) {
     if (p.kind === 'body' || !p.mesh) return;
     (Array.isArray(p.mesh) ? p.mesh : [p.mesh]).forEach((m) => meshParts.set(normName(m), p));
   });
+  // 帽子用の 髪・色の ずらし・顔の 調整（台帳の hair / tint / face）
+  const hairNames = part.hair ? { normal: normName(part.hair.normal), hat: normName(part.hair.hat) } : null;
+  const tintOf = new Map();   // メッシュ名 -> 'hair' | 'eye'
+  for (const [slot, names] of Object.entries(part.tint || {})) names.split('|').forEach((n) => tintOf.set(normName(n), slot));
   function apply(l) {
     current = l;
     if (fell) { fell.setLook(l); return; }
     if (!model) return;
     const worn = new Set(Object.values(l.wear));
+    const hat = l.wear.hat && partOf(l.wear.hat)?.mesh;
     model.traverse((o) => {
       if (!o.isMesh) return;
-      const owner = meshParts.get(normName(o.name)) || meshParts.get(normName(o.parent?.name || ''));
+      const name = normName(o.name);
+      if (hairNames && (name === hairNames.normal || name === hairNames.hat)) o.visible = (name === hairNames.hat) === !!hat;
+      const slot = tintOf.get(name);
+      if (slot) {
+        const sh = COLOR_SHIFT[slot]?.[l.colors[slot]] || [0, 1, 1];
+        (Array.isArray(o.material) ? o.material : [o.material]).forEach((m) => setColorShift(m, sh));
+      }
+      if (part.face && name === normName(part.face) && o.morphTargetDictionary) {
+        for (const f of FACE) {
+          const i = o.morphTargetDictionary[f.morph];
+          if (i != null) o.morphTargetInfluences[i] = l.face?.[f.key] || 0;
+        }
+      }
+      const owner = meshParts.get(name) || meshParts.get(normName(o.parent?.name || ''));
       if (!owner) return;
       o.visible = worn.has(owner.id);
       if (owner.color && o.visible) {
@@ -69,7 +87,12 @@ function glbBody(body, part, look, onBones) {
       // 色を のせる 部品は、ほかの体と まざらないよう 材質を 自分用に
       o.material = Array.isArray(o.material) ? o.material.map((m) => m.clone()) : o.material.clone();
     });
-    if (part.style) picturebook(model, part.style);
+    if (part.style) {
+      // 色を ずらす メッシュ（髪・顔）の 材質に しるし（picturebook.js が 色あいを ずらす しかけを 入れる）
+      const tint = {};
+      model.traverse((o) => { if (o.isMesh && part.tint) for (const [slot, names] of Object.entries(part.tint)) if (names.split('|').some((n) => normName(n) === normName(o.name))) tint[o.name] = slot; });
+      picturebook(model, { ...part.style, tintMeshes: tint });
+    }
     const box = new THREE.Box3().setFromObject(model);
     const size = box.getSize(new THREE.Vector3());
     const s = part.height / (size.y || 1);
@@ -141,13 +164,16 @@ function addFollowers(bones, byName, model, f) {
     const knee = find(kneeName || '');
     if (!knee || !bones[legKey]) continue;
     const set = modelDriver(knee, model);
-    bones[legKey].listeners.push((q) => { const a = angleX(q); set(rx(0.08 + 1.1 * Math.max(0, a))); });
+    const k = f.knee || { base: 0.08, gain: 1.1, max: 2 };
+    bones[legKey].listeners.push((q) => { const a = angleX(q); set(rx(Math.min(k.max, k.base + k.gain * Math.max(0, a)))); });
   }
   for (const [armKey, elbowName] of [['leftArm', f.leftElbow], ['rightArm', f.rightElbow]]) {
     const elbow = find(elbowName || '');
     if (!elbow || !bones[armKey]) continue;
     const set = modelDriver(elbow, model);
-    const cb = (q) => { const a = angleX(q); set(rx(-0.28 - 0.6 * Math.max(0, -a) - 0.35 * Math.max(0, a))); };
+    // ひじ下を 外へ ひらく（elbowOut。左うでは +z が 外）
+    const out = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 0, 1), (armKey === 'leftArm' ? 1 : -1) * (f.elbowOut || 0));
+    const cb = (q) => { const a = angleX(q); set(out.clone().multiply(rx(-0.28 - 0.6 * Math.max(0, -a) - 0.35 * Math.max(0, a)))); };
     bones[armKey].listeners.push(cb);
     cb(bones[armKey].now);
   }

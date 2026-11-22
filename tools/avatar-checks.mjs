@@ -1,7 +1,8 @@
 // node --experimental-default-type=module tools/avatar-checks.mjs
 // 町の女の子（js/avatar.js）の たしかめ。いちばん大事なのは「名前を つけても ほかの データが 1文字も 変わらないこと」。
 import assert from 'node:assert/strict';
-import { lookOf, lookKey, DEFAULT_WEAR, DEFAULT_COLORS, hasAvatarName, avatarName, setAvatarName, wearPart, setAvatarColor, cleanName, partsOfKind, PARTS, KINDS } from '../js/avatar.js';
+import { lookOf, lookKey, DEFAULT_WEAR, DEFAULT_COLORS, hasAvatarName, avatarName, setAvatarName, wearPart, setAvatarColor, setAvatarFace, resetAvatarLook, cleanName, partsOfKind, partOf, PARTS, KINDS, COLORS, COLOR_SHIFT, FACE } from '../js/avatar.js';
+import { ITEMS } from '../js/data/gacha.js';
 import { mergeProfile } from '../js/merge.js';
 
 const clone = (v) => JSON.parse(JSON.stringify(v));
@@ -11,7 +12,7 @@ const kid = () => ({ id: 'k1', name: 'たろう', grade: 'e4', points: 340, xp: 
 {
   const p = kid(); const before = clone(p);
   assert.equal(hasAvatarName(p), false);
-  assert.deepEqual(lookOf(p), { wear: DEFAULT_WEAR, colors: DEFAULT_COLORS });
+  assert.deepEqual(lookOf(p), { wear: DEFAULT_WEAR, colors: DEFAULT_COLORS, face: { eye: 0, mouth: 0, slim: 0 } });
   assert.deepEqual(p, before);
 }
 // 2. 名前を つけると p.avatar だけ ふえる（ポイント・レベル・町は そのまま）
@@ -59,3 +60,31 @@ const kid = () => ({ id: 'k1', name: 'たろう', grade: 'e4', points: 340, xp: 
   assert.deepEqual(m.world, base.world);
 }
 console.log('avatar checks: ok');
+// 6. 帽子・色・顔の 調整（女の子v2、2026-11-22）
+{
+  const p = kid(); const before = clone(p);
+  assert.equal(lookOf(p).wear.hat, 'hat:none');
+  assert.equal(wearPart(p, 'hat:beret'), true);
+  assert.equal(setAvatarColor(p, 'eye', 'midori'), true);
+  assert.equal(setAvatarFace(p, 'eye', 0.42), true);
+  assert.equal(setAvatarFace(p, 'slim', -3), true);      // はんいの外は はしに よせる
+  assert.equal(setAvatarFace(p, 'nose', 1), false);
+  const l = lookOf(p);
+  assert.equal(l.wear.hat, 'hat:beret');
+  assert.equal(l.colors.eye, 'midori');
+  assert.equal(l.face.eye, 0.4);                          // 0.05 きざみ
+  assert.equal(l.face.slim, FACE.find((f) => f.key === 'slim').min);
+  assert.notEqual(lookKey(l), lookKey(lookOf(kid())));
+  p.avatar.face.mouth = 'abc';                            // こわれた 値は 0
+  assert.equal(lookOf(p).face.mouth, 0);
+  resetAvatarLook(p);
+  assert.deepEqual(lookOf(p).face, { eye: 0, mouth: 0, slim: 0 });
+  assert.equal(lookOf(p).colors.eye, DEFAULT_COLORS.eye);
+  assert.equal(lookOf(p).wear.hat, 'hat:beret');          // 着ている ものは そのまま
+  const { avatar, ...rest } = p;
+  assert.deepEqual(rest, before);
+  // 色は どれも 3Dの ずらし方が ある。ガチャの きせかえは 台帳の 部品と つながっている
+  for (const slot of ['hair', 'eye']) for (const k of Object.keys(COLORS[slot])) assert.ok(COLOR_SHIFT[slot][k], `${slot}:${k}`);
+  for (const it of ITEMS.filter((i) => i.kind === 'wear')) assert.equal(partOf(it.wear)?.gacha, it.id, it.id);
+  for (const part of PARTS.filter((x) => x.gacha)) assert.ok(ITEMS.some((i) => i.id === part.gacha), part.id);
+}

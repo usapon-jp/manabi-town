@@ -279,7 +279,9 @@ export function createWorld(container) {
       wasEditing = editor.active;
       if (wasEditing) { savedDist = view.dist; zoomTo(Math.max(view.dist, 16)); } else if (savedDist) { zoomTo(savedDist); savedDist = 0; }
     }
-    view.target.lerp(focus.at || actor.position, focus.at ? 0.06 : 0.04);
+    // 名前・きせかえで ちかくで 見る ときは、いつも 女の子（ほかを 見ていても）
+    const lookAt = closeUp.on ? actor.position : (focus.at || actor.position);
+    view.target.lerp(lookAt, lookAt === focus.at ? 0.06 : 0.04);
     camera.position.set(
       view.target.x + Math.sin(view.angle) * view.dist,
       view.target.y + view.height,
@@ -405,17 +407,20 @@ export function createWorld(container) {
       focus.at = new THREE.Vector3(x, heightAt(x, z), z);
       zoomTo(8.5);
     },
-    closeUp(on) {
+    // dress: きせかえ（下に 大きな カードが 出るので、女の子を ちかくで 画面の 上の ほうに）
+    closeUp(on, { dress = false } = {}) {
       if (on === closeUp.on) return;
       closeUp.on = on;
       if (on) {
         closeUp.saved = { angle: view.angle, dist: view.dist, height: view.height, lookY: view.lookY };
-        view.angle = actor.heading; view.dist = 4.6; view.height = 2.4; view.lookY = -0.2;
+        view.angle = actor.heading;
+        if (dress) { view.dist = 3.2; view.height = 1.15; view.lookY = 0.45; eggs.setHidden(true); } else { view.dist = 4.6; view.height = 2.4; view.lookY = -0.2; }
         view.target.copy(actor.position);
         const sx = actor.position.x + Math.sin(actor.heading + 0.75) * 1.05; const sz = actor.position.z + Math.cos(actor.heading + 0.75) * 1.05;
         piyo.position.set(sx, heightAt(sx, sz), sz);
       } else if (closeUp.saved) {
         Object.assign(view, closeUp.saved); closeUp.saved = null;
+        eggs.setHidden(false);
       }
     },
     showName() { nameTag.show(5); },
