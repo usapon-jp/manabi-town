@@ -75,7 +75,7 @@ const town = SPOTS.map(([x0, z0, size, roof]) => {
   return h;
 });
 
-// ---- 女の子（いまの girl.glb）と ピヨ先生 ----
+// ---- 女の子（いまの girl-v2.glb）と ピヨ先生 ----
 const GIRL = new THREE.Vector3(0.5, 0, 0);
 const girl = new THREE.Group(); girl.position.copy(GIRL); girl.rotation.y = 0.35; girl.scale.setScalar(BIG); scene.add(girl);
 const girlDef = partOf('body:girl');

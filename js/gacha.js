@@ -173,14 +173,14 @@ export function openGacha(p, deps) {
       h('b', {}, KINDS[k].label),
       h('ul', { class: 'g-grid' }, shown.filter((i) => i.kind === k).sort((a, b) => a.rarity - b.rarity).map((it) => {
         const have = owned.has(it.id);
-        return h('li', {}, h('button', { class: 'g-cell', onclick: () => openItem(it, have) },
+        return h('li', {}, h('button', { class: 'g-cell', onclick: () => openItem(it, have, deps) },
           thumb(it, { locked: !have }), h('small', {}, have ? it.label : '？'), stars(it.rarity)));
       })))),
     soon ? h('p', { class: 'g-soon' }, icon('sparkles'), ` もうすぐ ${soon}こ ふえるよ`) : null);
 
   const s = sheet('gacha-card',
     h('p', { class: 'sheet-title' }, capsuleIcon(), ' ガチャ'),
-    h('p', { class: 'sheet-sub' }, 'はこにわで つかえる ものが でるよ'),
+    h('p', { class: 'sheet-sub' }, 'はこにわで つかう ものや きせかえが でるよ'),
     h('div', { class: 'g-machine', 'aria-hidden': 'true' }, h('i', { class: 'b1' }), h('i', { class: 'b2' }), h('i', { class: 'b3' }), h('i', { class: 'b4' })),
     h('div', { class: 'g-wallet' },
       h('span', { class: 'g-chip' }, gemIcon(), h('b', {}, `${n}`)),
@@ -216,13 +216,14 @@ export function openGacha(p, deps) {
   );
 }
 
-function openItem(it, have) {
+function openItem(it, have, deps) {
   const sp = sheet('g-item-card',
     thumb(it, { locked: !have }),
     h('p', { class: 'sheet-title' }, have ? it.label : '？？？'),
     stars(it.rarity),
     h('p', { class: 'sheet-sub' }, `${KINDS[it.kind]?.label || ''}・${RARITY[it.rarity].label}`),
-    have ? h('p', { class: 'g-soon' }, it.kind === 'seed' ? '道具の「花のタネ」で うえられるよ' : it.kind === 'chara' ? '街に すんでくれるよ' : it.kind === 'part' ? '家を タップして つけられるよ' : `道具の「${it.kind === 'fence' ? '柵' : 'おきもの'}」で つかえるよ`) : h('p', { class: 'g-soon' }, 'まだ もっていないよ'),
+    have ? h('p', { class: 'g-soon' }, it.kind === 'seed' ? '道具の「花のタネ」で うえられるよ' : it.kind === 'chara' ? '街に すんでくれるよ' : it.kind === 'part' ? '家を タップして つけられるよ' : it.kind === 'wear' ? '「きせかえ」で 女の子が 身につけられるよ' : `道具の「${it.kind === 'fence' ? '柵' : 'おきもの'}」で つかえるよ`) : h('p', { class: 'g-soon' }, 'まだ もっていないよ'),
+    have && it.kind === 'wear' && deps?.dressup ? h('button', { class: 'btn primary g-wear', onclick: () => { sp.close(); document.querySelector('.gacha-card-sheet')?.remove(); deps.dressup(currentProfile()); } }, 'きせかえ する') : null,
     h('button', { class: 'link', onclick: () => sp.close() }, 'とじる'));
 }
 
@@ -245,7 +246,8 @@ function showResult(p, deps, list) {
         h('p', { class: 'sheet-title' }, top === 3 ? 'とても めずらしいのが 出た！' : one ? 'もらった！' : `${list.length}こ もらった！`),
         h('ul', { class: `g-got ${one ? '' : 'many'}` }, list.map((it, i) => h('li', { class: `r${it.rarity}`, style: `--i:${i}` },
           thumb(it), h('i', { class: 'g-new' }, 'NEW'), h('b', {}, it.label), stars(it.rarity)))),
-        one ? h('p', { class: 'sheet-sub' }, one.kind === 'fence' ? '道具の「柵」で たてられるよ' : one.kind === 'piece' ? '道具の「おきもの」で おけるよ' : one.kind === 'part' ? '家を タップして つけられるよ' : '') : null,
+        one ? h('p', { class: 'sheet-sub' }, one.kind === 'fence' ? '道具の「柵」で たてられるよ' : one.kind === 'piece' ? '道具の「おきもの」で おけるよ' : one.kind === 'part' ? '家を タップして つけられるよ' : one.kind === 'wear' ? '「きせかえ」で 身につけられるよ' : '') : null,
+        list.some((x) => x.kind === 'wear') && deps.dressup ? h('button', { class: 'btn g-wear', onclick: () => { s.close(); deps.dressup(p); } }, 'さっそく きせかえ する') : null,
         h('button', { class: 'btn primary', onclick: () => { s.close(); openGacha(p, deps); } }, 'OK'),
       ].filter(Boolean));
     }, 420);

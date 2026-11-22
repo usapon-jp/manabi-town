@@ -7,6 +7,7 @@
 //   part  = 家のパーツ（家をタップして、扉・窓・ひさしの場所に付けたり付けかえたりする）。slot = door / window / over（ひさし）/ sill（窓の下）/ doordeco（扉のかざり）
 //   seed  = 花のタネ（「花のタネ」の道具でうえられる花がふえる）
 //   chara = なかま（あとから足すキャラクター。もらうと街に住む）
+//   wear  = きせかえ（町の女の子が 身につける もの。wear に js/avatar.js の 部品の id。「きせかえ」で えらべる）
 // own: true  = 最初から持っている（ガチャには出ない）
 // ready: false = 3Dのモデルがまだ。ガチャには出さず、「もうすぐ」に数だけ出す
 // rarity: 1 ふつう / 2 めずらしい / 3 とてもめずらしい
@@ -17,6 +18,7 @@ export const KINDS = {
   part: { label: '家のパーツ' },
   seed: { label: '花のタネ' },
   chara: { label: 'なかま' },
+  wear: { label: 'きせかえ' },
 };
 
 export const RARITY = {
@@ -50,6 +52,10 @@ export const ITEMS = [
     svg: s('<path d="M3 9l9-4 9 4"/><path d="M4 9h16"/><path d="M6 9v12"/><path d="M18 9v12"/><path d="M8 7v2M12 5.5V9M16 7v2"/><path d="M3 21h18"/>') },
   { id: 'piece:hill', label: '丘の家', kind: 'piece', rarity: 3, color: '#8fa871',
     svg: s('<path d="M2 20c3-7 6.5-10 10-10s7 3 10 10"/><path d="M9 20v-4a3 3 0 0 1 6 0v4"/><path d="M2 20h20"/><path d="M17 9V6h2v5"/><circle cx="12" cy="13" r=".6"/>') },
+
+  // きせかえ（2026-11-22 女の子v2 の 追加の 着せかえ。3Dは assets/models/girl-v2.glb の Beret）
+  { id: 'wear:beret', label: '白いベレー帽', kind: 'wear', wear: 'hat:beret', rarity: 3, color: '#efe6d6',
+    svg: s('<path d="M3.5 13.5C3.5 9 7.5 6 12.5 6s8.5 2.6 8.5 6.2c0 1.6-1.3 2.3-3 2.3H6c-1.6 0-2.5-.4-2.5-1Z"/><path d="M5 14.5c.3 1.6 3.2 2.5 7 2.5s6.7-.9 7-2.5"/><path d="M12 6V4.5"/><circle cx="16.5" cy="9.5" r="1.3"/>') },
 
   { id: 'part:door', label: 'ふつうの扉', kind: 'part', slot: 'door', rarity: 1, own: true, color: '#a87646',
     svg: s('<rect x="6" y="3" width="12" height="18" rx="1"/><path d="M10 3v18M14 3v18"/><path d="M6 8h12M6 16h12"/><circle cx="16" cy="12.5" r=".6"/>') },
