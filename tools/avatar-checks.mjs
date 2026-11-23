@@ -88,3 +88,12 @@ console.log('avatar checks: ok');
   for (const it of ITEMS.filter((i) => i.kind === 'wear')) assert.equal(partOf(it.wear)?.gacha, it.id, it.id);
   for (const part of PARTS.filter((x) => x.gacha)) assert.ok(ITEMS.some((i) => i.id === part.gacha), part.id);
 }
+// 2026-11-23 三つ編み: 女の子v2の 髪型に ある id は 台帳の hair。みつあみを えらぶと 保存に のこる
+{
+  const girl = partOf('body:girl');
+  for (const st of girl.hairStyles) assert.equal(partOf(st.id)?.kind, 'hair', st.id);
+  const p = kid();
+  assert.equal(wearPart(p, 'hair:mitsuami'), true);
+  assert.equal(lookOf(p).wear.hair, 'hair:mitsuami');
+  console.log('braids checks: ok');
+}

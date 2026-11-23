@@ -1,4 +1,4 @@
-// 町の女の子の きせかえ。帽子（ガチャで 手に入れた もの）・髪の色・目の色・顔の 調整（目の大きさ・口の高さ・顔の細さ）。
+// 町の女の子の きせかえ。髪型・帽子（ガチャで 手に入れた もの）・髪の色・目の色・顔の 調整（目の大きさ・口の高さ・顔の細さ）。
 // 名前を つける ときと 同じく、草原は 見えたまま 下に カードを 出し、女の子を 前から ちかくで 見せる。
 // えらぶと すぐ 保存して（save）、町の 女の子が かわる（world.js の refreshAvatar）。
 import { h } from './ui.js';
@@ -6,7 +6,7 @@ import { save } from './store.js';
 import { icon } from './icons.js';
 import { isOwned } from './gacha.js';
 import {
-  partsOfKind, lookOf, wearPart, setAvatarColor, setAvatarFace, resetAvatarLook,
+  partsOfKind, partOf, lookOf, wearPart, setAvatarColor, setAvatarFace, resetAvatarLook,
   COLORS, COLOR_LABELS, FACE,
 } from './avatar.js';
 
@@ -31,6 +31,16 @@ export function openDressup(p, { world, onDone } = {}) {
         onclick: () => { wearPart(p, part.id); save(); paint(); },
       }, have ? part.label : '？', have ? null : h('small', {}, 'ガチャで でるよ'));
     });
+    // 髪型: 体（3Dモデル）が もっている 髪型だけ（hairStyles）。台帳に ない ときは 出さない
+    const styles = partOf(look.wear.body)?.hairStyles || [];
+    const cur = styles.find((x) => x.id === look.wear.hair) || styles[0];
+    const hairChips = styles.map((st) => {
+      const on = st === cur;
+      return h('button', {
+        type: 'button', class: `du-chip ${on ? 'on' : ''}`, 'aria-pressed': on ? 'true' : 'false',
+        onclick: () => { wearPart(p, st.id); save(); paint(); },
+      }, st.label);
+    });
     const swatches = (slot) => h('div', { class: 'du-swatches' }, Object.entries(COLORS[slot]).map(([key, c]) => h('button', {
       type: 'button', class: `du-sw ${look.colors[slot] === key ? 'on' : ''}`, style: `--c:${hex(c)}`,
       'aria-label': COLOR_LABELS[key] || key, title: COLOR_LABELS[key] || key,
@@ -45,6 +55,7 @@ export function openDressup(p, { world, onDone } = {}) {
         h('span', { class: 'du-range' }, h('small', {}, f.lo), input, h('small', {}, f.hi)));
     });
     body.replaceChildren(
+      ...(styles.length > 1 ? [h('div', { class: 'du-sec' }, h('b', {}, 'かみがた'), h('div', { class: 'du-chips' }, hairChips))] : []),
       h('div', { class: 'du-sec' }, h('b', {}, 'ぼうし'), h('div', { class: 'du-chips' }, hats)),
       h('div', { class: 'du-sec' }, h('b', {}, 'かみの いろ'), swatches('hair')),
       h('div', { class: 'du-sec' }, h('b', {}, 'めの いろ'), swatches('eye')),
