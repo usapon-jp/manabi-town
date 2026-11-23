@@ -53,6 +53,7 @@ export const PARTS = [
     // 作り方: きゃらくる work/girl-v2/build/girl-v2-beret-rigged.blend から make_game_glb.py（軽くして 色の絵だけ のこす）
     // 2026-11-23 かわいさ微調整版（頭+5%・頭を前へ・あご細く・胴コンパクト・肩せまく・髪の横-4%・スカート裾+3%）:
     //   work/girl-v2/s1/girl-v2-s2-beret-rigged.blend から make_game_glb_v2.py --weights …s2-braids-rigged.blend --face -0.0065,0.071
+    // 2026-11-23 三つ編み（HairBraids / HairBraidsHat、骨 J_Sec_*_Braid）を 追加: s1/girl-v2-s2-all-rigged.blend から --face -0.0065,0.071
     model: 'assets/models/girl-v2.glb',
     placeholder: 'girl',  // model が ないとき・読めないときの 仮の すがた（avatar3d.js の BODIES）
     height: 1.32,         // 箱庭の中での 背の高さ（2026-11-19 1.15→1.32。花・建物に くらべて 小さかった）
@@ -69,11 +70,17 @@ export const PARTS = [
       leftKnee: 'J_Bip_L_LowerLeg', rightKnee: 'J_Bip_R_LowerLeg',
       leftElbow: 'J_Bip_L_LowerArm', rightElbow: 'J_Bip_R_LowerArm',
       knee: { base: 0.05, gain: 2.0, max: 1.3 }, elbowOut: 0.17,
+      // 三つ編み: 同じ がわの うでが 前へ ふれた ときだけ、前と 内がわへ よける（うでに ささらない）
+      braids: { left: 'J_Sec_L_Braid', right: 'J_Sec_R_Braid', fwd: 0.85, inward: 0.6 },
     },
-    // 帽子を かぶると 髪を 帽子用（お花の ヘアピン・アホ毛 なし）に かえる
-    hair: { normal: 'Hair', hat: 'HairHat' },
+    // 髪型（きせかえで えらぶ。wear.hair の id → メッシュ）。帽子を かぶると 帽子用（ボブは お花の ヘアピン・アホ毛 なし）に かえる
+    // 台帳に ない id（ふるい 保存）は いちばん 上の ボブ
+    hairStyles: [
+      { id: 'hair:futatsu', label: 'ふんわりボブ', normal: 'Hair', hat: 'HairHat' },
+      { id: 'hair:mitsuami', label: 'みつあみ', normal: 'HairBraids', hat: 'HairBraidsHat' },
+    ],
     // 髪の色・目の色（絵の 色あいを ずらす。COLOR_SHIFT）と 顔の 調整（シェイプキー。FACE）
-    tint: { hair: 'Hair|HairHat', eye: 'Head' },
+    tint: { hair: 'Hair|HairHat|HairBraids|HairBraidsHat', eye: 'Head' },
     face: 'Head',
     // 草原の 絵本の 絵柄に そろえる（js/picturebook.js）
     style: { faceNames: ['head'], glow: 0 },
@@ -84,6 +91,7 @@ export const PARTS = [
   },
   { id: 'hair:futatsu', kind: 'hair', label: 'ふたつむすび', mesh: null, placeholder: 'futatsu', color: 'hair' },
   { id: 'hair:bob', kind: 'hair', label: 'ボブ', mesh: null, placeholder: 'bob', color: 'hair' },
+  { id: 'hair:mitsuami', kind: 'hair', label: 'みつあみ', mesh: null, placeholder: 'futatsu', color: 'hair' },
   { id: 'outfit:wanpi', kind: 'outfit', label: 'ワンピース', mesh: null, placeholder: 'wanpi', color: 'outfit' },
   { id: 'shoes:kutsu', kind: 'shoes', label: 'くつ', mesh: null, placeholder: 'kutsu' },
   // 帽子。hat:none は「かぶらない」。ほかの 帽子は ガチャ（js/data/gacha.js の kind: 'wear'）で 手に入れる

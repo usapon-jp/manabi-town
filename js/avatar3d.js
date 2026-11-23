@@ -45,7 +45,8 @@ function glbBody(body, part, look, onBones) {
     (Array.isArray(p.mesh) ? p.mesh : [p.mesh]).forEach((m) => meshParts.set(normName(m), p));
   });
   // 帽子用の 髪・色の ずらし・顔の 調整（台帳の hair / tint / face）
-  const hairNames = part.hair ? { normal: normName(part.hair.normal), hat: normName(part.hair.hat) } : null;
+  const styles = (part.hairStyles || []).map((x) => ({ id: x.id, normal: normName(x.normal), hat: normName(x.hat) }));
+  const hairMeshes = new Set(styles.flatMap((x) => [x.normal, x.hat]));
   const tintOf = new Map();   // メッシュ名 -> 'hair' | 'eye'
   for (const [slot, names] of Object.entries(part.tint || {})) names.split('|').forEach((n) => tintOf.set(normName(n), slot));
   function apply(l) {
@@ -57,7 +58,11 @@ function glbBody(body, part, look, onBones) {
     model.traverse((o) => {
       if (!o.isMesh) return;
       const name = normName(o.name);
-      if (hairNames && (name === hairNames.normal || name === hairNames.hat)) o.visible = (name === hairNames.hat) === !!hat;
+      // 髪型: えらんだ 髪型の メッシュだけ 出す（帽子の ときは 帽子用）
+      if (hairMeshes.has(name)) {
+        const st = styles.find((x) => x.id === l.wear.hair) || styles[0];
+        o.visible = name === (hat ? st.hat : st.normal);
+      }
       const slot = tintOf.get(name);
       if (slot) {
         const sh = COLOR_SHIFT[slot]?.[l.colors[slot]] || [0, 1, 1];
@@ -176,6 +181,21 @@ function addFollowers(bones, byName, model, f) {
     const cb = (q) => { const a = angleX(q); set(out.clone().multiply(rx(-0.28 - 0.6 * Math.max(0, -a) - 0.35 * Math.max(0, a)))); };
     bones[armKey].listeners.push(cb);
     cb(bones[armKey].now);
+  }
+  // 三つ編み: 同じ がわの うでが 前へ ふれた（うでの x が マイナス）ぶんだけ、前（-x まわり）と 内がわへ まわす
+  if (f.braids) {
+    for (const [armKey, name, side] of [['leftArm', f.braids.left, 1], ['rightArm', f.braids.right, -1]]) {
+      const braid = find(name || '');
+      if (!braid || !bones[armKey]) continue;
+      const set = modelDriver(braid, model);
+      const zq = new THREE.Quaternion(); const zAxis = new THREE.Vector3(0, 0, 1);
+      const cb = (q) => {
+        const fwd = Math.max(0, -angleX(q));
+        set(zq.setFromAxisAngle(zAxis, side * f.braids.inward * fwd).multiply(rx(-f.braids.fwd * fwd)));
+      };
+      bones[armKey].listeners.push(cb);
+      cb(bones[armKey].now);
+    }
   }
   // スカート: 骨の 根もとが こしの どちらがわに あるかで、左右の 足の きき目を きめる
   const hips = bones.hips?.bone;
