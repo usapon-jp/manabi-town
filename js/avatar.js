@@ -51,6 +51,8 @@ export const PARTS = [
     id: 'body:girl', kind: 'body', label: '女の子',
     // きゃらくる「女の子v2」冬服（2026-11-22）。顔・首・冬服・髪（ふつう／帽子用）・ベレー帽が 1つの GLB に 入っている。
     // 作り方: きゃらくる work/girl-v2/build/girl-v2-beret-rigged.blend から make_game_glb.py（軽くして 色の絵だけ のこす）
+    // 2026-11-23 かわいさ微調整版（頭+5%・頭を前へ・あご細く・胴コンパクト・肩せまく・髪の横-4%・スカート裾+3%）:
+    //   work/girl-v2/s1/girl-v2-s2-beret-rigged.blend から make_game_glb_v2.py --weights …s2-braids-rigged.blend --face -0.0065,0.071
     model: 'assets/models/girl-v2.glb',
     placeholder: 'girl',  // model が ないとき・読めないときの 仮の すがた（avatar3d.js の BODIES）
     height: 1.32,         // 箱庭の中での 背の高さ（2026-11-19 1.15→1.32。花・建物に くらべて 小さかった）
@@ -58,8 +60,9 @@ export const PARTS = [
     bones: VRM,
     // 骨の 向きが ばらばらな モデル（VRM）は、関節を モデルの 前(+z)・左(+x)・上(+y) の 向きで まわす。
     // rest は ふだんの すがた（A ポーズの うでを もう少し 下ろす）
+    // 2026-11-23 かわいさ微調整: うでを 体から 少し はなす（0.5 → 0.42）
     boneSpace: 'model',
-    rest: { leftArm: { z: -0.5 }, rightArm: { z: 0.5 } },
+    rest: { leftArm: { z: -0.42 }, rightArm: { z: 0.42 } },
     // 歩き方に ついてくる 関節（ひざ・ひじ）。avatar3d.js の addFollowers
     // ひざは 足が うしろへ いくと 最大 約40°、ひじ下は 外へ 約10° ひらく（コートの すそに 手が 入らない）
     follow: {
