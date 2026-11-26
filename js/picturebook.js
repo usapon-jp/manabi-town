@@ -5,15 +5,26 @@
 // - 紙: 表面に ごく うすい 紙の つぶつぶ
 // - ふち線: こげ茶の 細い 線（うら面を ふくらませる やりかた。0 で なし。いまは なし）
 // - 足もとの かげ: ふちが ぼけた まるい かげ（softShadow）
+// - 色の しあげ（2026-11-26 フミオさん「Blender では かわいいのに ゲームだと 色が こく・着色が いまいち」）:
+//   町の 光は 夕方っぽい だいだい色（地面からは 緑）で、町の 色の しあげは ACES。これが キャラに かかると
+//   白い 服・タイツが 黄色く、ピンクの 髪が 朱色に、全体が こく なっていた。キャラだけ
+//   ① 昼の 光の 色みを 白に もどす（ホワイトバランス。夕方・夜の 色の ちがいは のこる）
+//   ② 色あい・あざやかさは Blender と 同じ AgX、明るさは 町と 同じ ACES で しあげる（夜は 町と いっしょに くらい）
+//   材質ごとの 計算が すこし ふえる だけ（画面ぜんたいの あと処理は なし）。Android でも 重さは ほぼ かわらない
 // 女の子（avatar3d.js）と ピヨ先生（world.js）の 両方に つかう。
 import * as THREE from 'three';
 
 const LINE = 0x6b4a3c;   // ふち線の 色（こげ茶）
+// 昼の 光（daytime.js の 日中: 日の光 [1, .86, .66]×2.0 ＋ 空 [1, .94, .86] / 地面 [.62, .66, .42]×1.6）の 色みを
+// 白に もどす 倍率（線形の 値。完全に もどすと 夜が 青すぎるので 0.75 だけ）
+const WB = [0.856, 1.021, 1.49];
 
 // opts: { shadow: かげの 明るさ(0〜1), faceShadow: 顔の かげ, blur: ぼかし, warm: あたたかさ, line: ふち線の 太さ（モデルの 長さ。0 で なし）, faceNames: 顔の メッシュ名, tintMeshes: { メッシュ名: 'hair' | 'eye' } 色あいを ずらす メッシュ }
 export function picturebook(model, opts = {}) {
   const o = {
-    shadow: 0.82, faceShadow: 0.92, blur: 0.8, warm: 0.15, glow: 0.05, flat: 1.0, tint: 0, line: 0, faceNames: ['face'],
+    shadow: 0.82, faceShadow: 0.92, blur: 0.8, warm: 0, glow: 0.05, flat: 1.0, tint: 0, line: 0, faceNames: ['face'],
+    // 色の しあげ（上の 説明）。tone: 'agx'（Blender の 見え方）/ 'world'（町と 同じ。2026-11-25 までの 見え方）
+    tone: 'agx', wb: WB, expo: 2.2, pop: 1.3, bright: 1.35,
     ...opts,
   };
   const meshes = [];
@@ -51,12 +62,17 @@ function toBookMaterial(src, o) {
     shader.uniforms.pbShadow = { value: o.shadow };
     if (tintMode) shader.uniforms.pbShift = mat.userData.pbShift;
     shader.fragmentShader = shader.fragmentShader
-      .replace('#include <common>', `#include <common>\nuniform float pbShadow;${tintMode ? `\nuniform vec3 pbShift;\n${HSV_GLSL}` : ''}`)
+      .replace('#include <common>', `#include <common>\nuniform float pbShadow;\nconst vec3 pbWB = vec3( ${o.wb.map((x) => x.toFixed(3)).join(', ')} );${tintMode ? `\nuniform vec3 pbShift;\n${HSV_GLSL}` : ''}`)
       .replace('#include <lights_lambert_pars_fragment>', THREE.ShaderChunk.lights_lambert_pars_fragment.replace(
         'float dotNL = saturate( dot( geometryNormal, directLight.direction ) );',
         // 2だんの かげ（さかいめは やわらかく）
         'float dotNL = mix( pbShadow, 1.0, smoothstep( -0.1, 0.45, dot( geometryNormal, directLight.direction ) ) );',
-      ))
+      )
+        // ① 光の 色みを 白に もどす
+        .replace('vec3 irradiance = dotNL * directLight.color;', 'vec3 irradiance = dotNL * directLight.color * pbWB;')
+        .replace('reflectedLight.indirectDiffuse += irradiance *', 'reflectedLight.indirectDiffuse += irradiance * pbWB *'))
+      // ② 色の しあげ
+      .replace('#include <tonemapping_fragment>', o.tone === 'agx' ? toneAgx(o) : '#include <tonemapping_fragment>')
       .replace('#include <map_fragment>', `
 #ifdef USE_MAP
   vec4 sampledDiffuseColor = texture2D( map, vMapUv, ${o.blur.toFixed(2)} );
@@ -81,8 +97,22 @@ function toBookMaterial(src, o) {
   diffuseColor.rgb = mix( diffuseColor.rgb, vec3( 0.96, 0.9, 0.76 ), ${o.tint.toFixed(2)} );
 `);
   };
-  mat.customProgramCacheKey = () => `pb-${o.shadow}-${o.blur}-${o.warm}-${o.glow}-${o.flat}-${o.tint}-${tintMode}`;
+  mat.customProgramCacheKey = () => `pb-${o.shadow}-${o.blur}-${o.warm}-${o.glow}-${o.flat}-${o.tint}-${tintMode}-${o.wb}-${o.tone}-${o.expo}-${o.pop}-${o.bright}`;
   return mat;
+}
+
+// ② 色あい・あざやかさは AgX（expo 倍して かける。Blender の 見え方）、明るさは 町と 同じ ACES（bright 倍）。
+// pop: あざやかさを すこし もどす（AgX は 平らな 光だと すこし うすい）
+function toneAgx(o) {
+  return `
+#if defined( TONE_MAPPING )
+  {
+    vec3 pbA = AgXToneMapping( gl_FragColor.rgb * ${o.expo.toFixed(2)} );
+    float pbLa = dot( pbA, vec3( 0.2126, 0.7152, 0.0722 ) );
+    float pbLb = dot( ACESFilmicToneMapping( gl_FragColor.rgb * ${o.bright.toFixed(2)} ), vec3( 0.2126, 0.7152, 0.0722 ) );
+    gl_FragColor.rgb = saturate( mix( vec3( pbLb ), pbA * ( pbLb / max( pbLa, 1e-4 ) ), ${o.pop.toFixed(2)} ) );
+  }
+#endif`;
 }
 
 const HSV_GLSL = `

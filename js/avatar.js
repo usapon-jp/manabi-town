@@ -83,7 +83,8 @@ export const PARTS = [
     tint: { hair: 'Hair|HairHat|HairBraids|HairBraidsHat', eye: 'Head' },
     face: 'Head',
     // 草原の 絵本の 絵柄に そろえる（js/picturebook.js）
-    style: { faceNames: ['head'], glow: 0 },
+    // 2026-11-26 Blender の 見え方に そろえた ときに かげを すこし こく（形が わかるように）
+    style: { faceNames: ['head'], glow: 0, shadow: 0.55, faceShadow: 0.8 },
     // 歩き方: 足を前後（太もも ±18°）・うでを前後（±18°）・うでを 横へ（armFlap）・上下（bob）
     walk: { legSwing: 0.31, armSwing: 0.31, armFlap: 0.04, bob: 0.03,
       // ダッシュ（world.js）: 足と うでを 大きく、前かがみ（lean）、上下に はずむ
