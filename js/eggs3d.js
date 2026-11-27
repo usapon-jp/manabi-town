@@ -202,7 +202,9 @@ function placeholderChara(def) {
 // g.userData.body: 体（孵化の 演出で たまごの 中へ 一時的に うつす）。walk: GLB の 歩きアニメ（あれば）
 function makeChara(def) {
   const g = new THREE.Group();
-  const usePlaceholder = () => { const b = placeholderChara(def); g.add(b); g.userData.body = b; };
+  // 体が できたら 知らせる（孵化の 演出が 先に はじまって いたら、その 中へ 入れる）
+  const ready = (b) => { g.userData.body = b; g.userData.onBody?.(b); g.userData.onBody = null; };
+  const usePlaceholder = () => { const b = placeholderChara(def); g.add(b); ready(b); };
   if (!def.chara.model) { usePlaceholder(); return g; }
   new GLTFLoader().load(def.chara.model, (gltf) => {
     const model = gltf.scene;
@@ -214,9 +216,9 @@ function makeChara(def) {
     model.position.y = -bb.min.y * s;
     model.traverse((o) => { if (o.isMesh) o.frustumCulled = false; });
     g.add(model, blob(0.32, 0.28, 0.25));
-    g.userData.body = model;
     const clip = gltf.animations.find((a) => a.name === 'walk');
     if (clip) { const mixer = new THREE.AnimationMixer(model); g.userData.walk = { mixer, act: mixer.clipAction(clip) }; }
+    ready(model);
   }, undefined, usePlaceholder);
   return g;
 }
@@ -615,13 +617,16 @@ export function createEggs({ scene, town, cut }) {
       if (it.fx) return new Promise((res) => { const prev = it.onHatched; it.onHatched = () => { prev?.(); res(); }; });
       // 巣の たまごを かくして、同じ 場所に 割れる たまご（js/hatchfx.js）を 出す。体は その 中へ 一時的に うつす
       const fx = createHatch({ color: it.def.color, eggH: EGG_H * nest.scale.x });
-      const body = it.chara.userData.body;
-      if (body) { it.bodyAt = { p: body.position.clone(), r: body.rotation.clone(), s: body.scale.clone() }; it.chara.remove(body); fx.setChara(body); }
+      it.fxBody = null;
+      const take = (body) => { it.bodyAt = { p: body.position.clone(), r: body.rotation.clone(), s: body.scale.clone() }; it.chara.remove(body); fx.setChara(body); it.fxBody = body; };
+      // GLB が まだ 読みこみ中なら、読めた ところで 演出の 中へ 入れる
+      if (it.chara.userData.body) take(it.chara.userData.body);
+      else it.chara.userData.onBody = (b) => { if (it.fx === fx) take(b); };
       const w = it.eggHolder.getWorldPosition(new THREE.Vector3());
       fx.root.position.set(w.x, heightAt(w.x, w.z) + 0.02, w.z);
       fx.root.visible = false;   // むきが きまる（つぎの update）まで かくす
       root.add(fx.root);
-      it.fx = fx; it.fxBody = body;
+      it.fx = fx;
       it.hatchT = 0;
       it.eggHolder.visible = false;
       it.chara.visible = false;
@@ -743,7 +748,7 @@ export function createEggs({ scene, town, cut }) {
             const body = it.fxBody;
             if (body) { it.chara.add(body); body.position.copy(it.bodyAt.p); body.rotation.copy(it.bodyAt.r); body.scale.copy(it.bodyAt.s); }
             root.remove(fx.root); fx.dispose();
-            it.fx = null; it.fxBody = null;
+            it.fx = null; it.fxBody = null; it.chara.userData.onBody = null;
             it.hatchT = -1;
             it.chara.position.set(at.x, heightAt(at.x, at.z), at.z);
             it.chara.rotation.y = fx.root.rotation.y;
