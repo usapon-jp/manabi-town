@@ -11,11 +11,15 @@ import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { heightAt } from './terrain.js';
 import { mat, box, cyl, cone, ball, blob, softDot } from './townkit.js';
 import { EGGS, NEST, PLANT } from './eggs.js';
+import { createHatch } from './hatchfx.js';
+import { picturebook } from './picturebook.js';
 
 const TAU = Math.PI * 2;
 const EGG_H = 0.6;          // たまごの 高さ
 const CHARA_H = 0.62;       // なかまの 背の高さ（女の子は 1.15）
 const BUILD_R = 1.35;       // 建物の 歩けない 広さ
+const HATCH_OUT = 1.05;     // 生まれる たまごが ぴょんと 出る 場所（巣の まん中から カメラがわへ）
+const HATCH_HOP = 0.5;      // その ぴょんの 時間（秒）
 const lighten = (hex, k) => new THREE.Color(hex).lerp(new THREE.Color(0xffffff), k).getHex();
 const cssOf = (hex) => `#${new THREE.Color(hex).getHexString()}`;
 
@@ -195,11 +199,16 @@ function placeholderChara(def) {
   g.add(blob(0.32, 0.28, 0.25));
   return g;
 }
+// g.userData.body: 体（孵化の 演出で たまごの 中へ 一時的に うつす）。walk: GLB の 歩きアニメ（あれば）
 function makeChara(def) {
   const g = new THREE.Group();
-  if (!def.chara.model) { g.add(placeholderChara(def)); return g; }
+  // 体が できたら 知らせる（孵化の 演出が 先に はじまって いたら、その 中へ 入れる）
+  const ready = (b) => { g.userData.body = b; g.userData.onBody?.(b); g.userData.onBody = null; };
+  const usePlaceholder = () => { const b = placeholderChara(def); g.add(b); ready(b); };
+  if (!def.chara.model) { usePlaceholder(); return g; }
   new GLTFLoader().load(def.chara.model, (gltf) => {
     const model = gltf.scene;
+    picturebook(model, { faceNames: ['minya', 'face'], glow: 0, shadow: 0.7, faceShadow: 0.8, blur: 0.4 });
     const bb = new THREE.Box3().setFromObject(model);
     const size = bb.getSize(new THREE.Vector3());
     const s = CHARA_H * 1.15 / (size.y || 1);
@@ -207,7 +216,10 @@ function makeChara(def) {
     model.position.y = -bb.min.y * s;
     model.traverse((o) => { if (o.isMesh) o.frustumCulled = false; });
     g.add(model, blob(0.32, 0.28, 0.25));
-  }, undefined, () => g.add(placeholderChara(def)));
+    const clip = gltf.animations.find((a) => a.name === 'walk');
+    if (clip) { const mixer = new THREE.AnimationMixer(model); g.userData.walk = { mixer, act: mixer.clipAction(clip) }; }
+    ready(model);
+  }, undefined, usePlaceholder);
   return g;
 }
 
@@ -452,7 +464,7 @@ export function createEggs({ scene, town, cut }) {
   function apply(it) {
     const v = it.view;
     const egg = v && v.phase === 'egg';
-    it.eggHolder.visible = egg || it.hatchT >= 0;
+    it.eggHolder.visible = egg && !it.fx;
     if (egg) it.egg.mesh.material.map = v.stage === 'crack' || v.stage === 'ready' ? it.egg.tex.crack : it.egg.tex.plain;
     const showChara = v && v.phase !== 'egg' && it.hatchT < 0;
     if (showChara && !it.chara.visible) { it.chara.position.copy(standSpot(it)); it.charaAt.copy(it.chara.position); }
@@ -602,8 +614,22 @@ export function createEggs({ scene, town, cut }) {
     hatch(id) {
       const it = byId.get(id);
       if (!it) return Promise.resolve();
+      if (it.fx) return new Promise((res) => { const prev = it.onHatched; it.onHatched = () => { prev?.(); res(); }; });
+      // 巣の たまごを かくして、同じ 場所に 割れる たまご（js/hatchfx.js）を 出す。体は その 中へ 一時的に うつす
+      const fx = createHatch({ color: it.def.color, eggH: EGG_H * nest.scale.x });
+      it.fxBody = null;
+      const take = (body) => { it.bodyAt = { p: body.position.clone(), r: body.rotation.clone(), s: body.scale.clone() }; it.chara.remove(body); fx.setChara(body); it.fxBody = body; };
+      // GLB が まだ 読みこみ中なら、読めた ところで 演出の 中へ 入れる
+      if (it.chara.userData.body) take(it.chara.userData.body);
+      else it.chara.userData.onBody = (b) => { if (it.fx === fx) take(b); };
+      const w = it.eggHolder.getWorldPosition(new THREE.Vector3());
+      fx.root.position.set(w.x, heightAt(w.x, w.z) + 0.02, w.z);
+      fx.root.visible = false;   // むきが きまる（つぎの update）まで かくす
+      root.add(fx.root);
+      it.fx = fx;
       it.hatchT = 0;
-      it.eggHolder.visible = true;
+      it.eggHolder.visible = false;
+      it.chara.visible = false;
       return new Promise((res) => { it.onHatched = res; });
     },
     // 建物が できた うごき
@@ -681,24 +707,7 @@ export function createEggs({ scene, town, cut }) {
         if (it.eggHolder.visible) {
           const m = it.egg.mesh;
           if (it.hatchT >= 0) {
-            it.hatchT += dt;
-            const k = it.hatchT;
-            m.rotation.z = Math.sin(k * (14 + k * 10)) * Math.min(0.4, k * 0.35);
-            m.position.y = Math.abs(Math.sin(k * 9)) * 0.04 * k;
-            m.material.emissiveIntensity = Math.min(1.4, k);
-            if (k > 1.3) {
-              it.hatchT = -1;
-              it.eggHolder.visible = false;
-              m.rotation.z = 0; m.position.y = 0; m.material.emissiveIntensity = 0;
-              const w = it.eggHolder.getWorldPosition(new THREE.Vector3());
-              sparkles.burst(w.x, w.y + 0.3, w.z, 14, 1.2);
-              it.chara.position.set(w.x, heightAt(w.x, w.z), w.z);
-              it.charaAt.copy(it.chara.position);
-              it.chara.visible = true;
-              it.chara.scale.setScalar(0.01);
-              it.born = 0;
-              it.onHatched?.(); it.onHatched = null;
-            }
+            // 孵化中は たまご（巣）を 出さない（下の 割れる たまごの 処理を 見てね）
           } else if (v?.phase === 'egg') {
             // ゆれる 間かく: ねむってる ほど まれ、生まれそう ほど よく
             const every = { sleep: 0, wiggle: 6, crack: 3.2, ready: 1.3 }[v.stage] || 0;
@@ -714,6 +723,43 @@ export function createEggs({ scene, town, cut }) {
             m.material.emissiveIntensity = Math.max(ready, Math.min(1, it.glow));
           }
         }
+        // ---- 生まれる: 割れる たまご（js/hatchfx.js） ----
+        if (it.fx) {
+          const fx = it.fx;
+          if (!fx.root.visible) {
+            // 正面（なかまが とびだす むき）を カメラに むける。たまごは 巣の 前（カメラがわ）へ ぴょんと 出てから 割れる
+            const n = nest.position;
+            const yaw = camPos ? Math.atan2(camPos.x - n.x, camPos.z - n.z) : 0;
+            const x = n.x + Math.sin(yaw) * HATCH_OUT, z = n.z + Math.cos(yaw) * HATCH_OUT;
+            it.hatchFrom = fx.root.position.clone();
+            it.hatchTo = new THREE.Vector3(x, heightAt(x, z) + 0.02, z);
+            fx.root.rotation.y = yaw;
+            fx.root.visible = true;
+          }
+          it.hatchT += dt;
+          const hop = Math.min(1, it.hatchT / HATCH_HOP);
+          fx.root.position.lerpVectors(it.hatchFrom, it.hatchTo, hop * hop * (3 - 2 * hop));
+          fx.root.position.y += Math.sin(hop * Math.PI) * 0.45;
+          fx.pose(Math.min(Math.max(0, it.hatchT - HATCH_HOP - 0.1), fx.length));
+          if (it.hatchT >= fx.length + HATCH_HOP + 0.1) {
+            // おわり: 体を もとの 入れものへ もどし、着地した 場所から 自分の 場所へ 歩かせる
+            const at = fx.holder.getWorldPosition(new THREE.Vector3());
+            fx.restore();
+            const body = it.fxBody;
+            if (body) { it.chara.add(body); body.position.copy(it.bodyAt.p); body.rotation.copy(it.bodyAt.r); body.scale.copy(it.bodyAt.s); }
+            root.remove(fx.root); fx.dispose();
+            it.fx = null; it.fxBody = null; it.chara.userData.onBody = null;
+            it.hatchT = -1;
+            it.chara.position.set(at.x, heightAt(at.x, at.z), at.z);
+            it.chara.rotation.y = fx.root.rotation.y;
+            it.chara.scale.setScalar(1);
+            it.charaAt.copy(it.chara.position);
+            it.chara.visible = true;
+            it.born = null;
+            it.hop = 2.5;
+            it.onHatched?.(); it.onHatched = null;
+          }
+        }
         // ---- なかま: 自分の 場所へ とことこ。ときどき ぴょん。カメラを 見る ----
         if (it.chara.visible) {
           if (it.born != null) {
@@ -724,6 +770,10 @@ export function createEggs({ scene, town, cut }) {
           } else {
             const d = it.home.clone().sub(it.charaAt); d.y = 0;
             const dist = d.length();
+            const wk = it.chara.userData.walk;
+            if (wk) {
+              if (dist > 0.05) { if (!wk.act.isRunning()) wk.act.play(); wk.mixer.update(dt); } else if (wk.act.isRunning()) wk.act.stop();
+            }
             if (dist > 0.05) {
               it.charaAt.addScaledVector(d.normalize(), Math.min(dist, dt * 1.6));
               it.charaAt.y = heightAt(it.charaAt.x, it.charaAt.z);

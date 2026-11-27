@@ -43,7 +43,7 @@ const DAY = 86400000;
 // building: たねから できる 建物
 export const EGGS = [
   { id: 'kokugo', subject: '国語', adult: 0, color: 0xd78b9f, chara: { name: 'ふくろう', kind: 'owl', model: null }, building: { id: 'library', name: '図書館' } },
-  { id: 'sansu', subject: '算数・数学', adult: 1, color: 0x7f985e, chara: { name: 'リス', kind: 'squirrel', model: null }, building: { id: 'bank', name: '銀行' } },
+  { id: 'sansu', subject: '算数・数学', adult: 1, color: 0x86ade0, chara: { name: 'ミニャー', kind: 'cat', model: 'assets/models/minya.glb' }, building: { id: 'bank', name: '銀行' } },
   { id: 'rika', subject: '理科', adult: 2, color: 0xd8b85a, chara: { name: 'モグラ', kind: 'mole', model: null }, building: { id: 'power', name: '発電所' } },
   { id: 'shakai', subject: '社会', adult: 3, color: 0xc98766, chara: { name: 'キツネ', kind: 'fox', model: null }, building: { id: 'market', name: '市場' } },
   { id: 'eigo', subject: '英語', adult: 4, color: 0x7aa6bd, chara: { name: 'ウサギ', kind: 'rabbit', model: null }, building: { id: 'airport', name: '空港' } },
