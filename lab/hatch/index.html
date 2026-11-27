@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="ja"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>たまご 孵化 プレビュー</title>
+<!-- js/hatchfx.js の 演出だけを 見る ページ。?w=720&h=720 で 止めて window.frame(t) で 1コマずつ（動画の 書き出し用）。cam=face|egg、rot=ラジアン -->
+<style>html,body{margin:0;height:100%;background:#f3ead8;overflow:hidden}canvas{display:block}</style>
+<script type="importmap">{"imports":{"three":"../../vendor/three/three.module.js","three/addons/":"../../vendor/three/addons/"}}</script>
+</head><body>
+<script type="module">
+import * as THREE from 'three';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { createHatch } from '../../js/hatchfx.js';
+
+const q = new URLSearchParams(location.search);
+const W = +q.get('w') || innerWidth, H = +q.get('h') || innerHeight;
+const renderer = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true });
+renderer.setPixelRatio(q.get('w') ? 1 : devicePixelRatio);
+renderer.setSize(W, H);
+renderer.outputColorSpace = THREE.SRGBColorSpace;
+document.body.appendChild(renderer.domElement);
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0xbfe0f0);
+scene.fog = new THREE.Fog(0xbfe0f0, 6, 14);
+const cam = new THREE.PerspectiveCamera(36, W / H, 0.05, 50);
+cam.position.set(0, 1.05, 2.7); cam.lookAt(0, 0.42, 0);
+if (q.get('cam') === 'egg') { cam.position.set(0, 0.55, 1.5); cam.lookAt(0, 0.33, 0); }
+if (q.get('cam') === 'face') { cam.position.set(0, 0.5, 1.35); cam.lookAt(0, 0.4, 0.42); }
+scene.add(new THREE.HemisphereLight(0xfff4dc, 0x8aa86a, 1.6));
+const sun = new THREE.DirectionalLight(0xffe7c2, 1.9); sun.position.set(2, 4, 3); scene.add(sun);
+// 草の 地面・巣
+const ground = new THREE.Mesh(new THREE.CircleGeometry(12, 48), new THREE.MeshLambertMaterial({ color: 0x9cc77a }));
+ground.rotation.x = -Math.PI / 2; scene.add(ground);
+const nest = new THREE.Mesh(new THREE.TorusGeometry(0.33, 0.1, 10, 28), new THREE.MeshLambertMaterial({ color: 0xc59a62 }));
+nest.rotation.x = -Math.PI / 2; nest.position.y = 0.04; nest.scale.z = 0.6; scene.add(nest);
+const shadow = new THREE.Mesh(new THREE.CircleGeometry(0.5, 32), new THREE.MeshBasicMaterial({ color: 0x3d5a2a, transparent: true, opacity: 0.22, depthWrite: false }));
+shadow.rotation.x = -Math.PI / 2; shadow.position.y = 0.005; scene.add(shadow);
+
+const gltf = await new GLTFLoader().loadAsync(q.get('m') || '../../assets/models/minya.glb');
+const model = gltf.scene;
+const bb = new THREE.Box3().setFromObject(model);
+model.scale.setScalar(0.62 / (bb.max.y - bb.min.y));
+model.traverse((o) => { if (o.isMesh) { o.frustumCulled = false; } });
+const fx = createHatch({ color: 0x8fb6e6, chara: model });
+scene.add(fx.root);
+
+window.frame = (t) => { fx.pose(t); renderer.render(scene, cam); };
+window.fxLength = fx.length; window.fx = fx;
+if (q.get("rot")) model.rotation.y = +q.get("rot");
+window.ready = true;
+if (!q.get('w')) {
+  let t0 = performance.now();
+  renderer.setAnimationLoop(() => {
+    const t = ((performance.now() - t0) / 1000) % (fx.length + 1.2);
+    frame(Math.min(t, fx.length));
+  });
+}
+</script>
+</body></html>
